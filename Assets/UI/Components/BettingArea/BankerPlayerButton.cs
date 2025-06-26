@@ -132,8 +132,25 @@ namespace BaccaratGame.UI.Components
 
         private void Start()
         {
-            // 移除自动显示，改为手动控制
-            UpdateButtonConfig();
+            // 直接创建UI以查看布局效果
+            CreateButtonUI();
+            
+            // 根据按钮类型显示对应的测试数据
+            switch (betType)
+            {
+                case BaccaratBetType.Player:
+                    UpdateDisplay(26, 844m);
+                    break;
+                case BaccaratBetType.Tie:
+                    UpdateDisplay(8, 255m);
+                    break;
+                case BaccaratBetType.Banker:
+                    UpdateDisplay(38, 735m);
+                    break;
+            }
+            
+            if (enableDebugMode)
+                Debug.Log($"[BankerPlayerButton] {betType} UI布局已创建");
         }
 
         private void OnDestroy()
