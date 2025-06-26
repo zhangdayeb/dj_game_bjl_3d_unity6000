@@ -68,16 +68,16 @@ namespace Core.Network
 
         // 连接信息
         private string _currentUrl;
-        
+
         // 连接状态
         private bool _isConnected = false;
         private bool _isConnecting = false;
         private bool _shouldReconnect = true;
-        
+
         // 重连管理
         private int _reconnectAttempts = 0;
         private Coroutine _reconnectCoroutine;
-        
+
         // 心跳检测
         private Coroutine _heartbeatCoroutine;
 
@@ -153,13 +153,13 @@ namespace Core.Network
                 _isConnecting = true;
                 _currentUrl = url;
                 _shouldReconnect = true;
-                
+
                 Debug.Log($"[WebSocketManager] ==== 开始连接WebSocket ====");
                 Debug.Log($"[WebSocketManager] 连接地址: {url}");
-                
+
                 // 清理之前的连接
                 await DisconnectInternal();
-                
+
                 // 创建新连接
 #if UNITY_WEBGL && !UNITY_EDITOR
                 InitWebSocket(url);
@@ -168,14 +168,14 @@ namespace Core.Network
                 Debug.Log("[WebSocketManager] 编辑器模式下模拟连接成功");
                 OnConnected();
 #endif
-                
+
                 // 等待连接结果
                 var timeout = DateTime.UtcNow.AddSeconds(10);
                 while (!_isConnected && _isConnecting && DateTime.UtcNow < timeout)
                 {
                     await Task.Delay(100);
                 }
-                
+
                 if (_isConnected)
                 {
                     _reconnectAttempts = 0;
@@ -216,16 +216,16 @@ namespace Core.Network
         {
             _isConnected = false;
             _isConnecting = false;
-            
+
             // 停止心跳和重连
             StopHeartbeat();
             StopReconnect();
-            
+
             // 关闭WebSocket连接
 #if UNITY_WEBGL && !UNITY_EDITOR
             CloseWebSocket();
 #endif
-            
+
             await Task.CompletedTask;
         }
 
@@ -250,14 +250,14 @@ namespace Core.Network
                 var jsonMessage = JsonUtility.ToJson(data);
                 Debug.Log($"[WebSocketManager] ==== 发送消息 ====");
                 Debug.Log($"[WebSocketManager] 发送数据: {jsonMessage}");
-                
+
 #if UNITY_WEBGL && !UNITY_EDITOR
                 SendWebSocketMessage(jsonMessage);
 #else
                 // 编辑器模式下模拟发送
                 Debug.Log("[WebSocketManager] 编辑器模式下模拟发送消息");
 #endif
-                
+
                 Debug.Log("[WebSocketManager] 消息发送成功");
                 return true;
             }
@@ -292,14 +292,14 @@ namespace Core.Network
             {
                 Debug.Log($"[WebSocketManager] ==== 收到消息 ====");
                 Debug.Log($"[WebSocketManager] 接收数据: {message}");
-                
+
                 // 检查心跳响应
                 if (message.Contains("\"type\":\"pong\"") || message.Contains("\"type\": \"pong\""))
                 {
                     Debug.Log("[WebSocketManager] 收到心跳响应");
                     return;
                 }
-                
+
                 // 直接将原始消息传递给事件总线处理
                 GameEventBus.ProcessRawMessage(message);
             }
@@ -316,7 +316,7 @@ namespace Core.Network
         public void OnError(string error)
         {
             Debug.LogError($"[WebSocketManager] WebSocket错误: {error}");
-            
+
             // 如果需要重连，启动重连
             if (_shouldReconnect)
             {
@@ -332,10 +332,10 @@ namespace Core.Network
         {
             _isConnected = false;
             Debug.LogWarning($"[WebSocketManager] WebSocket连接已断开: {reason}");
-            
+
             // 停止心跳
             StopHeartbeat();
-            
+
             // 如果需要重连，启动重连
             if (_shouldReconnect)
             {
@@ -378,13 +378,13 @@ namespace Core.Network
             while (_isConnected)
             {
                 yield return new WaitForSeconds(_heartbeatInterval);
-                
+
                 if (_isConnected)
                 {
                     var pingData = new { type = "ping", timestamp = DateTime.UtcNow.Ticks };
                     var task = SendMessageAsync(pingData);
                     yield return new WaitUntil(() => task.IsCompleted);
-                    
+
                     Debug.Log("[WebSocketManager] 发送心跳ping");
                 }
             }
@@ -400,7 +400,7 @@ namespace Core.Network
         private void StartReconnect()
         {
             if (_reconnectCoroutine != null) return;
-            
+
             _reconnectCoroutine = StartCoroutine(ReconnectLoop());
         }
 
@@ -425,16 +425,16 @@ namespace Core.Network
             while (_reconnectAttempts < _reconnectMaxAttempts && _shouldReconnect && !_isConnected)
             {
                 _reconnectAttempts++;
-                
+
                 Debug.Log($"[WebSocketManager] 开始第{_reconnectAttempts}次重连尝试 (最大{_reconnectMaxAttempts}次)");
-                
+
                 yield return new WaitForSeconds(_reconnectDelay);
-                
+
                 if (!_shouldReconnect) break;
-                
+
                 var task = ConnectAsync(_currentUrl);
                 yield return new WaitUntil(() => task.IsCompleted);
-                
+
                 if (task.Result)
                 {
                     Debug.Log("[WebSocketManager] 重连成功");
@@ -442,12 +442,12 @@ namespace Core.Network
                     yield break;
                 }
             }
-            
+
             if (_reconnectAttempts >= _reconnectMaxAttempts)
             {
                 Debug.LogError("[WebSocketManager] 重连失败，已达到最大重试次数");
             }
-            
+
             _reconnectCoroutine = null;
         }
 
@@ -458,14 +458,15 @@ namespace Core.Network
         private void Cleanup()
         {
             _shouldReconnect = false;
-            
+
             StopHeartbeat();
             StopReconnect();
-            
+
             var task = DisconnectInternal();
-            
+
             Debug.Log("[WebSocketManager] 资源清理完成");
         }
 
         #endregion
     }
+}
