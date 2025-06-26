@@ -273,6 +273,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   autoCreateAndShow: 1
+  showOnAwake: 1
+  immediateDisplay: 1
   persistentDisplay: 1
   chipBarHeight: 100
   chipSize: {x: 80, y: 80}
@@ -282,11 +284,46 @@ MonoBehaviour:
   paddingRight: 20
   paddingTop: 10
   paddingBottom: 10
+  buttonPosition: {x: 0, y: 0}
+  autoCenter: 1
+  normalColor: {r: 0.8, g: 0.8, b: 0.8, a: 1}
+  highlightColor: {r: 1, g: 1, b: 1, a: 1}
+  pressedColor: {r: 0.6, g: 0.6, b: 0.6, a: 1}
+  selectedColor: {r: 1, g: 0.8, b: 0.2, a: 1}
+  disabledColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.5}
   backgroundColor: {r: 0, g: 0, b: 0, a: 0.8}
   textColor: {r: 1, g: 1, b: 1, a: 1}
+  numberColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   fontSize: 16
+  numberFontSize: 18
+  fontStyle: 1
+  enableSelectionAnimation: 1
   selectedScale: 1.15
   animationDuration: 0.2
+  animationCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
   chipValues: 020000000a000000140000003200000064000000
   chipImageNames:
   - B_01
@@ -296,6 +333,13 @@ MonoBehaviour:
   - B_100
   chipImagePath: Images/chips/
   manualChipSprites: []
+  enableButtonSound: 1
+  clickSound: {fileID: 0}
+  selectSound: {fileID: 0}
+  buttonsInteractable: 1
+  showButtonBorder: 0
+  borderColor: {r: 1, g: 1, b: 1, a: 1}
+  borderWidth: 2
   enableDebugMode: 1
   OnChipSelected:
     m_PersistentCalls:
@@ -1090,6 +1134,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1833697900}
+  - component: {fileID: 1833697905}
   m_Layer: 5
   m_Name: BankerPlayerButton
   m_TagString: Untagged
@@ -1114,8 +1159,44 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 150, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1833697905
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1833697899}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c6783e0ecb6de494cbb6aa58fa9fa2b1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  autoCreateAndShow: 0
+  showOnAwake: 0
+  immediateDisplay: 0
+  betType: 2
+  displayTitle: "\u95F2"
+  odds: 1:1
+  buttonSize: {x: 150, y: 100}
+  buttonPosition: {x: 0, y: 0}
+  normalColor: {r: 0.2, g: 0.6, b: 1, a: 1}
+  highlightColor: {r: 0.3, g: 0.7, b: 1, a: 1}
+  pressedColor: {r: 0.1, g: 0.5, b: 0.9, a: 1}
+  disabledColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.5}
+  textColor: {r: 1, g: 1, b: 1, a: 1}
+  numberColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  titleFontSize: 18
+  oddsFontSize: 14
+  numberFontSize: 12
+  titleText: {fileID: 0}
+  oddsText: {fileID: 0}
+  playerCountText: {fileID: 0}
+  amountText: {fileID: 0}
+  backgroundImage: {fileID: 0}
+  button: {fileID: 0}
+  enableDebugMode: 1
 --- !u!1 &1883737555
 GameObject:
   m_ObjectHideFlags: 0

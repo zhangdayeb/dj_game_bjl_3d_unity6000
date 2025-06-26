@@ -19,9 +19,13 @@ namespace BaccaratGame.UI.Components
     {
         #region 序列化字段
 
-        [Header("🔥 显示控制")]
+        [Header("🔥 自动显示设置")]
         [Tooltip("是否自动创建并显示UI")]
         public bool autoCreateAndShow = true;
+        [Tooltip("启动时显示")]
+        public bool showOnAwake = true;
+        [Tooltip("立即显示")]
+        public bool immediateDisplay = true;
         [Tooltip("是否持久显示")]
         public bool persistentDisplay = true;
 
@@ -43,17 +47,47 @@ namespace BaccaratGame.UI.Components
         [Tooltip("下边距")]
         public int paddingBottom = 10;
 
-        [Header("🎨 外观设置")]
+        [Header("📍 按钮布局")]
+        [Tooltip("按钮位置")]
+        public Vector2 buttonPosition = Vector2.zero;
+        [Tooltip("自动居中")]
+        public bool autoCenter = true;
+
+        [Header("🎨 UI样式")]
+        [Tooltip("普通状态颜色")]
+        public Color normalColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+        [Tooltip("高亮状态颜色")]
+        public Color highlightColor = new Color(1f, 1f, 1f, 1f);
+        [Tooltip("按下状态颜色")]
+        public Color pressedColor = new Color(0.6f, 0.6f, 0.6f, 1f);
+        [Tooltip("选中状态颜色")]
+        public Color selectedColor = new Color(1f, 0.8f, 0.2f, 1f);
+        [Tooltip("禁用状态颜色")]
+        public Color disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
         [Tooltip("背景颜色")]
         public Color backgroundColor = new Color(0f, 0f, 0f, 0.8f);
         [Tooltip("按钮文字颜色")]
         public Color textColor = Color.white;
+        [Tooltip("数字颜色")]
+        public Color numberColor = Color.yellow;
+
+        [Header("📝 字体设置")]
         [Tooltip("文字大小")]
         public int fontSize = 16;
+        [Tooltip("数字文字大小")]
+        public int numberFontSize = 18;
+        [Tooltip("字体样式")]
+        public FontStyle fontStyle = FontStyle.Bold;
+
+        [Header("🎬 动画设置")]
+        [Tooltip("启用选择动画")]
+        public bool enableSelectionAnimation = true;
         [Tooltip("选中时的缩放比例")]
         public float selectedScale = 1.15f;
         [Tooltip("缩放动画时间")]
         public float animationDuration = 0.2f;
+        [Tooltip("动画曲线")]
+        public AnimationCurve animationCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);
 
         [Header("💰 筹码配置")]
         [Tooltip("5个默认筹码数值")]
@@ -66,6 +100,24 @@ namespace BaccaratGame.UI.Components
         public string chipImagePath = "Images/chips/";
         [Tooltip("手动指定筹码图片数组（可选，优先级最高）")]
         public Sprite[] manualChipSprites;
+
+        [Header("🎵 音效设置")]
+        [Tooltip("启用按钮音效")]
+        public bool enableButtonSound = true;
+        [Tooltip("点击音效")]
+        public AudioClip clickSound;
+        [Tooltip("选择音效")]
+        public AudioClip selectSound;
+
+        [Header("🔧 高级设置")]
+        [Tooltip("按钮可交互")]
+        public bool buttonsInteractable = true;
+        [Tooltip("显示按钮边框")]
+        public bool showButtonBorder = false;
+        [Tooltip("边框颜色")]
+        public Color borderColor = Color.white;
+        [Tooltip("边框宽度")]
+        public float borderWidth = 2f;
 
         [Header("🐛 调试")]
         public bool enableDebugMode = true;
@@ -368,6 +420,7 @@ namespace BaccaratGame.UI.Components
             // 设置事件
             moreButton.onClick.AddListener(() => {
                 LogDebug("更多按钮被点击");
+                PlaySound(clickSound); // 播放点击音效
                 OnMoreButtonClicked?.Invoke();
             });
 
@@ -416,7 +469,10 @@ namespace BaccaratGame.UI.Components
 
                 // 设置事件（使用闭包变量）
                 int chipIndex = i;
-                chipButtons[i].onClick.AddListener(() => SelectChip(chipIndex));
+                chipButtons[i].onClick.AddListener(() => {
+                    SelectChip(chipIndex);
+                    PlaySound(selectSound); // 播放选择音效
+                });
 
                 LogDebug($"筹码按钮 {value} 创建完成");
             }
@@ -481,10 +537,20 @@ namespace BaccaratGame.UI.Components
         {
             ColorBlock colors = button.colors;
             colors.normalColor = normalColor;
-            colors.highlightedColor = Color.Lerp(normalColor, Color.white, 0.2f);
-            colors.pressedColor = Color.Lerp(normalColor, Color.gray, 0.3f);
-            colors.selectedColor = Color.Lerp(normalColor, Color.yellow, 0.4f);
+            colors.highlightedColor = highlightColor;
+            colors.pressedColor = pressedColor;
+            colors.selectedColor = selectedColor;
+            colors.disabledColor = disabledColor;
             button.colors = colors;
+            
+            // 设置交互性
+            button.interactable = buttonsInteractable;
+            
+            // 添加边框（如果启用）
+            if (showButtonBorder)
+            {
+                AddButtonBorder(button.gameObject);
+            }
         }
 
         /// <summary>
@@ -518,9 +584,44 @@ namespace BaccaratGame.UI.Components
             textComp.fontSize = textSize;
             textComp.color = textColor;
             textComp.alignment = TextAnchor.MiddleCenter;
-            textComp.fontStyle = FontStyle.Bold;
+            textComp.fontStyle = fontStyle;
 
             return textComp;
+        }
+
+        /// <summary>
+        /// 添加按钮边框
+        /// </summary>
+        private void AddButtonBorder(GameObject buttonObj)
+        {
+            GameObject borderObj = new GameObject("Border");
+            borderObj.transform.SetParent(buttonObj.transform);
+            borderObj.transform.SetAsFirstSibling(); // 放在最底层
+
+            RectTransform borderRect = borderObj.AddComponent<RectTransform>();
+            borderRect.anchorMin = Vector2.zero;
+            borderRect.anchorMax = Vector2.one;
+            borderRect.sizeDelta = Vector2.zero;
+            borderRect.anchoredPosition = Vector2.zero;
+            borderRect.localScale = Vector3.one;
+
+            Image borderImage = borderObj.AddComponent<Image>();
+            borderImage.color = borderColor;
+            borderImage.sprite = CreateSolidSprite(Color.white);
+            
+            // 创建边框效果（通过调整sizeDelta）
+            borderRect.sizeDelta = new Vector2(borderWidth * 2, borderWidth * 2);
+        }
+
+        /// <summary>
+        /// 播放音效
+        /// </summary>
+        private void PlaySound(AudioClip clip)
+        {
+            if (!enableButtonSound || clip == null) return;
+            
+            // 简单的音效播放，可以根据需要使用AudioSource
+            AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position);
         }
 
         /// <summary>
