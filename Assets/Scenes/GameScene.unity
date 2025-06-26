@@ -535,7 +535,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 747988146}
-  - component: {fileID: 747988147}
   m_Layer: 5
   m_Name: TableLayout
   m_TagString: Untagged
@@ -566,18 +565,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &747988147
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 747988145}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6643aad6afd966f49b3f1dab8ce74c97, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &789174118
 GameObject:
   m_ObjectHideFlags: 0
@@ -587,7 +574,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 789174119}
-  - component: {fileID: 789174120}
   m_Layer: 5
   m_Name: BettingArea
   m_TagString: Untagged
@@ -618,18 +604,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &789174120
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 789174118}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f13608cb45280f24d899821df609695b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &922796657
 GameObject:
   m_ObjectHideFlags: 0
@@ -801,7 +775,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1340392491}
-  - component: {fileID: 1340392492}
   m_Layer: 5
   m_Name: VideoOverlay
   m_TagString: Untagged
@@ -834,18 +807,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1340392492
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1340392490}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 82e078964884b7043aa50d225248a8be, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &1378498793
 GameObject:
   m_ObjectHideFlags: 0
@@ -1173,29 +1134,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c6783e0ecb6de494cbb6aa58fa9fa2b1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  autoCreateAndShow: 0
-  showOnAwake: 0
-  immediateDisplay: 0
   betType: 2
-  displayTitle: "\u95F2"
-  odds: 1:1
   buttonSize: {x: 150, y: 100}
   buttonPosition: {x: 0, y: 0}
-  normalColor: {r: 0.2, g: 0.6, b: 1, a: 1}
-  highlightColor: {r: 0.3, g: 0.7, b: 1, a: 1}
-  pressedColor: {r: 0.1, g: 0.5, b: 0.9, a: 1}
-  disabledColor: {r: 0.5, g: 0.5, b: 0.5, a: 0.5}
-  textColor: {r: 1, g: 1, b: 1, a: 1}
-  numberColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
   titleFontSize: 18
   oddsFontSize: 14
   numberFontSize: 12
-  titleText: {fileID: 0}
-  oddsText: {fileID: 0}
-  playerCountText: {fileID: 0}
-  amountText: {fileID: 0}
-  backgroundImage: {fileID: 0}
-  button: {fileID: 0}
   enableDebugMode: 1
 --- !u!1 &1883737555
 GameObject:

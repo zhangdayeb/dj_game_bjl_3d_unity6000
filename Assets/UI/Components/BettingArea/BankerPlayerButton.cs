@@ -1,7 +1,7 @@
 // Assets/UI/Components/BettingArea/BankerPlayerButton.cs
-// 庄闲和投注按钮组件 - 启动即显示版本
-// 自动创建并立即显示投注按钮界面
-// 创建时间: 2025/6/26
+// 庄闲和投注按钮组件 - 手动控制版本
+// 优化UI创建逻辑，支持完整的三种按钮类型
+// 创建时间: 2025/6/27
 
 using System;
 using System.Collections;
@@ -13,170 +13,79 @@ using BaccaratGame.Data;
 namespace BaccaratGame.UI.Components
 {
     /// <summary>
-    /// 庄闲和投注按钮组件 - 启动即显示版本
-    /// 组件启动时立即创建并显示投注按钮界面
+    /// 庄闲和投注按钮组件 - 手动控制版本
+    /// 支持庄、闲、和三种按钮类型，手动创建UI界面
     /// </summary>
     public class BankerPlayerButton : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
     {
         #region 序列化字段
 
-        [Header("自动显示设置")]
-        public bool autoCreateAndShow = false;
-        public bool showOnAwake = false;
-        public bool immediateDisplay = false;
-
         [Header("按钮配置")]
         public BaccaratBetType betType = BaccaratBetType.Player;
-        public string displayTitle = "闲";
-        public string odds = "1:1";
         
         [Header("按钮布局")]
-        public Vector2 buttonSize = new Vector2(150, 100);
+        public Vector2 buttonSize = new Vector2(200, 80);
         public Vector2 buttonPosition = Vector2.zero;
 
-        [Header("UI样式")]
-        public Color normalColor = new Color(0.2f, 0.6f, 1f, 1f);
-        public Color highlightColor = new Color(0.3f, 0.7f, 1f, 1f);
-        public Color pressedColor = new Color(0.1f, 0.5f, 0.9f, 1f);
-        public Color disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
-        public Color textColor = Color.white;
-        public Color numberColor = Color.yellow;
-        
         [Header("字体设置")]
-        public int titleFontSize = 18;
-        public int oddsFontSize = 14;
-        public int numberFontSize = 12;
-
-        [Header("现有组件引用 (可选)")]
-        public Text titleText;
-        public Text oddsText;
-        public Text playerCountText;
-        public Text amountText;
-        public Image backgroundImage;
-        public Button button;
+        public int titleFontSize = 24;
+        public int oddsFontSize = 16;
+        public int numberFontSize = 14;
 
         [Header("调试设置")]
-        public bool enableDebugMode = true;
+        public bool enableDebugMode = false;
 
         #endregion
 
-        #region 动画协程
+        #region 按钮类型配置
 
         /// <summary>
-        /// 缩放动画协程
+        /// 按钮类型配置数据
         /// </summary>
-        private System.Collections.IEnumerator ScaleAnimation(Vector3 targetScale, float duration)
+        [Serializable]
+        public class BetTypeConfig
         {
-            Vector3 startScale = transform.localScale;
-            float elapsedTime = 0;
-
-            while (elapsedTime < duration)
-            {
-                elapsedTime += Time.deltaTime;
-                float t = elapsedTime / duration;
-                t = Mathf.SmoothStep(0, 1, t); // 平滑插值
-                
-                transform.localScale = Vector3.Lerp(startScale, targetScale, t);
-                yield return null;
-            }
-
-            transform.localScale = targetScale;
+            public BaccaratBetType betType;
+            public string displayTitle;
+            public string odds;
+            public Color buttonColor;
+            public Color textColor;
+            public Color numberColor;
         }
 
         /// <summary>
-        /// 点击动画协程
+        /// 预定义的按钮配置
         /// </summary>
-        private System.Collections.IEnumerator ClickAnimationCoroutine()
+        private static readonly BetTypeConfig[] BetTypeConfigs = new BetTypeConfig[]
         {
-            // 缩小
-            yield return StartCoroutine(ScaleAnimation(Vector3.one * 0.95f, 0.1f));
-            // 恢复
-            yield return StartCoroutine(ScaleAnimation(Vector3.one, 0.1f));
-        }
-
-        /// <summary>
-        /// 闪烁动画协程
-        /// </summary>
-        private System.Collections.IEnumerator FlashAnimation(GameObject target)
-        {
-            Image[] images = target.GetComponentsInChildren<Image>();
-            Text[] texts = target.GetComponentsInChildren<Text>();
-            
-            // 存储原始透明度
-            float[] originalImageAlphas = new float[images.Length];
-            float[] originalTextAlphas = new float[texts.Length];
-            
-            for (int i = 0; i < images.Length; i++)
-                originalImageAlphas[i] = images[i].color.a;
-            for (int i = 0; i < texts.Length; i++)
-                originalTextAlphas[i] = texts[i].color.a;
-
-            // 闪烁效果
-            float duration = 0.2f;
-            float elapsedTime = 0;
-
-            // 变暗
-            while (elapsedTime < duration)
+            new BetTypeConfig
             {
-                elapsedTime += Time.deltaTime;
-                float alpha = Mathf.Lerp(1f, 0.5f, elapsedTime / duration);
-                
-                for (int i = 0; i < images.Length; i++)
-                {
-                    Color color = images[i].color;
-                    color.a = originalImageAlphas[i] * alpha;
-                    images[i].color = color;
-                }
-                
-                for (int i = 0; i < texts.Length; i++)
-                {
-                    Color color = texts[i].color;
-                    color.a = originalTextAlphas[i] * alpha;
-                    texts[i].color = color;
-                }
-                
-                yield return null;
-            }
-
-            // 恢复
-            elapsedTime = 0;
-            while (elapsedTime < duration)
+                betType = BaccaratBetType.Player,
+                displayTitle = "闲",
+                odds = "1:1",
+                buttonColor = new Color(0.2f, 0.4f, 1f, 1f),      // 蓝色
+                textColor = Color.white,
+                numberColor = Color.yellow
+            },
+            new BetTypeConfig
             {
-                elapsedTime += Time.deltaTime;
-                float alpha = Mathf.Lerp(0.5f, 1f, elapsedTime / duration);
-                
-                for (int i = 0; i < images.Length; i++)
-                {
-                    Color color = images[i].color;
-                    color.a = originalImageAlphas[i] * alpha;
-                    images[i].color = color;
-                }
-                
-                for (int i = 0; i < texts.Length; i++)
-                {
-                    Color color = texts[i].color;
-                    color.a = originalTextAlphas[i] * alpha;
-                    texts[i].color = color;
-                }
-                
-                yield return null;
-            }
-
-            // 确保恢复到原始状态
-            for (int i = 0; i < images.Length; i++)
+                betType = BaccaratBetType.Tie,
+                displayTitle = "和",
+                odds = "1:8",
+                buttonColor = new Color(0.2f, 0.8f, 0.2f, 1f),    // 绿色
+                textColor = Color.white,
+                numberColor = Color.yellow
+            },
+            new BetTypeConfig
             {
-                Color color = images[i].color;
-                color.a = originalImageAlphas[i];
-                images[i].color = color;
+                betType = BaccaratBetType.Banker,
+                displayTitle = "庄",
+                odds = "1:0.95",
+                buttonColor = new Color(1f, 0.2f, 0.2f, 1f),      // 红色
+                textColor = Color.white,
+                numberColor = Color.yellow
             }
-            
-            for (int i = 0; i < texts.Length; i++)
-            {
-                Color color = texts[i].color;
-                color.a = originalTextAlphas[i];
-                texts[i].color = color;
-            }
-        }
+        };
 
         #endregion
 
@@ -190,10 +99,18 @@ namespace BaccaratGame.UI.Components
         private decimal currentAmount = 0m;
         
         // UI组件引用
-        private GameObject mainButton;
-        private GameObject titleArea;
-        private GameObject oddsArea;
-        private GameObject statsArea;
+        private Image backgroundImage;
+        private Button button;
+        private Text titleText;
+        private Text oddsText;
+        private Text playerCountText;
+        private Text amountText;
+
+        // 当前配置
+        private BetTypeConfig currentConfig;
+
+        // 动画协程引用
+        private Coroutine currentAnimation;
 
         #endregion
 
@@ -202,6 +119,7 @@ namespace BaccaratGame.UI.Components
         // 事件回调
         public System.Action OnButtonClicked;
         public System.Action<BaccaratBetType> OnBetTypeSelected;
+        public System.Action<BaccaratBetType, int, decimal> OnBetDataUpdated;
 
         #endregion
 
@@ -210,34 +128,21 @@ namespace BaccaratGame.UI.Components
         private void Awake()
         {
             InitializeComponent();
-            
-            if (showOnAwake)
-            {
-                CreateAndShowButton();
-            }
         }
 
         private void Start()
         {
-            if (!buttonUICreated && autoCreateAndShow)
-            {
-                CreateAndShowButton();
-            }
-            
-            SetupExistingComponents();
-            UpdateInitialDisplay();
+            // 移除自动显示，改为手动控制
+            UpdateButtonConfig();
         }
 
-        private void OnValidate()
+        private void OnDestroy()
         {
-            // 在编辑器中实时预览
-            if (Application.isEditor && !Application.isPlaying)
+            // 清理动画协程
+            if (currentAnimation != null)
             {
-                if (immediateDisplay)
-                {
-                    InitializeComponent();
-                    CreateAndShowButton();
-                }
+                StopCoroutine(currentAnimation);
+                currentAnimation = null;
             }
         }
 
@@ -263,53 +168,56 @@ namespace BaccaratGame.UI.Components
 
             // 查找父Canvas
             parentCanvas = GetComponentInParent<Canvas>();
-            if (parentCanvas == null)
-            {
-                CreateCanvasIfNeeded();
-            }
+
+            // 获取当前配置
+            currentConfig = GetBetTypeConfig(betType);
 
             if (enableDebugMode)
                 Debug.Log($"[BankerPlayerButton] {betType} 组件初始化完成");
         }
 
         /// <summary>
-        /// 如需要则创建Canvas
+        /// 获取投注类型配置
         /// </summary>
-        private void CreateCanvasIfNeeded()
+        private BetTypeConfig GetBetTypeConfig(BaccaratBetType type)
         {
-            GameObject canvasObj = new GameObject("BettingCanvas");
-            canvasObj.transform.SetParent(transform.parent);
+            foreach (var config in BetTypeConfigs)
+            {
+                if (config.betType == type)
+                    return config;
+            }
+            return BetTypeConfigs[0]; // 默认返回第一个配置
+        }
+
+        /// <summary>
+        /// 更新按钮配置
+        /// </summary>
+        private void UpdateButtonConfig()
+        {
+            currentConfig = GetBetTypeConfig(betType);
             
-            Canvas canvas = canvasObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 40;
-            
-            CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            
-            GraphicRaycaster raycaster = canvasObj.AddComponent<GraphicRaycaster>();
-            
-            // 将BankerPlayerButton移到Canvas下
-            transform.SetParent(canvasObj.transform);
-            
-            parentCanvas = canvas;
-            
-            if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 创建了新的Canvas");
+            if (buttonUICreated)
+            {
+                UpdateVisualConfig();
+            }
         }
 
         #endregion
 
-        #region 按钮界面创建
+        #region 手动控制的UI创建
 
         /// <summary>
-        /// 创建并显示按钮界面
+        /// 手动创建按钮UI界面
         /// </summary>
-        [ContextMenu("创建并显示按钮界面")]
-        public void CreateAndShowButton()
+        [ContextMenu("创建按钮UI")]
+        public void CreateButtonUI()
         {
-            if (buttonUICreated) return;
+            if (buttonUICreated)
+            {
+                if (enableDebugMode)
+                    Debug.Log($"[BankerPlayerButton] {betType} UI已存在，跳过创建");
+                return;
+            }
 
             try
             {
@@ -317,267 +225,533 @@ namespace BaccaratGame.UI.Components
                 if (rectTransform == null)
                     InitializeComponent();
 
-                // 创建主按钮
-                CreateMainButton();
+                // 创建UI组件（只在未创建时创建）
+                CreateBackgroundImage();
+                CreateButtonComponent();
+                CreateTextComponents();
                 
-                // 创建标题区域
-                CreateTitleArea();
+                // 应用配置
+                UpdateVisualConfig();
                 
-                // 创建赔率区域
-                CreateOddsArea();
-                
-                // 创建统计区域
-                CreateStatsArea();
-                
-                // 添加动画效果
-                AddButtonAnimation();
+                // 初始化显示数据
+                UpdateDisplay(0, 0m);
 
                 buttonUICreated = true;
                 
                 if (enableDebugMode)
-                    Debug.Log($"[BankerPlayerButton] {betType} 按钮界面创建完成并已显示");
+                    Debug.Log($"[BankerPlayerButton] {betType} 按钮UI创建完成");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[BankerPlayerButton] {betType} 创建按钮界面时出错: {ex.Message}");
+                Debug.LogError($"[BankerPlayerButton] {betType} 创建按钮UI时出错: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// 创建主按钮
+        /// 创建背景图片组件
         /// </summary>
-        private void CreateMainButton()
+        private void CreateBackgroundImage()
         {
-            // 使用当前GameObject作为主按钮
-            mainButton = gameObject;
-
-            // 添加背景图片
+            // 检查是否已存在
+            backgroundImage = GetComponent<Image>();
             if (backgroundImage == null)
             {
                 backgroundImage = gameObject.AddComponent<Image>();
-                backgroundImage.color = GetBetTypeColor();
                 backgroundImage.sprite = CreateRoundedRectSprite();
             }
 
-            // 添加Button组件
-            if (button == null)
-            {
-                button = gameObject.AddComponent<Button>();
-                
-                // 设置按钮颜色状态
-                ColorBlock colors = button.colors;
-                colors.normalColor = GetBetTypeColor();
-                colors.highlightedColor = highlightColor;
-                colors.pressedColor = pressedColor;
-                colors.disabledColor = disabledColor;
-                colors.colorMultiplier = 1f;
-                colors.fadeDuration = 0.1f;
-                button.colors = colors;
-                
-                // 设置点击事件
-                button.onClick.AddListener(() => OnButtonClicked?.Invoke());
-            }
-
-            // 添加阴影效果
-            Shadow shadow = gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0, 0, 0, 0.3f);
-            shadow.effectDistance = new Vector2(3, -3);
-
             if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 主按钮创建完成");
+                Debug.Log($"[BankerPlayerButton] {betType} 背景图片组件准备完成");
         }
 
         /// <summary>
-        /// 创建标题区域
+        /// 创建按钮组件
         /// </summary>
-        private void CreateTitleArea()
+        private void CreateButtonComponent()
         {
-            GameObject titleAreaObj = new GameObject("TitleArea");
-            titleAreaObj.transform.SetParent(transform);
-
-            RectTransform titleAreaRect = titleAreaObj.AddComponent<RectTransform>();
-            titleAreaRect.anchorMin = new Vector2(0, 0.6f);
-            titleAreaRect.anchorMax = new Vector2(1, 1);
-            titleAreaRect.offsetMin = new Vector2(5, 0);
-            titleAreaRect.offsetMax = new Vector2(-5, -5);
-            titleAreaRect.localScale = Vector3.one;
-
-            titleArea = titleAreaObj;
-
-            // 创建标题文本
-            CreateTitleText(titleAreaObj);
+            // 检查是否已存在
+            button = GetComponent<Button>();
+            if (button == null)
+            {
+                button = gameObject.AddComponent<Button>();
+                button.onClick.AddListener(HandleButtonClick);
+            }
+            else
+            {
+                // 清除旧的监听器，重新添加
+                button.onClick.RemoveAllListeners();
+                button.onClick.AddListener(HandleButtonClick);
+            }
 
             if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 标题区域创建完成");
+                Debug.Log($"[BankerPlayerButton] {betType} 按钮组件准备完成");
+        }
+
+        /// <summary>
+        /// 创建文本组件
+        /// </summary>
+        private void CreateTextComponents()
+        {
+            // 创建标题文本（投注类型）
+            CreateTitleText();
+            
+            // 创建赔率文本
+            CreateOddsText();
+            
+            // 创建投注人数文本
+            CreatePlayerCountText();
+            
+            // 创建投注金额文本
+            CreateAmountText();
+
+            if (enableDebugMode)
+                Debug.Log($"[BankerPlayerButton] {betType} 文本组件创建完成");
         }
 
         /// <summary>
         /// 创建标题文本
         /// </summary>
-        private void CreateTitleText(GameObject parent)
+        private void CreateTitleText()
         {
-            GameObject titleObj = new GameObject("TitleText");
-            titleObj.transform.SetParent(parent.transform);
-
-            RectTransform titleRect = titleObj.AddComponent<RectTransform>();
-            titleRect.anchorMin = Vector2.zero;
-            titleRect.anchorMax = Vector2.one;
+            GameObject titleObj = FindOrCreateChild("TitleText");
+            titleText = GetOrAddComponent<Text>(titleObj);
+            
+            RectTransform titleRect = titleObj.GetComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0.1f, 0.6f);
+            titleRect.anchorMax = new Vector2(0.6f, 0.9f);
             titleRect.offsetMin = Vector2.zero;
             titleRect.offsetMax = Vector2.zero;
             titleRect.localScale = Vector3.one;
 
-            if (titleText == null)
-            {
-                titleText = titleObj.AddComponent<Text>();
-                titleText.text = displayTitle;
-                titleText.color = textColor;
-                titleText.alignment = TextAnchor.MiddleCenter;
-                titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                titleText.fontSize = titleFontSize;
-                titleText.fontStyle = FontStyle.Bold;
-            }
-        }
-
-        /// <summary>
-        /// 创建赔率区域
-        /// </summary>
-        private void CreateOddsArea()
-        {
-            GameObject oddsAreaObj = new GameObject("OddsArea");
-            oddsAreaObj.transform.SetParent(transform);
-
-            RectTransform oddsAreaRect = oddsAreaObj.AddComponent<RectTransform>();
-            oddsAreaRect.anchorMin = new Vector2(0, 0.4f);
-            oddsAreaRect.anchorMax = new Vector2(1, 0.6f);
-            oddsAreaRect.offsetMin = new Vector2(5, 0);
-            oddsAreaRect.offsetMax = new Vector2(-5, 0);
-            oddsAreaRect.localScale = Vector3.one;
-
-            oddsArea = oddsAreaObj;
-
-            // 创建赔率文本
-            CreateOddsText(oddsAreaObj);
-
-            if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 赔率区域创建完成");
+            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleText.fontSize = titleFontSize;
+            titleText.fontStyle = FontStyle.Bold;
+            titleText.alignment = TextAnchor.MiddleCenter;
         }
 
         /// <summary>
         /// 创建赔率文本
         /// </summary>
-        private void CreateOddsText(GameObject parent)
+        private void CreateOddsText()
         {
-            GameObject oddsObj = new GameObject("OddsText");
-            oddsObj.transform.SetParent(parent.transform);
-
-            RectTransform oddsRect = oddsObj.AddComponent<RectTransform>();
-            oddsRect.anchorMin = Vector2.zero;
-            oddsRect.anchorMax = Vector2.one;
+            GameObject oddsObj = FindOrCreateChild("OddsText");
+            oddsText = GetOrAddComponent<Text>(oddsObj);
+            
+            RectTransform oddsRect = oddsObj.GetComponent<RectTransform>();
+            oddsRect.anchorMin = new Vector2(0.6f, 0.6f);
+            oddsRect.anchorMax = new Vector2(0.9f, 0.9f);
             oddsRect.offsetMin = Vector2.zero;
             oddsRect.offsetMax = Vector2.zero;
             oddsRect.localScale = Vector3.one;
 
-            if (oddsText == null)
-            {
-                oddsText = oddsObj.AddComponent<Text>();
-                oddsText.text = odds;
-                oddsText.color = numberColor;
-                oddsText.alignment = TextAnchor.MiddleCenter;
-                oddsText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                oddsText.fontSize = oddsFontSize;
-                oddsText.fontStyle = FontStyle.Normal;
-            }
-        }
-
-        /// <summary>
-        /// 创建统计区域
-        /// </summary>
-        private void CreateStatsArea()
-        {
-            GameObject statsAreaObj = new GameObject("StatsArea");
-            statsAreaObj.transform.SetParent(transform);
-
-            RectTransform statsAreaRect = statsAreaObj.AddComponent<RectTransform>();
-            statsAreaRect.anchorMin = new Vector2(0, 0);
-            statsAreaRect.anchorMax = new Vector2(1, 0.4f);
-            statsAreaRect.offsetMin = new Vector2(5, 5);
-            statsAreaRect.offsetMax = new Vector2(-5, 0);
-            statsAreaRect.localScale = Vector3.one;
-
-            statsArea = statsAreaObj;
-
-            // 创建投注人数文本
-            CreatePlayerCountText(statsAreaObj);
-            
-            // 创建投注金额文本
-            CreateAmountText(statsAreaObj);
-
-            if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 统计区域创建完成");
+            oddsText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            oddsText.fontSize = oddsFontSize;
+            oddsText.fontStyle = FontStyle.Normal;
+            oddsText.alignment = TextAnchor.MiddleCenter;
         }
 
         /// <summary>
         /// 创建投注人数文本
         /// </summary>
-        private void CreatePlayerCountText(GameObject parent)
+        private void CreatePlayerCountText()
         {
-            GameObject countObj = new GameObject("PlayerCountText");
-            countObj.transform.SetParent(parent.transform);
-
-            RectTransform countRect = countObj.AddComponent<RectTransform>();
-            countRect.anchorMin = new Vector2(0, 0.5f);
-            countRect.anchorMax = new Vector2(1, 1);
+            GameObject countObj = FindOrCreateChild("PlayerCountText");
+            playerCountText = GetOrAddComponent<Text>(countObj);
+            
+            RectTransform countRect = countObj.GetComponent<RectTransform>();
+            countRect.anchorMin = new Vector2(0.1f, 0.3f);
+            countRect.anchorMax = new Vector2(0.5f, 0.6f);
             countRect.offsetMin = Vector2.zero;
             countRect.offsetMax = Vector2.zero;
             countRect.localScale = Vector3.one;
 
-            if (playerCountText == null)
-            {
-                playerCountText = countObj.AddComponent<Text>();
-                playerCountText.text = "";
-                playerCountText.color = textColor;
-                playerCountText.alignment = TextAnchor.MiddleCenter;
-                playerCountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                playerCountText.fontSize = numberFontSize;
-                playerCountText.fontStyle = FontStyle.Normal;
-            }
+            playerCountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            playerCountText.fontSize = numberFontSize;
+            playerCountText.fontStyle = FontStyle.Normal;
+            playerCountText.alignment = TextAnchor.MiddleLeft;
         }
 
         /// <summary>
         /// 创建投注金额文本
         /// </summary>
-        private void CreateAmountText(GameObject parent)
+        private void CreateAmountText()
         {
-            GameObject amountObj = new GameObject("AmountText");
-            amountObj.transform.SetParent(parent.transform);
-
-            RectTransform amountRect = amountObj.AddComponent<RectTransform>();
-            amountRect.anchorMin = new Vector2(0, 0);
-            amountRect.anchorMax = new Vector2(1, 0.5f);
+            GameObject amountObj = FindOrCreateChild("AmountText");
+            amountText = GetOrAddComponent<Text>(amountObj);
+            
+            RectTransform amountRect = amountObj.GetComponent<RectTransform>();
+            amountRect.anchorMin = new Vector2(0.5f, 0.3f);
+            amountRect.anchorMax = new Vector2(0.9f, 0.6f);
             amountRect.offsetMin = Vector2.zero;
             amountRect.offsetMax = Vector2.zero;
             amountRect.localScale = Vector3.one;
 
-            if (amountText == null)
+            amountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            amountText.fontSize = numberFontSize;
+            amountText.fontStyle = FontStyle.Bold;
+            amountText.alignment = TextAnchor.MiddleRight;
+        }
+
+        /// <summary>
+        /// 查找或创建子对象
+        /// </summary>
+        private GameObject FindOrCreateChild(string childName)
+        {
+            Transform child = transform.Find(childName);
+            if (child == null)
             {
-                amountText = amountObj.AddComponent<Text>();
-                amountText.text = "";
-                amountText.color = numberColor;
-                amountText.alignment = TextAnchor.MiddleCenter;
-                amountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-                amountText.fontSize = numberFontSize;
-                amountText.fontStyle = FontStyle.Bold;
+                GameObject childObj = new GameObject(childName);
+                childObj.transform.SetParent(transform);
+                return childObj;
+            }
+            return child.gameObject;
+        }
+
+        /// <summary>
+        /// 获取或添加组件
+        /// </summary>
+        private T GetOrAddComponent<T>(GameObject obj) where T : Component
+        {
+            T component = obj.GetComponent<T>();
+            if (component == null)
+            {
+                component = obj.AddComponent<T>();
+            }
+            return component;
+        }
+
+        #endregion
+
+        #region 视觉配置更新
+
+        /// <summary>
+        /// 更新视觉配置
+        /// </summary>
+        private void UpdateVisualConfig()
+        {
+            if (currentConfig == null) return;
+
+            // 更新背景颜色
+            if (backgroundImage != null)
+            {
+                backgroundImage.color = currentConfig.buttonColor;
+            }
+
+            // 更新按钮颜色状态
+            if (button != null)
+            {
+                ColorBlock colors = button.colors;
+                colors.normalColor = currentConfig.buttonColor;
+                colors.highlightedColor = Color.Lerp(currentConfig.buttonColor, Color.white, 0.2f);
+                colors.pressedColor = Color.Lerp(currentConfig.buttonColor, Color.black, 0.2f);
+                colors.disabledColor = Color.Lerp(currentConfig.buttonColor, Color.gray, 0.5f);
+                colors.colorMultiplier = 1f;
+                colors.fadeDuration = 0.1f;
+                button.colors = colors;
+            }
+
+            // 更新文本内容和颜色
+            if (titleText != null)
+            {
+                titleText.text = currentConfig.displayTitle;
+                titleText.color = currentConfig.textColor;
+            }
+
+            if (oddsText != null)
+            {
+                oddsText.text = currentConfig.odds;
+                oddsText.color = currentConfig.textColor;
+            }
+
+            if (playerCountText != null)
+            {
+                playerCountText.color = currentConfig.numberColor;
+            }
+
+            if (amountText != null)
+            {
+                amountText.color = currentConfig.numberColor;
+            }
+
+            if (enableDebugMode)
+                Debug.Log($"[BankerPlayerButton] {betType} 视觉配置更新完成");
+        }
+
+        #endregion
+
+        #region 按钮控制逻辑
+
+        /// <summary>
+        /// 更新显示数据
+        /// </summary>
+        public void UpdateDisplay(int playerCount, decimal amount)
+        {
+            currentPlayerCount = playerCount;
+            currentAmount = amount;
+            
+            // 更新人数显示
+            if (playerCountText != null)
+            {
+                playerCountText.text = playerCount > 0 ? $"👥{playerCount}" : "";
+            }
+            
+            // 更新金额显示
+            if (amountText != null)
+            {
+                amountText.text = amount > 0 ? $"¥{FormatAmount(amount)}" : "";
+            }
+            
+            // 触发数据更新事件
+            OnBetDataUpdated?.Invoke(betType, playerCount, amount);
+            
+            // 添加数据变化动画
+            if (playerCount > 0 || amount > 0)
+            {
+                TriggerUpdateAnimation();
+            }
+            
+            if (enableDebugMode)
+                Debug.Log($"[BankerPlayerButton] {betType} 更新显示: {playerCount}人, ¥{amount}");
+        }
+
+        /// <summary>
+        /// 设置交互状态
+        /// </summary>
+        public void SetInteractable(bool interactable)
+        {
+            isInteractable = interactable;
+            
+            if (button != null)
+                button.interactable = interactable;
+            
+            // 更新视觉状态
+            UpdateInteractableState();
+            
+            if (enableDebugMode)
+                Debug.Log($"[BankerPlayerButton] {betType} 设置交互状态: {interactable}");
+        }
+
+        /// <summary>
+        /// 设置按钮类型
+        /// </summary>
+        public void SetBetType(BaccaratBetType newBetType)
+        {
+            if (betType == newBetType) return;
+
+            betType = newBetType;
+            UpdateButtonConfig();
+            
+            if (enableDebugMode)
+                Debug.Log($"[BankerPlayerButton] 按钮类型更新为: {betType}");
+        }
+
+        /// <summary>
+        /// 重置显示数据
+        /// </summary>
+        public void ResetDisplay()
+        {
+            UpdateDisplay(0, 0m);
+        }
+
+        /// <summary>
+        /// 设置按钮高亮
+        /// </summary>
+        public void SetHighlight(bool highlight)
+        {
+            if (backgroundImage != null && currentConfig != null)
+            {
+                Color targetColor = highlight ? 
+                    Color.Lerp(currentConfig.buttonColor, Color.white, 0.3f) : 
+                    currentConfig.buttonColor;
+                backgroundImage.color = targetColor;
+            }
+        }
+
+        #endregion
+
+        #region 动画系统
+
+        /// <summary>
+        /// 缩放动画协程
+        /// </summary>
+        private IEnumerator ScaleAnimation(Vector3 targetScale, float duration)
+        {
+            Vector3 startScale = transform.localScale;
+            float elapsedTime = 0;
+
+            while (elapsedTime < duration)
+            {
+                elapsedTime += Time.deltaTime;
+                float t = Mathf.SmoothStep(0, 1, elapsedTime / duration);
+                transform.localScale = Vector3.Lerp(startScale, targetScale, t);
+                yield return null;
+            }
+
+            transform.localScale = targetScale;
+        }
+
+        /// <summary>
+        /// 点击动画
+        /// </summary>
+        private IEnumerator ClickAnimationCoroutine()
+        {
+            // 缩小
+            yield return StartCoroutine(ScaleAnimation(Vector3.one * 0.95f, 0.1f));
+            // 恢复
+            yield return StartCoroutine(ScaleAnimation(Vector3.one, 0.1f));
+        }
+
+        /// <summary>
+        /// 数据更新闪烁动画
+        /// </summary>
+        private IEnumerator FlashAnimation()
+        {
+            if (amountText == null) yield break;
+
+            Color originalColor = amountText.color;
+            Color flashColor = Color.white;
+            
+            // 闪烁效果
+            for (int i = 0; i < 2; i++)
+            {
+                amountText.color = flashColor;
+                yield return new WaitForSeconds(0.1f);
+                amountText.color = originalColor;
+                yield return new WaitForSeconds(0.1f);
             }
         }
 
         /// <summary>
-        /// 添加按钮动画
+        /// 触发点击动画
         /// </summary>
-        private void AddButtonAnimation()
+        public void TriggerClickAnimation()
         {
-            // 简化动画处理，不使用AnimatorController
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            
+            currentAnimation = StartCoroutine(ClickAnimationCoroutine());
+        }
+
+        /// <summary>
+        /// 触发数据更新动画
+        /// </summary>
+        private void TriggerUpdateAnimation()
+        {
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            
+            currentAnimation = StartCoroutine(FlashAnimation());
+        }
+
+        #endregion
+
+        #region 事件处理
+
+        /// <summary>
+        /// 处理按钮点击
+        /// </summary>
+        private void HandleButtonClick()
+        {
+            if (!isInteractable) return;
+            
+            // 播放点击动画
+            TriggerClickAnimation();
+            
+            // 触发回调
+            OnButtonClicked?.Invoke();
+            OnBetTypeSelected?.Invoke(betType);
+            
             if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 动画组件准备完成");
+                Debug.Log($"[BankerPlayerButton] {betType} 按钮被点击");
+        }
+
+        /// <summary>
+        /// 处理指针点击事件
+        /// </summary>
+        public void OnPointerClick(PointerEventData eventData)
+        {
+            // 由Button组件处理，这里可以添加额外逻辑
+        }
+
+        /// <summary>
+        /// 鼠标进入事件
+        /// </summary>
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (!isInteractable) return;
+            
+            // 轻微放大
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            
+            currentAnimation = StartCoroutine(ScaleAnimation(Vector3.one * 1.05f, 0.2f));
+        }
+
+        /// <summary>
+        /// 鼠标离开事件
+        /// </summary>
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (!isInteractable) return;
+            
+            // 恢复大小
+            if (currentAnimation != null)
+                StopCoroutine(currentAnimation);
+            
+            currentAnimation = StartCoroutine(ScaleAnimation(Vector3.one, 0.2f));
+        }
+
+        #endregion
+
+        #region 辅助方法
+
+        /// <summary>
+        /// 格式化金额显示
+        /// </summary>
+        private string FormatAmount(decimal amount)
+        {
+            if (amount >= 10000)
+                return $"{amount / 10000:F1}万";
+            else if (amount >= 1000)
+                return $"{amount / 1000:F1}K";
+            else
+                return amount.ToString("F0");
+        }
+
+        /// <summary>
+        /// 更新交互状态的视觉效果
+        /// </summary>
+        private void UpdateInteractableState()
+        {
+            float alpha = isInteractable ? 1f : 0.5f;
+            
+            if (titleText != null)
+            {
+                Color color = titleText.color;
+                color.a = alpha;
+                titleText.color = color;
+            }
+            
+            if (oddsText != null)
+            {
+                Color color = oddsText.color;
+                color.a = alpha;
+                oddsText.color = color;
+            }
+            
+            if (playerCountText != null)
+            {
+                Color color = playerCountText.color;
+                color.a = alpha;
+                playerCountText.color = color;
+            }
+            
+            if (amountText != null)
+            {
+                Color color = amountText.color;
+                color.a = alpha;
+                amountText.color = color;
+            }
         }
 
         /// <summary>
@@ -610,7 +784,6 @@ namespace BaccaratGame.UI.Components
         /// </summary>
         private bool IsInsideRoundedRect(int x, int y, int width, int height, int radius)
         {
-            // 计算到最近角的距离
             int cornerX = Mathf.Clamp(x, radius, width - radius);
             int cornerY = Mathf.Clamp(y, radius, height - radius);
             
@@ -622,286 +795,7 @@ namespace BaccaratGame.UI.Components
 
         #endregion
 
-        #region 现有组件设置
-
-        /// <summary>
-        /// 设置现有组件
-        /// </summary>
-        private void SetupExistingComponents()
-        {
-            // 如果有现有的组件引用，设置它们
-            if (button != null && !buttonUICreated)
-            {
-                button.onClick.RemoveAllListeners();
-                button.onClick.AddListener(() => OnButtonClicked?.Invoke());
-            }
-
-            if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 现有组件设置完成");
-        }
-
-        /// <summary>
-        /// 更新初始显示
-        /// </summary>
-        private void UpdateInitialDisplay()
-        {
-            // 设置按钮标题和赔率
-            if (titleText != null) 
-                titleText.text = displayTitle;
-            if (oddsText != null) 
-                oddsText.text = odds;
-            
-            // 初始化显示数据
-            UpdateDisplay(0, 0m);
-        }
-
-        #endregion
-
-        #region 按钮控制逻辑
-
-        /// <summary>
-        /// 更新显示数据
-        /// </summary>
-        public void UpdateDisplay(int playerCount, decimal amount)
-        {
-            currentPlayerCount = playerCount;
-            currentAmount = amount;
-            
-            // 更新人数显示
-            if (playerCountText != null)
-            {
-                playerCountText.text = playerCount > 0 ? $"{playerCount}人" : "";
-            }
-            
-            // 更新金额显示
-            if (amountText != null)
-            {
-                amountText.text = amount > 0 ? FormatAmount(amount) : "";
-            }
-            
-            // 添加数据变化动画
-            if (playerCount > 0 || amount > 0)
-            {
-                TriggerUpdateAnimation();
-            }
-            
-            if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 更新显示: {playerCount}人, {amount}");
-        }
-
-        /// <summary>
-        /// 设置交互状态
-        /// </summary>
-        public void SetInteractable(bool interactable)
-        {
-            isInteractable = interactable;
-            
-            if (button != null)
-                button.interactable = interactable;
-            
-            // 更新视觉状态
-            UpdateVisualState();
-            
-            if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 设置交互状态: {interactable}");
-        }
-
-        /// <summary>
-        /// 设置按钮配置
-        /// </summary>
-        public void SetButtonConfig(BaccaratBetType newBetType, string title, string newOdds)
-        {
-            betType = newBetType;
-            displayTitle = title;
-            odds = newOdds;
-            
-            // 更新显示
-            if (titleText != null) titleText.text = title;
-            if (oddsText != null) oddsText.text = newOdds;
-            
-            // 更新颜色
-            if (backgroundImage != null && button != null)
-            {
-                Color newColor = GetBetTypeColor();
-                backgroundImage.color = newColor;
-                
-                ColorBlock colors = button.colors;
-                colors.normalColor = newColor;
-                button.colors = colors;
-            }
-            
-            if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] 配置更新: {betType} - {title} - {newOdds}");
-        }
-
-        /// <summary>
-        /// 触发点击动画
-        /// </summary>
-        public void TriggerClickAnimation()
-        {
-            // 使用协程替代LeanTween
-            StartCoroutine(ClickAnimationCoroutine());
-        }
-
-        /// <summary>
-        /// 触发数据更新动画
-        /// </summary>
-        private void TriggerUpdateAnimation()
-        {
-            if (statsArea != null)
-            {
-                // 使用协程实现闪烁动画
-                StartCoroutine(FlashAnimation(statsArea));
-            }
-        }
-
-        #endregion
-
-        #region 事件处理
-
-        /// <summary>
-        /// 处理指针点击事件
-        /// </summary>
-        public void OnPointerClick(PointerEventData eventData)
-        {
-            if (!isInteractable)
-            {
-                if (enableDebugMode)
-                    Debug.Log($"[BankerPlayerButton] {betType} 按钮不可交互，忽略点击");
-                return;
-            }
-            
-            // 播放点击动画
-            TriggerClickAnimation();
-            
-            // 触发回调
-            OnButtonClicked?.Invoke();
-            OnBetTypeSelected?.Invoke(betType);
-            
-            if (enableDebugMode)
-                Debug.Log($"[BankerPlayerButton] {betType} 按钮被点击");
-        }
-
-        /// <summary>
-        /// 鼠标进入事件
-        /// </summary>
-        public void OnPointerEnter(PointerEventData eventData)
-        {
-            if (!isInteractable) return;
-            
-            // 悬停效果
-            if (backgroundImage != null)
-            {
-                backgroundImage.color = highlightColor;
-            }
-            
-            // 轻微放大 - 使用协程替代LeanTween
-            StartCoroutine(ScaleAnimation(Vector3.one * 1.05f, 0.2f));
-        }
-
-        /// <summary>
-        /// 鼠标离开事件
-        /// </summary>
-        public void OnPointerExit(PointerEventData eventData)
-        {
-            if (!isInteractable) return;
-            
-            // 恢复颜色
-            if (backgroundImage != null)
-            {
-                backgroundImage.color = GetBetTypeColor();
-            }
-            
-            // 恢复大小
-            StartCoroutine(ScaleAnimation(Vector3.one, 0.2f));
-        }
-
-        #endregion
-
-        #region 辅助方法
-
-        /// <summary>
-        /// 获取投注类型对应的颜色
-        /// </summary>
-        private Color GetBetTypeColor()
-        {
-            return betType switch
-            {
-                BaccaratBetType.Banker => new Color(1f, 0.2f, 0.2f, 1f), // 庄-红色
-                BaccaratBetType.Player => new Color(0.2f, 0.2f, 1f, 1f), // 闲-蓝色
-                BaccaratBetType.Tie => new Color(0.2f, 1f, 0.2f, 1f),    // 和-绿色
-                _ => normalColor
-            };
-        }
-
-        /// <summary>
-        /// 格式化金额显示
-        /// </summary>
-        private string FormatAmount(decimal amount)
-        {
-            if (amount >= 10000)
-                return $"{amount / 10000:F1}万";
-            else if (amount >= 1000)
-                return $"{amount / 1000:F1}K";
-            else
-                return amount.ToString("F0");
-        }
-
-        /// <summary>
-        /// 更新视觉状态
-        /// </summary>
-        private void UpdateVisualState()
-        {
-            if (backgroundImage != null)
-            {
-                backgroundImage.color = isInteractable ? GetBetTypeColor() : disabledColor;
-            }
-            
-            // 更新文本透明度
-            float alpha = isInteractable ? 1f : 0.5f;
-            
-            if (titleText != null)
-            {
-                Color color = titleText.color;
-                color.a = alpha;
-                titleText.color = color;
-            }
-            
-            if (oddsText != null)
-            {
-                Color color = oddsText.color;
-                color.a = alpha;
-                oddsText.color = color;
-            }
-            
-            if (playerCountText != null)
-            {
-                Color color = playerCountText.color;
-                color.a = alpha;
-                playerCountText.color = color;
-            }
-            
-            if (amountText != null)
-            {
-                Color color = amountText.color;
-                color.a = alpha;
-                amountText.color = color;
-            }
-        }
-
-        #endregion
-
         #region 公共接口
-
-        /// <summary>
-        /// 强制显示按钮
-        /// </summary>
-        [ContextMenu("强制显示按钮")]
-        public void ForceShowButton()
-        {
-            buttonUICreated = false;
-            CreateAndShowButton();
-        }
 
         /// <summary>
         /// 获取当前投注类型
@@ -920,23 +814,65 @@ namespace BaccaratGame.UI.Components
         }
 
         /// <summary>
-        /// 重置显示数据
+        /// 获取按钮是否已创建UI
         /// </summary>
-        public void ResetDisplay()
+        public bool IsUICreated()
         {
-            UpdateDisplay(0, 0m);
+            return buttonUICreated;
         }
 
         /// <summary>
-        /// 设置按钮高亮
+        /// 强制重新创建UI
         /// </summary>
-        public void SetHighlight(bool highlight)
+        [ContextMenu("重新创建UI")]
+        public void RecreateUI()
         {
-            if (backgroundImage != null)
+            ClearUI();
+            CreateButtonUI();
+        }
+
+        /// <summary>
+        /// 清除UI组件
+        /// </summary>
+        [ContextMenu("清除UI")]
+        public void ClearUI()
+        {
+            // 清除子对象
+            for (int i = transform.childCount - 1; i >= 0; i--)
             {
-                Color targetColor = highlight ? highlightColor : GetBetTypeColor();
-                backgroundImage.color = targetColor;
+                Transform child = transform.GetChild(i);
+                if (Application.isPlaying)
+                    Destroy(child.gameObject);
+                else
+                    DestroyImmediate(child.gameObject);
             }
+            
+            // 清除动态添加的组件
+            var componentsToRemove = new System.Type[] { typeof(Image), typeof(Button) };
+            foreach (var componentType in componentsToRemove)
+            {
+                Component component = GetComponent(componentType);
+                if (component != null)
+                {
+                    if (Application.isPlaying)
+                        Destroy(component);
+                    else
+                        DestroyImmediate(component);
+                }
+            }
+            
+            // 清空引用
+            titleText = null;
+            oddsText = null;
+            playerCountText = null;
+            amountText = null;
+            backgroundImage = null;
+            button = null;
+            
+            buttonUICreated = false;
+            
+            if (enableDebugMode)
+                Debug.Log($"[BankerPlayerButton] {betType} UI已清除");
         }
 
         #endregion
@@ -950,19 +886,15 @@ namespace BaccaratGame.UI.Components
         public void ShowComponentStatus()
         {
             Debug.Log($"=== BankerPlayerButton {betType} 组件状态 ===");
-            Debug.Log($"自动创建并显示: {autoCreateAndShow}");
-            Debug.Log($"启动时显示: {showOnAwake}");
-            Debug.Log($"立即显示: {immediateDisplay}");
             Debug.Log($"按钮UI已创建: {buttonUICreated}");
             Debug.Log($"是否可交互: {isInteractable}");
-            Debug.Log($"父Canvas: {(parentCanvas != null ? "✓" : "✗")}");
-            Debug.Log($"主按钮: {(mainButton != null ? "✓" : "✗")}");
+            Debug.Log($"当前配置: {currentConfig?.displayTitle} - {currentConfig?.odds}");
+            Debug.Log($"背景图片: {(backgroundImage != null ? "✓" : "✗")}");
+            Debug.Log($"按钮组件: {(button != null ? "✓" : "✗")}");
             Debug.Log($"标题文本: {(titleText != null ? "✓" : "✗")} - {titleText?.text}");
             Debug.Log($"赔率文本: {(oddsText != null ? "✓" : "✗")} - {oddsText?.text}");
             Debug.Log($"人数文本: {(playerCountText != null ? "✓" : "✗")} - {playerCountText?.text}");
             Debug.Log($"金额文本: {(amountText != null ? "✓" : "✗")} - {amountText?.text}");
-            Debug.Log($"背景图片: {(backgroundImage != null ? "✓" : "✗")}");
-            Debug.Log($"按钮组件: {(button != null ? "✓" : "✗")}");
             Debug.Log($"当前投注人数: {currentPlayerCount}");
             Debug.Log($"当前投注金额: {currentAmount}");
         }
@@ -975,65 +907,23 @@ namespace BaccaratGame.UI.Components
         {
             Debug.Log($"[BankerPlayerButton] {betType} 开始测试按钮功能");
             
+            // 如果UI未创建，先创建
+            if (!buttonUICreated)
+            {
+                CreateButtonUI();
+            }
+            
             // 测试数据更新
             UpdateDisplay(5, 1000m);
-            System.Threading.Thread.Sleep(500);
             
             // 测试交互状态
             SetInteractable(false);
-            System.Threading.Thread.Sleep(500);
             SetInteractable(true);
             
             // 测试点击动画
             TriggerClickAnimation();
             
             Debug.Log($"[BankerPlayerButton] {betType} 按钮功能测试完成");
-        }
-
-        /// <summary>
-        /// 删除所有创建的UI
-        /// </summary>
-        [ContextMenu("删除所有UI")]
-        public void ClearAllUI()
-        {
-            // 清除子对象
-            for (int i = transform.childCount - 1; i >= 0; i--)
-            {
-                Transform child = transform.GetChild(i);
-                if (Application.isPlaying)
-                    Destroy(child.gameObject);
-                else
-                    DestroyImmediate(child.gameObject);
-            }
-            
-            // 清除组件
-            if (button != null && button != GetComponent<Button>())
-            {
-                if (Application.isPlaying)
-                    Destroy(button);
-                else
-                    DestroyImmediate(button);
-            }
-            
-            if (backgroundImage != null && backgroundImage != GetComponent<Image>())
-            {
-                if (Application.isPlaying)
-                    Destroy(backgroundImage);
-                else
-                    DestroyImmediate(backgroundImage);
-            }
-            
-            // 清空引用
-            titleText = null;
-            oddsText = null;
-            playerCountText = null;
-            amountText = null;
-            backgroundImage = null;
-            button = null;
-            
-            buttonUICreated = false;
-            
-            Debug.Log($"[BankerPlayerButton] {betType} 所有UI已删除");
         }
 
         #endregion
