@@ -1135,10 +1135,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   containerSize: {x: 750, y: 120}
-  cornerRadius: 15
   titleFontSize: 20
   oddsFontSize: 14
   numberFontSize: 12
+  playerButtonSprite: {fileID: 0}
+  bankerButtonSprite: {fileID: 0}
+  tieButtonSprite: {fileID: 0}
+  playerCountIcon: {fileID: 0}
+  amountIcon: {fileID: 0}
+  spritePath: Images/BettingButtons/
+  iconPath: Images/Icons/
   enableDebugMode: 0
 --- !u!1 &1883737555
 GameObject:
@@ -1149,6 +1155,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1883737556}
+  - component: {fileID: 1883737557}
   m_Layer: 5
   m_Name: SideBetButton
   m_TagString: Untagged
@@ -1175,6 +1182,36 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1883737557
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1883737555}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0b26f7fdae0d37f41a4ffd68360ecc75, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  containerSize: {x: 500, y: 200}
+  cornerRadius: 10
+  buttonSize: {x: 80, y: 60}
+  buttonSpacing: 10
+  startPosition: {x: 0, y: 0}
+  titleFontSize: 14
+  oddsFontSize: 10
+  numberFontSize: 8
+  spritePath: Images/BettingButtons/
+  iconPath: Images/Icons/
+  dragon7Sprite: {fileID: 0}
+  bankerPairSprite: {fileID: 0}
+  lucky6Sprite: {fileID: 0}
+  playerPairSprite: {fileID: 0}
+  panda8Sprite: {fileID: 0}
+  playerCountIcon: {fileID: 0}
+  amountIcon: {fileID: 0}
+  enableDebugMode: 0
 --- !u!1 &2021724768
 GameObject:
   m_ObjectHideFlags: 0
