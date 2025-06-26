@@ -285,6 +285,8 @@ MonoBehaviour:
   backgroundColor: {r: 0, g: 0, b: 0, a: 0.8}
   textColor: {r: 1, g: 1, b: 1, a: 1}
   fontSize: 16
+  selectedScale: 1.15
+  animationDuration: 0.2
   chipValues: 020000000a000000140000003200000064000000
   chipImageNames:
   - B_01
@@ -293,6 +295,7 @@ MonoBehaviour:
   - B_50
   - B_100
   chipImagePath: Images/chips/
+  manualChipSprites: []
   enableDebugMode: 1
   OnChipSelected:
     m_PersistentCalls:

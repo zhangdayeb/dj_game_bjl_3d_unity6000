@@ -227,11 +227,11 @@ namespace BaccaratGame.UI.Components
                     rectTransform = gameObject.AddComponent<RectTransform>();
                 }
 
-                // 设置为屏幕底部锚点
+                // 设置为屏幕底部锚点 - 宽度100%，高度固定
                 rectTransform.anchorMin = new Vector2(0f, 0f);
                 rectTransform.anchorMax = new Vector2(1f, 0f);
                 rectTransform.anchoredPosition = Vector2.zero;
-                rectTransform.sizeDelta = new Vector2(0f, chipBarHeight);
+                rectTransform.sizeDelta = new Vector2(0f, chipBarHeight); // 宽度0表示使用锚点拉伸，高度使用chipBarHeight
 
                 isInitialized = true;
                 LogDebug("组件初始化完成");
