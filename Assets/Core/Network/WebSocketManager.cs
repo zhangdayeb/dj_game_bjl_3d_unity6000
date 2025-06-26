@@ -1,18 +1,40 @@
 // Assets/Core/Network/WebSocketManager.cs
+// WebSocket管理器 - Unity内置版本，移除NativeWebSocket依赖
+// 使用Unity内置的WebGL JavaScript互操作实现WebSocket功能
+
 using System;
 using System.Collections;
 using System.Threading.Tasks;
 using UnityEngine;
+using System.Runtime.InteropServices;
 using BaccaratGame.Core.Architecture;
 
 namespace Core.Network
 {
     /// <summary>
-    /// WebSocket管理器 - 单例模式，纯粹的网络通信管理
-    /// 只负责连接管理和消息收发，所有业务逻辑都交给事件总线处理
+    /// WebSocket管理器 - Unity内置版本
+    /// 使用Unity WebGL的JavaScript互操作实现WebSocket功能
     /// </summary>
     public class WebSocketManager : MonoBehaviour
     {
+        #region JavaScript互操作 - WebGL专用
+
+#if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")]
+        private static extern void InitWebSocket(string url);
+        
+        [DllImport("__Internal")]
+        private static extern void SendWebSocketMessage(string message);
+        
+        [DllImport("__Internal")]
+        private static extern void CloseWebSocket();
+        
+        [DllImport("__Internal")]
+        private static extern int GetWebSocketState();
+#endif
+
+        #endregion
+
         #region 单例模式
 
         private static WebSocketManager _instance;
@@ -44,8 +66,7 @@ namespace Core.Network
 
         #region 私有字段
 
-        // WebSocket连接
-        private NativeWebSocket.WebSocket _webSocket;
+        // 连接信息
         private string _currentUrl;
         
         // 连接状态
@@ -140,16 +161,13 @@ namespace Core.Network
                 await DisconnectInternal();
                 
                 // 创建新连接
-                _webSocket = new NativeWebSocket.WebSocket(url);
-                
-                // 设置事件处理
-                _webSocket.OnOpen += OnConnected;
-                _webSocket.OnMessage += OnMessageReceived;
-                _webSocket.OnError += OnError;
-                _webSocket.OnClose += OnDisconnected;
-                
-                // 发起连接
-                await _webSocket.Connect();
+#if UNITY_WEBGL && !UNITY_EDITOR
+                InitWebSocket(url);
+#else
+                // 编辑器模式下的模拟连接
+                Debug.Log("[WebSocketManager] 编辑器模式下模拟连接成功");
+                OnConnected();
+#endif
                 
                 // 等待连接结果
                 var timeout = DateTime.UtcNow.AddSeconds(10);
@@ -204,29 +222,11 @@ namespace Core.Network
             StopReconnect();
             
             // 关闭WebSocket连接
-            if (_webSocket != null)
-            {
-                try
-                {
-                    if (_webSocket.State == NativeWebSocket.WebSocketState.Open)
-                    {
-                        await _webSocket.Close();
-                    }
-                    
-                    _webSocket.OnOpen -= OnConnected;
-                    _webSocket.OnMessage -= OnMessageReceived;
-                    _webSocket.OnError -= OnError;
-                    _webSocket.OnClose -= OnDisconnected;
-                }
-                catch (Exception ex)
-                {
-                    Debug.LogWarning($"[WebSocketManager] 关闭连接时出错: {ex.Message}");
-                }
-                finally
-                {
-                    _webSocket = null;
-                }
-            }
+#if UNITY_WEBGL && !UNITY_EDITOR
+            CloseWebSocket();
+#endif
+            
+            await Task.CompletedTask;
         }
 
         #endregion
@@ -251,7 +251,12 @@ namespace Core.Network
                 Debug.Log($"[WebSocketManager] ==== 发送消息 ====");
                 Debug.Log($"[WebSocketManager] 发送数据: {jsonMessage}");
                 
-                await _webSocket.SendText(jsonMessage);
+#if UNITY_WEBGL && !UNITY_EDITOR
+                SendWebSocketMessage(jsonMessage);
+#else
+                // 编辑器模式下模拟发送
+                Debug.Log("[WebSocketManager] 编辑器模式下模拟发送消息");
+#endif
                 
                 Debug.Log("[WebSocketManager] 消息发送成功");
                 return true;
@@ -265,21 +270,26 @@ namespace Core.Network
 
         #endregion
 
-        #region WebSocket事件处理
+        #region JavaScript回调 - 供JS调用
 
-        private void OnConnected()
+        /// <summary>
+        /// JavaScript回调：连接成功
+        /// </summary>
+        public void OnConnected()
         {
             _isConnected = true;
             _isConnecting = false;
             Debug.Log("[WebSocketManager] WebSocket连接已建立");
         }
 
-        private void OnMessageReceived(byte[] data)
+        /// <summary>
+        /// JavaScript回调：收到消息
+        /// </summary>
+        /// <param name="message">收到的消息</param>
+        public void OnMessageReceived(string message)
         {
             try
             {
-                var message = System.Text.Encoding.UTF8.GetString(data);
-                
                 Debug.Log($"[WebSocketManager] ==== 收到消息 ====");
                 Debug.Log($"[WebSocketManager] 接收数据: {message}");
                 
@@ -291,7 +301,6 @@ namespace Core.Network
                 }
                 
                 // 直接将原始消息传递给事件总线处理
-                // 不在这里做任何业务逻辑判断
                 GameEventBus.ProcessRawMessage(message);
             }
             catch (Exception ex)
@@ -300,7 +309,11 @@ namespace Core.Network
             }
         }
 
-        private void OnError(string error)
+        /// <summary>
+        /// JavaScript回调：连接错误
+        /// </summary>
+        /// <param name="error">错误信息</param>
+        public void OnError(string error)
         {
             Debug.LogError($"[WebSocketManager] WebSocket错误: {error}");
             
@@ -311,10 +324,14 @@ namespace Core.Network
             }
         }
 
-        private void OnDisconnected(NativeWebSocket.WebSocketCloseCode code)
+        /// <summary>
+        /// JavaScript回调：连接断开
+        /// </summary>
+        /// <param name="reason">断开原因</param>
+        public void OnDisconnected(string reason)
         {
             _isConnected = false;
-            Debug.LogWarning($"[WebSocketManager] WebSocket连接已断开: {code}");
+            Debug.LogWarning($"[WebSocketManager] WebSocket连接已断开: {reason}");
             
             // 停止心跳
             StopHeartbeat();
@@ -452,4 +469,3 @@ namespace Core.Network
 
         #endregion
     }
-}
