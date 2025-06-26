@@ -1194,23 +1194,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0b26f7fdae0d37f41a4ffd68360ecc75, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  containerSize: {x: 500, y: 200}
+  containerSize: {x: 750, y: 200}
   cornerRadius: 10
   buttonSize: {x: 80, y: 60}
   buttonSpacing: 10
   startPosition: {x: 0, y: 0}
-  titleFontSize: 14
-  oddsFontSize: 10
-  numberFontSize: 8
   spritePath: Images/BettingButtons/
-  iconPath: Images/Icons/
   dragon7Sprite: {fileID: 0}
   bankerPairSprite: {fileID: 0}
   lucky6Sprite: {fileID: 0}
   playerPairSprite: {fileID: 0}
   panda8Sprite: {fileID: 0}
-  playerCountIcon: {fileID: 0}
-  amountIcon: {fileID: 0}
   enableDebugMode: 0
 --- !u!1 &2021724768
 GameObject:

@@ -267,13 +267,23 @@ namespace BaccaratGame.UI.Components
                 else
                 {
                     // 使用默认颜色
-                    backgroundImage.color = GetSideBetColor(betType);
+                    backgroundImage.color = Color.gray;
                 }
                 buttonData.backgroundImage = backgroundImage;
 
                 // 添加Button组件
                 Button button = buttonObj.AddComponent<Button>();
-                SetupButtonColors(button, betType);
+                
+                // 设置按钮颜色状态
+                ColorBlock colors = button.colors;
+                colors.normalColor = Color.white;
+                colors.highlightedColor = new Color(1.1f, 1.1f, 1.1f, 1f);  // 轻微提亮
+                colors.pressedColor = new Color(0.9f, 0.9f, 0.9f, 1f);      // 轻微变暗
+                colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+                colors.colorMultiplier = 1f;
+                colors.fadeDuration = 0.1f;
+                button.colors = colors;
+                
                 buttonData.button = button;
 
                 // 设置按钮点击事件
