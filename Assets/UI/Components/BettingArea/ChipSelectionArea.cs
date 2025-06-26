@@ -1,9 +1,10 @@
 // Assets/UI/Components/BettingArea/ChipSelectionArea.cs
-// 筹码选择区域组件 - 正确布局实现
-// 布局：[更多...] [2] [10] [20] [40] [100] [续压]
-// 创建时间: 2025/6/26
+// 筹码选择区域组件 - 完整自创建版本
+// 功能：自动创建UI、持久显示、防重复、逻辑绑定
+// 修改时间: 2025/6/27
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,8 +12,8 @@ using UnityEngine.UI;
 namespace BaccaratGame.UI.Components
 {
     /// <summary>
-    /// 筹码选择区域组件 - 正确布局版本
-    /// 严格按照规划实现：左侧更多按钮 + 中间5个筹码 + 右侧续压按钮
+    /// 筹码选择区域组件 - 完整自创建版本
+    /// 从空GameObject开始创建完整的筹码选择UI
     /// </summary>
     public class ChipSelectionArea : MonoBehaviour
     {
@@ -49,6 +50,10 @@ namespace BaccaratGame.UI.Components
         public Color textColor = Color.white;
         [Tooltip("文字大小")]
         public int fontSize = 16;
+        [Tooltip("选中时的缩放比例")]
+        public float selectedScale = 1.15f;
+        [Tooltip("缩放动画时间")]
+        public float animationDuration = 0.2f;
 
         [Header("💰 筹码配置")]
         [Tooltip("5个默认筹码数值")]
@@ -59,6 +64,8 @@ namespace BaccaratGame.UI.Components
         [Header("🔗 资源路径")]
         [Tooltip("筹码图片资源路径")]
         public string chipImagePath = "Images/chips/";
+        [Tooltip("手动指定筹码图片数组（可选，优先级最高）")]
+        public Sprite[] manualChipSprites;
 
         [Header("🐛 调试")]
         public bool enableDebugMode = true;
@@ -67,10 +74,9 @@ namespace BaccaratGame.UI.Components
 
         #region 私有字段
 
-        // 防重复创建
-        private static HashSet<ChipSelectionArea> instances = new HashSet<ChipSelectionArea>();
-        private int instanceId;
-        private static int idCounter = 0;
+        // 单例防重复
+        private static ChipSelectionArea instance;
+        private static bool isQuitting = false;
 
         // 状态标志
         private bool isInitialized = false;
@@ -90,6 +96,15 @@ namespace BaccaratGame.UI.Components
         // 选择状态
         private int selectedChipIndex = -1;
 
+        // 预定义颜色
+        private readonly Color[] chipColors = {
+            new Color(0.2f, 0.6f, 1f, 1f),    // 蓝色 - 2
+            new Color(0f, 0.8f, 0.4f, 1f),    // 绿色 - 10
+            new Color(0f, 0.8f, 0.8f, 1f),    // 青色 - 20
+            new Color(0.3f, 0.5f, 1f, 1f),    // 蓝色 - 50
+            new Color(0.6f, 0.6f, 0.6f, 1f)   // 灰色 - 100
+        };
+
         #endregion
 
         #region 事件定义
@@ -104,33 +119,70 @@ namespace BaccaratGame.UI.Components
 
         #endregion
 
+        #region 单例模式
+
+        /// <summary>
+        /// 获取单例实例
+        /// </summary>
+        public static ChipSelectionArea Instance
+        {
+            get
+            {
+                if (isQuitting) return null;
+                
+                if (instance == null)
+                {
+                    instance = FindObjectOfType<ChipSelectionArea>();
+                    if (instance == null)
+                    {
+                        LogStaticDebug("未找到现有实例，需要手动创建ChipSelectionArea GameObject");
+                    }
+                }
+                return instance;
+            }
+        }
+
+        /// <summary>
+        /// 确保单例唯一性
+        /// </summary>
+        private void EnsureSingleton()
+        {
+            if (instance == null)
+            {
+                instance = this;
+                DontDestroyOnLoad(gameObject);
+                LogDebug("设置为单例实例并标记为DontDestroyOnLoad");
+            }
+            else if (instance != this)
+            {
+                LogDebug("发现重复实例，销毁当前对象");
+                Destroy(gameObject);
+            }
+        }
+
+        #endregion
+
         #region Unity生命周期
 
         private void Awake()
         {
-            instanceId = ++idCounter;
-            instances.Add(this);
-
-            LogDebug($"Awake - 实例{instanceId}开始初始化");
-
-            // 检查重复实例
-            if (CheckForDuplicates())
-            {
-                LogDebug($"发现重复实例，销毁实例{instanceId}");
-                return;
-            }
+            LogDebug("Awake - 开始初始化");
+            
+            // 确保单例
+            EnsureSingleton();
+            if (instance != this) return;
 
             // 基础初始化
             InitializeComponent();
-
-            LogDebug($"Awake完成 - 实例{instanceId}");
+            
+            LogDebug("Awake完成");
         }
 
         private void Start()
         {
-            if (!IsValidInstance()) return;
-
-            LogDebug($"Start - 实例{instanceId}");
+            if (instance != this) return;
+            
+            LogDebug("Start - 开始");
 
             // 自动创建UI
             if (autoCreateAndShow)
@@ -138,18 +190,26 @@ namespace BaccaratGame.UI.Components
                 CreateChipSelectionUI();
             }
 
-            LogDebug($"Start完成 - 实例{instanceId}");
+            LogDebug("Start完成");
+        }
+
+        private void OnApplicationQuit()
+        {
+            isQuitting = true;
         }
 
         private void OnDestroy()
         {
-            LogDebug($"OnDestroy - 实例{instanceId}");
-            instances.Remove(this);
+            if (instance == this)
+            {
+                instance = null;
+            }
+            LogDebug("OnDestroy");
         }
 
         #endregion
 
-        #region 🔧 初始化和重复检查
+        #region 🔧 初始化
 
         /// <summary>
         /// 初始化组件
@@ -174,7 +234,7 @@ namespace BaccaratGame.UI.Components
                 rectTransform.sizeDelta = new Vector2(0f, chipBarHeight);
 
                 isInitialized = true;
-                LogDebug($"组件初始化完成 - 实例{instanceId}");
+                LogDebug("组件初始化完成");
             }
             catch (Exception ex)
             {
@@ -182,42 +242,12 @@ namespace BaccaratGame.UI.Components
             }
         }
 
-        /// <summary>
-        /// 检查重复实例
-        /// </summary>
-        private bool CheckForDuplicates()
-        {
-            foreach (var instance in instances)
-            {
-                if (instance != null && instance != this && 
-                    instance.gameObject.name == this.gameObject.name &&
-                    instance.isUICreated)
-                {
-                    // 销毁当前重复实例
-                    if (Application.isPlaying)
-                        Destroy(this.gameObject);
-                    else
-                        DestroyImmediate(this.gameObject);
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// 检查实例有效性
-        /// </summary>
-        private bool IsValidInstance()
-        {
-            return this != null && gameObject != null && instances.Contains(this);
-        }
-
         #endregion
 
-        #region 🎨 UI创建 - 按规划实现
+        #region 🎨 UI创建
 
         /// <summary>
-        /// 创建筹码选择UI - 严格按照规划
+        /// 创建筹码选择UI
         /// </summary>
         public void CreateChipSelectionUI()
         {
@@ -231,7 +261,7 @@ namespace BaccaratGame.UI.Components
 
             try
             {
-                LogDebug($"开始创建筹码选择UI - 实例{instanceId}");
+                LogDebug("开始创建筹码选择UI");
 
                 // 第1步：创建背景
                 CreateBackground();
@@ -243,7 +273,7 @@ namespace BaccaratGame.UI.Components
                 CreateButtonsInOrder();
 
                 isUICreated = true;
-                LogDebug($"UI创建完成 - 实例{instanceId}");
+                LogDebug("UI创建完成");
 
                 // 确保持久显示
                 if (persistentDisplay)
@@ -290,12 +320,9 @@ namespace BaccaratGame.UI.Components
                 layoutGroup = gameObject.AddComponent<HorizontalLayoutGroup>();
             }
 
-            // 🔥 修复：运行时创建RectOffset，避免构造函数错误
-            RectOffset layoutPadding = new RectOffset(paddingLeft, paddingRight, paddingTop, paddingBottom);
-
             // 配置布局参数
             layoutGroup.spacing = spacing;
-            layoutGroup.padding = layoutPadding;
+            layoutGroup.padding = new RectOffset(paddingLeft, paddingRight, paddingTop, paddingBottom);
             layoutGroup.childAlignment = TextAnchor.MiddleCenter;
             layoutGroup.childControlWidth = false;
             layoutGroup.childControlHeight = false;
@@ -325,20 +352,20 @@ namespace BaccaratGame.UI.Components
         }
 
         /// <summary>
-        /// 创建左侧更多按钮
+        /// 创建更多按钮
         /// </summary>
         private void CreateMoreButton()
         {
-            GameObject buttonObj = CreateButtonObject("MoreButton");
-            moreButton = SetupButtonComponent(buttonObj, sideButtonSize);
+            GameObject moreObj = CreateButton("MoreChipPanel", sideButtonSize);
+            moreButton = moreObj.GetComponent<Button>();
 
-            // 设置更多按钮样式
+            // 设置按钮样式
             SetButtonStyle(moreButton, new Color(0.3f, 0.3f, 0.3f, 1f));
-            
-            // 添加文字
-            CreateButtonText(buttonObj, "...", fontSize + 2);
 
-            // 添加点击事件
+            // 创建文字
+            CreateButtonText(moreObj, "...", fontSize);
+
+            // 设置事件
             moreButton.onClick.AddListener(() => {
                 LogDebug("更多按钮被点击");
                 OnMoreButtonClicked?.Invoke();
@@ -348,7 +375,7 @@ namespace BaccaratGame.UI.Components
         }
 
         /// <summary>
-        /// 创建中间5个筹码按钮
+        /// 创建筹码按钮
         /// </summary>
         private void CreateChipButtons()
         {
@@ -357,57 +384,61 @@ namespace BaccaratGame.UI.Components
             for (int i = 0; i < chipValues.Length; i++)
             {
                 int value = chipValues[i];
-                string imageName = i < chipImageNames.Length ? chipImageNames[i] : "B_01";
-
-                // 创建筹码按钮
-                GameObject buttonObj = CreateButtonObject($"ChipButton_{value}");
-                Button button = SetupButtonComponent(buttonObj, chipSize);
-
-                // 🔥 先设置默认样式和文字，确保按钮可见
-                SetButtonStyle(button, GetChipColor(i));
-                CreateButtonText(buttonObj, value.ToString(), fontSize);
-
-                // 尝试加载筹码图片（如果成功则覆盖默认样式）
-                bool imageLoaded = LoadChipImage(buttonObj, imageName);
                 
-                if (imageLoaded)
+                // 优先使用手动配置的图片名称，否则自动生成
+                string imageName = "";
+                if (i < chipImageNames.Length && !string.IsNullOrEmpty(chipImageNames[i]))
                 {
-                    // 图片加载成功，隐藏文字或调整透明度
-                    Text buttonText = buttonObj.GetComponentInChildren<Text>();
-                    if (buttonText != null)
-                    {
-                        buttonText.color = new Color(buttonText.color.r, buttonText.color.g, buttonText.color.b, 0.8f);
-                    }
+                    imageName = chipImageNames[i];
+                }
+                else
+                {
+                    imageName = GenerateChipImageName(value);
                 }
 
-                // 添加点击事件
-                int chipIndex = i; // 闭包变量
-                button.onClick.AddListener(() => {
-                    SelectChip(chipIndex);
-                });
+                GameObject chipObj = CreateButton($"Chip{i + 1}", chipSize);
+                chipButtons[i] = chipObj.GetComponent<Button>();
 
-                chipButtons[i] = button;
-                LogDebug($"筹码按钮 {value} 创建完成 (图片加载: {(imageLoaded ? "成功" : "失败")})");
+                // 设置按钮样式和颜色
+                Color chipColor = i < chipColors.Length ? chipColors[i] : Color.gray;
+                SetButtonStyle(chipButtons[i], chipColor);
+
+                // 尝试加载图片，失败则创建文字
+                if (!LoadChipImage(chipObj, imageName))
+                {
+                    CreateButtonText(chipObj, value.ToString(), fontSize);
+                    LogDebug($"筹码 {value} 使用文字显示（图片加载失败）");
+                }
+                else
+                {
+                    LogDebug($"筹码 {value} 使用图片显示：{imageName}");
+                }
+
+                // 设置事件（使用闭包变量）
+                int chipIndex = i;
+                chipButtons[i].onClick.AddListener(() => SelectChip(chipIndex));
+
+                LogDebug($"筹码按钮 {value} 创建完成");
             }
 
             LogDebug($"所有筹码按钮创建完成，共{chipButtons.Length}个");
         }
 
         /// <summary>
-        /// 创建右侧续压按钮
+        /// 创建续压按钮
         /// </summary>
         private void CreateRebetButton()
         {
-            GameObject buttonObj = CreateButtonObject("RebetButton");
-            rebetButton = SetupButtonComponent(buttonObj, sideButtonSize);
+            GameObject rebetObj = CreateButton("xuyaChip", sideButtonSize);
+            rebetButton = rebetObj.GetComponent<Button>();
 
-            // 设置续压按钮样式
-            SetButtonStyle(rebetButton, new Color(1f, 0.8f, 0f, 1f)); // 金色
-            
-            // 添加文字
-            CreateButtonText(buttonObj, "续压", fontSize);
+            // 设置按钮样式
+            SetButtonStyle(rebetButton, new Color(0.3f, 0.3f, 0.3f, 1f));
 
-            // 添加点击事件
+            // 创建文字
+            CreateButtonText(rebetObj, "续压", fontSize);
+
+            // 设置事件
             rebetButton.onClick.AddListener(() => {
                 LogDebug("续压按钮被点击");
                 OnRebetButtonClicked?.Invoke();
@@ -418,41 +449,29 @@ namespace BaccaratGame.UI.Components
 
         #endregion
 
-        #region 🔨 按钮创建辅助方法
+        #region 🔧 UI工具方法
 
         /// <summary>
         /// 创建按钮GameObject
         /// </summary>
-        private GameObject CreateButtonObject(string name)
+        private GameObject CreateButton(string name, Vector2 size)
         {
-            string uniqueName = $"{name}_{instanceId}";
-            
-            GameObject buttonObj = new GameObject(uniqueName);
+            GameObject buttonObj = new GameObject(name);
             buttonObj.transform.SetParent(transform);
-            
-            RectTransform rectTrans = buttonObj.AddComponent<RectTransform>();
-            rectTrans.localScale = Vector3.one;
-            
-            return buttonObj;
-        }
 
-        /// <summary>
-        /// 设置按钮组件
-        /// </summary>
-        private Button SetupButtonComponent(GameObject buttonObj, Vector2 size)
-        {
-            // 设置大小
-            RectTransform rectTrans = buttonObj.GetComponent<RectTransform>();
-            rectTrans.sizeDelta = size;
+            // 设置RectTransform
+            RectTransform rect = buttonObj.AddComponent<RectTransform>();
+            rect.sizeDelta = size;
+            rect.localScale = Vector3.one;
 
-            // 添加Image组件
+            // 添加Image组件（按钮需要）
             Image image = buttonObj.AddComponent<Image>();
-            image.color = Color.white;
+            image.sprite = CreateSolidSprite(Color.white);
 
             // 添加Button组件
             Button button = buttonObj.AddComponent<Button>();
-            
-            return button;
+
+            return buttonObj;
         }
 
         /// <summary>
@@ -488,11 +507,10 @@ namespace BaccaratGame.UI.Components
             Text textComp = textObj.AddComponent<Text>();
             textComp.text = text;
             
-            // 🔥 修复：使用LegacyRuntime.ttf替代Arial.ttf
+            // 获取默认字体
             Font defaultFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
             if (defaultFont == null)
             {
-                // 如果LegacyRuntime也没有，尝试使用Arial
                 defaultFont = Resources.GetBuiltinResource<Font>("Arial.ttf");
             }
             textComp.font = defaultFont;
@@ -506,68 +524,73 @@ namespace BaccaratGame.UI.Components
         }
 
         /// <summary>
-        /// 加载筹码图片
+        /// 生成筹码图片文件名
         /// </summary>
+        private string GenerateChipImageName(int chipValue)
+        {
+            // 根据筹码数值生成对应的图片文件名
+            // 规则：B_01.png, B_10.png, B_20.png, B_50.png, B_100.png
+            switch (chipValue)
+            {
+                case 1: return "B_01";
+                case 2: return "B_01";  // 使用B_01作为2的图片
+                case 5: return "B_05";
+                case 10: return "B_10";
+                case 20: return "B_20";
+                case 50: return "B_50";
+                case 100: return "B_100";
+                case 200: return "B_200";
+                case 500: return "B_500";
+                case 1000: return "B_1K";
+                case 5000: return "B_5K";
+                case 10000: return "B_10K";
+                case 20000: return "B_20K";
+                case 50000: return "B_50K";
+                case 100000: return "B_100K";
+                case 200000: return "B_200K";
+                case 500000: return "B_500K";
+                case 1000000: return "B_1M";
+                case 5000000: return "B_5M";
+                case 10000000: return "B_10M";
+                case 20000000: return "B_20M";
+                case 50000000: return "B_50M";
+                case 100000000: return "B_100M";
+                case 200000000: return "B_200M";
+                case 500000000: return "B_500M";
+                case 1000000000: return "B_1000M";
+                default: return $"B_{chipValue}";
+            }
+        }
         private bool LoadChipImage(GameObject buttonObj, string imageName)
         {
+            if (string.IsNullOrEmpty(imageName)) return false;
+
             try
             {
-                LogDebug($"尝试加载图片: {imageName}");
-                
                 string fullPath = chipImagePath + imageName;
                 Sprite sprite = Resources.Load<Sprite>(fullPath);
                 
-                if (sprite == null)
-                {
-                    LogDebug($"图片未找到: {fullPath}，尝试PNG格式");
-                    // 尝试带.png扩展名
-                    sprite = Resources.Load<Sprite>(fullPath + ".png");
-                }
-                
-                if (sprite == null)
-                {
-                    LogDebug($"尝试不带路径加载: {imageName}");
-                    // 尝试直接加载图片名
-                    sprite = Resources.Load<Sprite>("Images/chips/" + imageName);
-                }
-
                 if (sprite != null)
                 {
-                    Image buttonImage = buttonObj.GetComponent<Image>();
-                    buttonImage.sprite = sprite;
-                    buttonImage.type = Image.Type.Simple;
-                    buttonImage.preserveAspect = true;
-                    
-                    LogDebug($"✅ 成功加载图片: {imageName}");
-                    return true;
+                    Image image = buttonObj.GetComponent<Image>();
+                    if (image != null)
+                    {
+                        image.sprite = sprite;
+                        LogDebug($"成功加载筹码图片: {fullPath}");
+                        return true;
+                    }
                 }
                 else
                 {
-                    LogDebug($"❌ 图片加载失败: {imageName}，将使用文字显示");
-                    return false;
+                    LogDebug($"未找到筹码图片: {fullPath}");
                 }
             }
             catch (Exception ex)
             {
-                LogError($"加载图片异常 {imageName}: {ex.Message}");
-                return false;
+                LogDebug($"加载筹码图片失败: {ex.Message}");
             }
-        }
 
-        /// <summary>
-        /// 获取筹码默认颜色
-        /// </summary>
-        private Color GetChipColor(int index)
-        {
-            Color[] colors = {
-                new Color(0f, 0.8f, 0f, 1f),     // 绿色 - 2
-                new Color(0f, 0.5f, 1f, 1f),     // 蓝色 - 10  
-                new Color(1f, 0.5f, 0f, 1f),     // 橙色 - 20
-                new Color(0.8f, 0f, 0.8f, 1f),   // 紫色 - 40
-                new Color(1f, 0f, 0f, 1f)        // 红色 - 100
-            };
-            
-            return index < colors.Length ? colors[index] : Color.gray;
+            return false;
         }
 
         /// <summary>
@@ -590,7 +613,7 @@ namespace BaccaratGame.UI.Components
         /// </summary>
         private void SelectChip(int chipIndex)
         {
-            if (chipIndex < 0 || chipIndex >= chipButtons.Length) return;
+            if (chipButtons == null || chipIndex < 0 || chipIndex >= chipButtons.Length) return;
 
             // 取消之前选择
             if (selectedChipIndex >= 0 && selectedChipIndex < chipButtons.Length)
@@ -602,7 +625,7 @@ namespace BaccaratGame.UI.Components
             selectedChipIndex = chipIndex;
             SetChipSelected(chipIndex, true);
 
-            int chipValue = chipValues[chipIndex];
+            int chipValue = chipIndex < chipValues.Length ? chipValues[chipIndex] : 0;
             LogDebug($"选择筹码: {chipValue}");
 
             // 触发事件
@@ -614,15 +637,15 @@ namespace BaccaratGame.UI.Components
         /// </summary>
         private void SetChipSelected(int chipIndex, bool selected)
         {
-            if (chipIndex < 0 || chipIndex >= chipButtons.Length) return;
+            if (chipButtons == null || chipIndex < 0 || chipIndex >= chipButtons.Length) return;
             if (chipButtons[chipIndex] == null) return;
 
             Transform buttonTransform = chipButtons[chipIndex].transform;
-            Vector3 targetScale = selected ? Vector3.one * 1.15f : Vector3.one;
+            Vector3 targetScale = selected ? Vector3.one * selectedScale : Vector3.one;
             
             if (Application.isPlaying)
             {
-                StartCoroutine(ScaleAnimation(buttonTransform, targetScale, 0.2f));
+                StartCoroutine(ScaleAnimation(buttonTransform, targetScale, animationDuration));
             }
             else
             {
@@ -633,7 +656,7 @@ namespace BaccaratGame.UI.Components
         /// <summary>
         /// 缩放动画
         /// </summary>
-        private System.Collections.IEnumerator ScaleAnimation(Transform target, Vector3 targetScale, float duration)
+        private IEnumerator ScaleAnimation(Transform target, Vector3 targetScale, float duration)
         {
             if (target == null) yield break;
 
@@ -716,6 +739,16 @@ namespace BaccaratGame.UI.Components
         }
 
         /// <summary>
+        /// 重新创建UI
+        /// </summary>
+        [ContextMenu("🔄 重新创建UI")]
+        public void RecreateUI()
+        {
+            ClearUI();
+            CreateChipSelectionUI();
+        }
+
+        /// <summary>
         /// 获取选中筹码值
         /// </summary>
         public int GetSelectedChipValue()
@@ -743,6 +776,37 @@ namespace BaccaratGame.UI.Components
             LogDebug($"未找到值为 {value} 的筹码");
         }
 
+        /// <summary>
+        /// 清除选择
+        /// </summary>
+        public void ClearSelection()
+        {
+            if (selectedChipIndex >= 0 && selectedChipIndex < chipButtons.Length)
+            {
+                SetChipSelected(selectedChipIndex, false);
+            }
+            selectedChipIndex = -1;
+            LogDebug("已清除筹码选择");
+        }
+
+        /// <summary>
+        /// 设置筹码数值配置
+        /// </summary>
+        public void SetChipValues(int[] newValues)
+        {
+            if (newValues != null && newValues.Length > 0)
+            {
+                chipValues = newValues;
+                LogDebug($"筹码数值已更新: [{string.Join(", ", chipValues)}]");
+                
+                // 如果UI已创建，重新创建以应用新配置
+                if (isUICreated)
+                {
+                    RecreateUI();
+                }
+            }
+        }
+
         #endregion
 
         #region 🐛 调试方法
@@ -754,8 +818,16 @@ namespace BaccaratGame.UI.Components
         {
             if (enableDebugMode)
             {
-                Debug.Log($"[ChipSelectionArea-{instanceId}] {message}");
+                Debug.Log($"[ChipSelectionArea] {message}");
             }
+        }
+
+        /// <summary>
+        /// 静态调试日志
+        /// </summary>
+        private static void LogStaticDebug(string message)
+        {
+            Debug.Log($"[ChipSelectionArea-Static] {message}");
         }
 
         /// <summary>
@@ -763,7 +835,7 @@ namespace BaccaratGame.UI.Components
         /// </summary>
         private void LogError(string message)
         {
-            Debug.LogError($"[ChipSelectionArea-{instanceId}] ❌ {message}");
+            Debug.LogError($"[ChipSelectionArea] ❌ {message}");
         }
 
         /// <summary>
@@ -772,20 +844,58 @@ namespace BaccaratGame.UI.Components
         [ContextMenu("📊 显示状态")]
         public void ShowStatus()
         {
-            Debug.Log($"=== ChipSelectionArea-{instanceId} 状态 ===");
-            Debug.Log($"🆔 实例ID: {instanceId}");
+            Debug.Log("=== ChipSelectionArea 状态 ===");
             Debug.Log($"🔧 已初始化: {isInitialized}");
             Debug.Log($"🎨 UI已创建: {isUICreated}");
             Debug.Log($"🔥 自动创建: {autoCreateAndShow}");
             Debug.Log($"💎 持久显示: {persistentDisplay}");
             Debug.Log($"🎯 选中筹码: {GetSelectedChipValue()}");
             Debug.Log($"📋 筹码配置: [{string.Join(", ", chipValues)}]");
-            Debug.Log($"📊 活动实例数: {instances.Count}");
+            Debug.Log($"🏠 单例实例: {(instance == this ? "是" : "否")}");
             
             // 检查按钮状态
             Debug.Log($"更多按钮: {(moreButton != null ? "✓" : "✗")}");
             Debug.Log($"筹码按钮: {(chipButtons != null ? chipButtons.Length : 0)}个");
             Debug.Log($"续压按钮: {(rebetButton != null ? "✓" : "✗")}");
+        }
+
+        /// <summary>
+        /// 测试所有按钮功能
+        /// </summary>
+        [ContextMenu("🧪 测试按钮功能")]
+        public void TestButtonFunctions()
+        {
+            LogDebug("开始测试按钮功能...");
+
+            // 测试更多按钮
+            if (moreButton != null)
+            {
+                LogDebug("测试更多按钮点击");
+                moreButton.onClick.Invoke();
+            }
+
+            // 测试筹码按钮
+            if (chipButtons != null)
+            {
+                for (int i = 0; i < chipButtons.Length; i++)
+                {
+                    if (chipButtons[i] != null)
+                    {
+                        LogDebug($"测试筹码按钮{i+1}点击");
+                        chipButtons[i].onClick.Invoke();
+                        break; // 只测试第一个
+                    }
+                }
+            }
+
+            // 测试续压按钮
+            if (rebetButton != null)
+            {
+                LogDebug("测试续压按钮点击");
+                rebetButton.onClick.Invoke();
+            }
+
+            LogDebug("按钮功能测试完成");
         }
 
         #endregion
