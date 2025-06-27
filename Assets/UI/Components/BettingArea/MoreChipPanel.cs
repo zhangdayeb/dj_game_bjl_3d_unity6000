@@ -26,7 +26,7 @@ namespace BaccaratGame.UI.Components
         public bool showOnAwake = false;
 
         [Header("面板尺寸和位置")]
-        public Vector2 panelSize = new Vector2(700, 500);
+        public Vector2 panelSize = new Vector2(750, 750);
         
         [Header("专业黑色系风格")]
         public Color panelBackgroundColor = new Color(0.06f, 0.06f, 0.06f, 0.98f);  // 深黑背景
@@ -36,11 +36,7 @@ namespace BaccaratGame.UI.Components
         public Color borderColor = new Color(0.3f, 0.3f, 0.3f, 1f);                // 边框
 
         [Header("筹码配置 - 与您的图片文件完全对应")]
-        public int[] allAvailableChips = { 
-            1, 5, 10, 20, 50, 100, 500, 1000, 5000, 10000, 
-            20000, 50000, 100000, 200000, 1000000, 10000000, 
-            20000000, 50000000, 100000000, 200000000, 500000000, 1000000000
-        };
+        public int[] allAvailableChips = { 1, 5, 10, 20, 50, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000 };
         
         [Header("默认选择")]
         public int[] defaultSelectedChips = { 5, 10, 20, 50, 100 };
@@ -49,7 +45,7 @@ namespace BaccaratGame.UI.Components
         [Header("网格布局")]
         public Vector2 buttonSize = new Vector2(85, 85);
         public Vector2 spacing = new Vector2(18, 18);
-        public int columnsPerRow = 6;
+        public int columnsPerRow = 8;
         public float topPadding = 20f;
         public float sidePadding = 25f;
         
