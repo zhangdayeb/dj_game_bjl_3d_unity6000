@@ -293,27 +293,70 @@ namespace BaccaratGame.Editor
             // 例如：使用第三方压缩工具进一步压缩文件
         }
         
+
+
         /// <summary>
-        /// 优化加载性能 - 🔥 修复文件名引用
+        /// 优化加载性能 - 🔥 修正文件名引用
         /// </summary>
         private static void OptimizeLoadingPerformance(string buildPath)
         {
-            Debug.Log("[WebGLBuildProcessor] 优化加载性能...");
+            Debug.Log("[WebGLBuildProcessor] 优化加载性能并修正文件名引用...");
             
             string indexPath = Path.Combine(buildPath, "index.html");
             if (File.Exists(indexPath))
             {
                 string content = File.ReadAllText(indexPath);
                 
-                // 🔥 修复预加载提示，使用正确的文件名
-                content = content.Replace("</head>", 
-                    "  <link rel=\"preload\" as=\"script\" href=\"Build/build.loader.js\">\n" +
-                    "  <link rel=\"preload\" as=\"fetch\" href=\"Build/build.wasm\" crossorigin>\n" +
-                    "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n" +
-                    "</head>");
+                // 🔥 获取实际的文件名
+                string buildDataPath = Path.Combine(buildPath, "Build");
+                if (Directory.Exists(buildDataPath))
+                {
+                    // 查找实际的文件
+                    string[] loaderFiles = Directory.GetFiles(buildDataPath, "*.loader.js");
+                    string[] wasmFiles = Directory.GetFiles(buildDataPath, "*.wasm");
+                    string[] frameworkFiles = Directory.GetFiles(buildDataPath, "*.framework.js");
+                    string[] dataFiles = Directory.GetFiles(buildDataPath, "*.data");
+                    
+                    if (loaderFiles.Length > 0 && wasmFiles.Length > 0 && frameworkFiles.Length > 0 && dataFiles.Length > 0)
+                    {
+                        string actualLoaderFile = Path.GetFileName(loaderFiles[0]);
+                        string actualWasmFile = Path.GetFileName(wasmFiles[0]);
+                        string actualFrameworkFile = Path.GetFileName(frameworkFiles[0]);
+                        string actualDataFile = Path.GetFileName(dataFiles[0]);
+                        
+                        // 🔥 替换所有错误的文件名引用
+                        content = content.Replace("Build/build.loader.js", $"Build/{actualLoaderFile}");
+                        content = content.Replace("Build/UnityLoader.js", $"Build/{actualLoaderFile}");
+                        content = content.Replace("Build/build.wasm", $"Build/{actualWasmFile}");
+                        content = content.Replace("Build/build.framework.js", $"Build/{actualFrameworkFile}");
+                        content = content.Replace("Build/build.data", $"Build/{actualDataFile}");
+                        
+                        // 🔥 修正预加载提示
+                        content = content.Replace("</head>", 
+                            $"  <link rel=\"preload\" as=\"script\" href=\"Build/{actualLoaderFile}\">\n" +
+                            $"  <link rel=\"preload\" as=\"fetch\" href=\"Build/{actualWasmFile}\" crossorigin>\n" +
+                            "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n" +
+                            "</head>");
+                        
+                        // 🔥 如果HTML中有Unity配置，也要修正
+                        string configPattern = @"dataUrl:\s*[""']Build/[^""']*\.data[""']";
+                        string frameworkPattern = @"frameworkUrl:\s*[""']Build/[^""']*\.framework\.js[""']";
+                        string codePattern = @"codeUrl:\s*[""']Build/[^""']*\.wasm[""']";
+                        
+                        content = System.Text.RegularExpressions.Regex.Replace(content, configPattern, $"dataUrl: \"Build/{actualDataFile}\"");
+                        content = System.Text.RegularExpressions.Regex.Replace(content, frameworkPattern, $"frameworkUrl: \"Build/{actualFrameworkFile}\"");
+                        content = System.Text.RegularExpressions.Regex.Replace(content, codePattern, $"codeUrl: \"Build/{actualWasmFile}\"");
+                        
+                        Debug.Log($"[WebGLBuildProcessor] 文件名修正完成:");
+                        Debug.Log($"  Loader: {actualLoaderFile}");
+                        Debug.Log($"  WASM: {actualWasmFile}");
+                        Debug.Log($"  Framework: {actualFrameworkFile}");
+                        Debug.Log($"  Data: {actualDataFile}");
+                    }
+                }
                 
                 File.WriteAllText(indexPath, content);
-                Debug.Log("[WebGLBuildProcessor] 添加预加载优化（使用固定文件名）");
+                Debug.Log("[WebGLBuildProcessor] 加载性能优化和文件名修正完成");
             }
         }
         
