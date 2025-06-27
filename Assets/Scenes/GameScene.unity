@@ -233,7 +233,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 257005301}
-  - component: {fileID: 257005302}
   m_Layer: 5
   m_Name: ChipSelectionArea
   m_TagString: Untagged
@@ -260,18 +259,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &257005302
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 257005300}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1431ce6114e25924a931be1cb985ab9e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &348795948
 GameObject:
   m_ObjectHideFlags: 0
@@ -774,9 +761,19 @@ MonoBehaviour:
   m_GameObject: {fileID: 1378498793}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8b9399afb9b404944b55bdfdbcd8e86c, type: 3}
+  m_Script: {fileID: 11500000, guid: 74721281d9bcfa74bbc15127b62ed74f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  roadmapUrl: https://h5lzv3.wuming888.com/zh/bjl_xc_big_678.html
+  tableId: 1
+  userId: 824
+  autoAddTimestamp: 1
+  iframeContainerId: roadmap-container
+  iframeWidth: 100%
+  iframeHeight: 300
+  autoLoadOnStart: 1
+  loadDelay: 0.5
+  enableDebugMode: 1
 --- !u!1 &1412854529
 GameObject:
   m_ObjectHideFlags: 0
@@ -889,7 +886,7 @@ Canvas:
   m_OverridePixelPerfect: 0
   m_SortingBucketNormalizedSize: 0
   m_VertexColorAlwaysGammaSpace: 0
-  m_AdditionalShaderChannelsFlag: 0
+  m_AdditionalShaderChannelsFlag: 25
   m_UpdateRectTransformForStandalone: 0
   m_SortingLayerID: 0
   m_SortingOrder: 0
@@ -958,7 +955,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1661259826}
-  - component: {fileID: 1661259827}
   m_Layer: 5
   m_Name: MoreChipPanel
   m_TagString: Untagged
@@ -985,18 +981,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1661259827
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1661259825}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9b5f35787be971f4aaf1fb85a4fe4307, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &1692911721
 GameObject:
   m_ObjectHideFlags: 0
@@ -1077,11 +1061,23 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1833697899}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c6783e0ecb6de494cbb6aa58fa9fa2b1, type: 3}
+  m_Script: {fileID: 11500000, guid: a3149bc9f788b824c8b8479e5166fee8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  containerSize: {x: 800, y: 120}
+  titleFontSize: 24
+  oddsFontSize: 16
+  numberFontSize: 14
+  playerButtonSprite: {fileID: 0}
+  bankerButtonSprite: {fileID: 0}
+  tieButtonSprite: {fileID: 0}
+  playerCountIcon: {fileID: 0}
+  amountIcon: {fileID: 0}
+  spritePath: Images/BettingButtons/
+  iconPath: Images/Icons/
+  enableDebugMode: 1
 --- !u!1 &1883737555
 GameObject:
   m_ObjectHideFlags: 0
@@ -1091,7 +1087,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1883737556}
-  - component: {fileID: 1883737557}
   m_Layer: 5
   m_Name: SideBetButton
   m_TagString: Untagged
@@ -1118,18 +1113,6 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 100, y: 100}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &1883737557
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1883737555}
-  m_Enabled: 0
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 0b26f7fdae0d37f41a4ffd68360ecc75, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!1 &2021724768
 GameObject:
   m_ObjectHideFlags: 0
