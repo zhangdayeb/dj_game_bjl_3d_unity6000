@@ -955,6 +955,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1661259826}
+  - component: {fileID: 1661259827}
   m_Layer: 5
   m_Name: MoreChipPanel
   m_TagString: Untagged
@@ -981,6 +982,28 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1661259827
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1661259825}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e02ca3b7028241f469906a3f841231f7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  autoCreateAndShow: 1
+  showOnAwake: 1
+  panelSize: {x: 650, y: 500}
+  allAvailableChips: 01000000050000000a000000140000003200000064000000f4010000e80300008813000010270000204e000050c30000a0860100
+  defaultSelectedChips: 050000000a000000140000003200000064000000
+  maxSelectionCount: 5
+  panelBackgroundColor: {r: 0.06, g: 0.06, b: 0.06, a: 0.98}
+  selectedBorderColor: {r: 0, g: 1, b: 0.6, a: 1}
+  selectedScale: 1.08
+  enableDebugMode: 0
 --- !u!1 &1692911721
 GameObject:
   m_ObjectHideFlags: 0

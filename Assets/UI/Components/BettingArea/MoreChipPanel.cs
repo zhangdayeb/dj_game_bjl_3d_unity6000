@@ -2,6 +2,7 @@
 // 筹码配置面板组件 - 修复边框覆盖问题版本
 // 修复选中边框覆盖筹码图片的问题，移除悬停效果
 // 修复时间: 2025/6/27
+// 新增: 修复重复创建UI组件问题
 
 using System;
 using System.Collections;
@@ -88,6 +89,10 @@ namespace BaccaratGame.UI.Components
         private bool isVisible = false;
         private Coroutine animationCoroutine;
         
+        // 新增：防止重复创建的状态标记
+        private bool isCreatingUI = false;
+        private bool isDestroying = false;
+        
         // UI组件
         private GameObject panelRoot;
         private GameObject mainPanel;
@@ -139,10 +144,17 @@ namespace BaccaratGame.UI.Components
 
         private void OnDestroy()
         {
+            // 新增：设置销毁标记
+            isDestroying = true;
+            
             if (animationCoroutine != null)
             {
                 StopCoroutine(animationCoroutine);
+                animationCoroutine = null;
             }
+            
+            // 新增：清理资源
+            CleanupUI();
         }
 
         #endregion
@@ -183,6 +195,24 @@ namespace BaccaratGame.UI.Components
 
         private void CreateCanvasIfNeeded()
         {
+            // 新增：检查是否已存在Canvas，避免重复创建
+            if (parentCanvas != null) return;
+
+            // 先尝试查找现有的Canvas
+            GameObject existingCanvas = GameObject.Find("MoreChipPanelCanvas");
+            if (existingCanvas != null)
+            {
+                Canvas existingCanvasComp = existingCanvas.GetComponent<Canvas>();
+                if (existingCanvasComp != null)
+                {
+                    parentCanvas = existingCanvasComp;
+                    transform.SetParent(existingCanvasComp.transform, false);
+                    if (enableDebugMode)
+                        Debug.Log("[MoreChipPanel] 找到现有Canvas，复用中");
+                    return;
+                }
+            }
+
             GameObject canvasObj = new GameObject("MoreChipPanelCanvas");
             Canvas canvas = canvasObj.AddComponent<Canvas>();
             canvas.renderMode = RenderMode.ScreenSpaceOverlay;
@@ -196,6 +226,9 @@ namespace BaccaratGame.UI.Components
             
             transform.SetParent(canvasObj.transform, false);
             parentCanvas = canvas;
+            
+            if (enableDebugMode)
+                Debug.Log("[MoreChipPanel] 创建新Canvas");
         }
 
         #endregion
@@ -204,7 +237,37 @@ namespace BaccaratGame.UI.Components
 
         private void CreatePanelUI()
         {
-            if (panelUICreated) return;
+            // 新增：严格的重复创建检查
+            if (panelUICreated)
+            {
+                if (enableDebugMode)
+                    Debug.LogWarning("[MoreChipPanel] 面板UI已存在，跳过创建");
+                return;
+            }
+
+            if (isCreatingUI)
+            {
+                if (enableDebugMode)
+                    Debug.LogWarning("[MoreChipPanel] 正在创建UI中，跳过重复请求");
+                return;
+            }
+
+            if (isDestroying)
+            {
+                if (enableDebugMode)
+                    Debug.LogWarning("[MoreChipPanel] 组件正在销毁，取消创建");
+                return;
+            }
+
+            // 新增：检查是否已存在panelRoot
+            if (panelRoot != null)
+            {
+                if (enableDebugMode)
+                    Debug.LogWarning("[MoreChipPanel] 检测到现有panelRoot，先清理再创建");
+                CleanupUI();
+            }
+
+            isCreatingUI = true;
 
             try
             {
@@ -217,7 +280,10 @@ namespace BaccaratGame.UI.Components
                 GenerateChipButtons();
                 
                 panelUICreated = true;
-                panelRoot.SetActive(false);
+                if (panelRoot != null)
+                {
+                    panelRoot.SetActive(false);
+                }
 
                 if (enableDebugMode)
                     Debug.Log("[MoreChipPanel] 专业黑色系面板创建完成");
@@ -225,6 +291,12 @@ namespace BaccaratGame.UI.Components
             catch (Exception ex)
             {
                 Debug.LogError($"[MoreChipPanel] 创建面板失败: {ex.Message}");
+                // 新增：创建失败时清理
+                CleanupUI();
+            }
+            finally
+            {
+                isCreatingUI = false;
             }
         }
 
@@ -532,6 +604,14 @@ namespace BaccaratGame.UI.Components
 
         private bool CreateChipButton(int chipValue)
         {
+            // 新增：防止重复创建相同筹码按钮
+            if (chipButtonDataMap.ContainsKey(chipValue))
+            {
+                if (enableDebugMode)
+                    Debug.LogWarning($"[MoreChipPanel] 筹码 {chipValue} 按钮已存在，跳过创建");
+                return false;
+            }
+
             // 1. 创建按钮对象
             GameObject buttonObj = new GameObject($"ChipButton_{chipValue}");
             buttonObj.transform.SetParent(chipContainer, false);
@@ -728,17 +808,27 @@ namespace BaccaratGame.UI.Components
 
         private void ClearAllChipButtons()
         {
-            foreach (var pair in chipButtonDataMap)
+            try
             {
-                if (pair.Value.buttonObject != null)
+                foreach (var pair in chipButtonDataMap)
                 {
-                    if (Application.isPlaying)
-                        Destroy(pair.Value.buttonObject);
-                    else
-                        DestroyImmediate(pair.Value.buttonObject);
+                    if (pair.Value.buttonObject != null)
+                    {
+                        if (Application.isPlaying)
+                            Destroy(pair.Value.buttonObject);
+                        else
+                            DestroyImmediate(pair.Value.buttonObject);
+                    }
                 }
+                chipButtonDataMap.Clear();
+                
+                if (enableDebugMode)
+                    Debug.Log("[MoreChipPanel] 筹码按钮清理完成");
             }
-            chipButtonDataMap.Clear();
+            catch (Exception ex)
+            {
+                Debug.LogError($"[MoreChipPanel] 清理筹码按钮失败: {ex.Message}");
+            }
         }
 
         private Font GetDefaultFont()
@@ -947,9 +1037,32 @@ namespace BaccaratGame.UI.Components
 
         public void Show()
         {
+            // 新增：防止在销毁过程中显示
+            if (isDestroying)
+            {
+                if (enableDebugMode)
+                    Debug.LogWarning("[MoreChipPanel] 组件正在销毁，无法显示");
+                return;
+            }
+
             if (!panelUICreated)
             {
                 CreatePanelUI();
+                
+                // 新增：检查创建是否成功
+                if (!panelUICreated)
+                {
+                    Debug.LogError("[MoreChipPanel] UI创建失败，无法显示面板");
+                    return;
+                }
+            }
+
+            // 新增：检查是否已经可见
+            if (isVisible)
+            {
+                if (enableDebugMode)
+                    Debug.LogWarning("[MoreChipPanel] 面板已经可见");
+                return;
             }
 
             if (panelRoot != null)
@@ -998,6 +1111,56 @@ namespace BaccaratGame.UI.Components
 
         #endregion
 
+        #region 新增：清理方法
+
+        private void CleanupUI()
+        {
+            try
+            {
+                // 清理协程
+                if (animationCoroutine != null)
+                {
+                    StopCoroutine(animationCoroutine);
+                    animationCoroutine = null;
+                }
+
+                // 清理筹码按钮
+                ClearAllChipButtons();
+
+                // 清理UI组件引用
+                statusText = null;
+                confirmButton = null;
+                resetButton = null;
+                scrollView = null;
+                gridLayout = null;
+                chipContainer = null;
+
+                // 销毁根面板
+                if (panelRoot != null)
+                {
+                    if (Application.isPlaying)
+                        Destroy(panelRoot);
+                    else
+                        DestroyImmediate(panelRoot);
+                    panelRoot = null;
+                }
+
+                // 重置状态
+                panelUICreated = false;
+                isVisible = false;
+                isCreatingUI = false;
+
+                if (enableDebugMode)
+                    Debug.Log("[MoreChipPanel] UI清理完成");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[MoreChipPanel] UI清理失败: {ex.Message}");
+            }
+        }
+
+        #endregion
+
         #region 公共接口
 
         public void SetSelectedChips(int[] chips)
@@ -1039,6 +1202,8 @@ namespace BaccaratGame.UI.Components
             Debug.Log("=== MoreChipPanel 状态 ===");
             Debug.Log($"面板已创建: {panelUICreated}");
             Debug.Log($"是否可见: {isVisible}");
+            Debug.Log($"正在创建UI: {isCreatingUI}");
+            Debug.Log($"正在销毁: {isDestroying}");
             Debug.Log($"筹码按钮数量: {chipButtonDataMap.Count}");
             Debug.Log($"当前选择: [{string.Join(", ", currentSelectedChips)}]");
             
@@ -1057,21 +1222,8 @@ namespace BaccaratGame.UI.Components
         [ContextMenu("清除UI")]
         public void ClearUI()
         {
-            ClearAllChipButtons();
-            
-            if (panelRoot != null)
-            {
-                if (Application.isPlaying)
-                    Destroy(panelRoot);
-                else
-                    DestroyImmediate(panelRoot);
-                panelRoot = null;
-            }
-            
-            panelUICreated = false;
-            isVisible = false;
-            
-            Debug.Log("[MoreChipPanel] UI已清除");
+            CleanupUI();
+            Debug.Log("[MoreChipPanel] UI已手动清除");
         }
 
         #endregion
