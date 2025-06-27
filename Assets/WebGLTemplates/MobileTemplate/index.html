@@ -33,23 +33,131 @@
     <!-- Stylesheets -->
     <link rel="stylesheet" href="TemplateData/style.css">
     
-    <!-- 自定义样式 -->
+    <!-- 分层布局样式 -->
     <style>
-        /* 全局样式重置 */
+        /* 全局重置 */
         * {
             box-sizing: border-box;
             margin: 0;
             padding: 0;
         }
         
-        body {
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
             font-family: 'Arial', 'Microsoft YaHei', sans-serif;
             background: #000;
-            overflow: hidden;
-            user-select: none;
         }
         
-        /* 加载界面样式 */
+        /* 主容器 - 相对定位 */
+        .game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* ========================================
+           底层：iframe层 (z-index: 1-10)
+         ======================================== */
+        
+        /* 路单iframe - 底部固定 */
+        .roadmap-layer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 25vh; /* 固定高度 25% */
+            min-height: 150px;
+            z-index: 1;
+            background: #f5f5f5;
+        }
+        
+        .roadmap-layer iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+            background: #f5f5f5;
+        }
+        
+        /* 视频iframe层 - 顶部固定，两个重叠 */
+        .video-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 40vh; /* 固定高度 40% */
+            min-height: 240px;
+            z-index: 2;
+        }
+        
+        /* 远景视频iframe */
+        .video-far-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 3;
+            display: none; /* 默认隐藏 */
+        }
+        
+        .video-far-layer iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+            background: #000;
+        }
+        
+        /* 近景视频iframe */
+        .video-near-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 4;
+            display: block; /* 默认显示近景 */
+        }
+        
+        .video-near-layer iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+            background: #000;
+        }
+        
+        /* ========================================
+           顶层：Unity Canvas层 (z-index: 999)
+         ======================================== */
+        
+        .unity-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            pointer-events: auto; /* 确保能接收所有交互事件 */
+        }
+        
+        #unity-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: transparent !important; /* 完全透明 */
+            border: none;
+            outline: none;
+        }
+        
+        /* ========================================
+           加载界面
+         ======================================== */
+        
         .loading-overlay {
             position: fixed;
             top: 0;
@@ -61,7 +169,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 9999;
+            z-index: 10000;
             color: white;
         }
         
@@ -182,112 +290,6 @@
             color: #4CAF50;
         }
         
-        /* 游戏主界面 */
-        .game-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: #000;
-            display: none;
-        }
-        
-        .game-layout {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        
-        /* 视频区域 - 顶部固定 */
-        .video-section {
-            position: relative;
-            height: 40vh;
-            min-height: 300px;
-            background: #1a1a1a;
-            border-bottom: 2px solid #333;
-        }
-        
-        /* Unity游戏区域 - 中间自适应 */
-        .unity-section {
-            flex: 1;
-            position: relative;
-            background: #000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 0; /* 重要：允许flex收缩 */
-        }
-        
-        #unity-canvas {
-            width: 100% !important;
-            height: 100% !important;
-            max-width: 100%;
-            max-height: 100%;
-            border-radius: 0;
-            object-fit: contain;
-            display: block;
-        }
-        
-        /* 路单区域 - 底部固定 */
-        .roadmap-section {
-            position: relative;
-            height: 25vh;
-            min-height: 200px;
-            background: #2a2a2a;
-            border-top: 2px solid #333;
-        }
-        
-        /* iframe 基础样式 */
-        .iframe-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #fff;
-        }
-        
-        .iframe-container iframe {
-            width: 100%;
-            height: 100%;
-            border: none;
-            display: block;
-        }
-        
-        /* 视频iframe样式 */
-        .video-iframe-container {
-            background: #000;
-        }
-        
-        .video-iframe-container iframe {
-            background: #000;
-        }
-        
-        /* 路单iframe样式 */
-        .roadmap-iframe-container {
-            background: #f5f5f5;
-        }
-        
-        .roadmap-iframe-container iframe {
-            background: #f5f5f5;
-        }
-        
-        /* 区域标签 */
-        .section-label {
-            position: absolute;
-            top: 5px;
-            left: 10px;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 10px;
-            z-index: 100;
-            pointer-events: none;
-        }
-        
         /* 错误界面 */
         .error-overlay {
             position: fixed;
@@ -301,7 +303,7 @@
             justify-content: center;
             align-items: center;
             color: white;
-            z-index: 10000;
+            z-index: 10001;
             text-align: center;
             padding: 20px;
         }
@@ -340,6 +342,22 @@
             transform: translateY(-1px);
         }
         
+        /* 调试信息 */
+        .debug-info {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: #0f0;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-family: monospace;
+            z-index: 9999;
+            display: none;
+            max-width: 250px;
+        }
+        
         /* 动画效果 */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -357,14 +375,14 @@
         
         /* 响应式设计 */
         @media (max-width: 768px) {
-            .video-section {
+            .video-layer {
                 height: 35vh;
-                min-height: 250px;
+                min-height: 200px;
             }
             
-            .roadmap-section {
+            .roadmap-layer {
                 height: 20vh;
-                min-height: 150px;
+                min-height: 120px;
             }
             
             .loading-title {
@@ -377,14 +395,14 @@
         }
         
         @media (max-width: 480px) {
-            .video-section {
+            .video-layer {
                 height: 30vh;
-                min-height: 200px;
+                min-height: 180px;
             }
             
-            .roadmap-section {
+            .roadmap-layer {
                 height: 18vh;
-                min-height: 120px;
+                min-height: 100px;
             }
         }
     </style>
@@ -400,14 +418,12 @@
             detectEnvironment: function() {
                 const userAgent = navigator.userAgent;
                 
-                // 检测模拟器
                 this.isSimulator = window.navigator.webdriver || 
                                   window.outerHeight === 0 || 
                                   window.outerWidth === 0 ||
                                   userAgent.includes('HeadlessChrome') ||
                                   (window.chrome && window.chrome.runtime);
                 
-                // 检测移动设备
                 this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
                 
                 return { isSimulator: this.isSimulator, isMobile: this.isMobile };
@@ -564,35 +580,32 @@
         </div>
     </div>
     
-    <!-- 游戏主界面 -->
-    <div class="game-container" id="game-container">
-        <div class="game-layout">
-            <!-- 视频区域 - 顶部 -->
-            <div class="video-section">
-                <div class="section-label">视频直播区</div>
-                <!-- 远景视频 -->
-                <div id="video-far-container" class="iframe-container video-iframe-container" style="display: none;">
-                    <!-- iframe will be inserted here -->
-                </div>
-                <!-- 近景视频 -->
-                <div id="video-near-container" class="iframe-container video-iframe-container" style="display: none;">
-                    <!-- iframe will be inserted here -->
-                </div>
+    <!-- 游戏主界面 - 分层结构 -->
+    <div class="game-container" id="game-container" style="display: none;">
+        
+        <!-- 底层1：路单iframe - 固定底部 -->
+        <div class="roadmap-layer" id="roadmap-layer">
+            <!-- 路单iframe将被动态插入这里 -->
+        </div>
+        
+        <!-- 底层2：视频iframe区域 - 固定顶部 -->
+        <div class="video-layer">
+            <!-- 远景视频iframe -->
+            <div class="video-far-layer" id="video-far-layer">
+                <!-- 远景iframe将被动态插入这里 -->
             </div>
             
-            <!-- Unity游戏区域 - 中间 -->
-            <div class="unity-section">
-                <canvas id="unity-canvas" tabindex="-1"></canvas>
-            </div>
-            
-            <!-- 路单区域 - 底部 -->
-            <div class="roadmap-section">
-                <div class="section-label">游戏路单</div>
-                <div id="roadmap-container" class="iframe-container roadmap-iframe-container" style="display: none;">
-                    <!-- iframe will be inserted here -->
-                </div>
+            <!-- 近景视频iframe -->
+            <div class="video-near-layer" id="video-near-layer">
+                <!-- 近景iframe将被动态插入这里 -->
             </div>
         </div>
+        
+        <!-- 顶层：Unity Canvas - 完全透明的交互层 -->
+        <div class="unity-layer">
+            <canvas id="unity-canvas" tabindex="-1"></canvas>
+        </div>
+        
     </div>
     
     <!-- 错误界面 -->
@@ -608,6 +621,15 @@
         </div>
     </div>
     
+    <!-- 调试信息 -->
+    <div class="debug-info" id="debug-info">
+        <div>设备: <span id="debug-device">-</span></div>
+        <div>像素比: <span id="debug-ratio">-</span></div>
+        <div>Canvas: <span id="debug-canvas">-</span></div>
+        <div>视频层: <span id="debug-video">-</span></div>
+        <div>路单层: <span id="debug-roadmap">-</span></div>
+    </div>
+    
     <!-- Unity脚本 -->
     <script src="Build/{{{ LOADER_FILENAME }}}"></script>
     
@@ -616,44 +638,48 @@
     <script src="TemplateData/safari-compatibility.js"></script>
     <script src="TemplateData/error-handler.js"></script>
     
-    <!-- 百家乐专用iframe管理器 -->
+    <!-- 分层iframe管理器 -->
     <script>
-        // 百家乐iframe管理器
-        window.BaccaratIframeManager = {
+        // 分层iframe管理器
+        window.LayeredIframeManager = {
             containers: new Map(),
             
             // iframe类型定义
             IFRAME_TYPES: {
-                VIDEO_FAR: 'video-far',      // 远景视频
-                VIDEO_NEAR: 'video-near',    // 近景视频  
-                ROADMAP: 'roadmap'           // 路单
+                VIDEO_FAR: 'video-far',      // 远景视频 - 顶部层
+                VIDEO_NEAR: 'video-near',    // 近景视频 - 顶部层
+                ROADMAP: 'roadmap'           // 路单 - 底部层
             },
             
             // 创建iframe
             createIframe: function(containerId, url) {
                 try {
-                    console.log('🎯 创建百家乐iframe:', containerId, url);
+                    console.log('🎯 创建分层iframe:', containerId, url);
                     
                     // 确定iframe类型和目标容器
                     let targetContainer, iframeType;
                     
-                    if (containerId.includes('video') || containerId.includes('camera')) {
-                        // 视频iframe - 检查是远景还是近景
-                        if (containerId.includes('far') || containerId.includes('wide') || containerId.includes('overview')) {
-                            targetContainer = document.getElementById('video-far-container');
-                            iframeType = this.IFRAME_TYPES.VIDEO_FAR;
-                        } else {
-                            targetContainer = document.getElementById('video-near-container');
-                            iframeType = this.IFRAME_TYPES.VIDEO_NEAR;
-                        }
-                    } else if (containerId.includes('roadmap') || containerId.includes('road') || containerId.includes('history')) {
-                        // 路单iframe
-                        targetContainer = document.getElementById('roadmap-container');
+                    if (containerId.includes('roadmap') || containerId.includes('road') || containerId.includes('history')) {
+                        // 路单iframe - 底部固定
+                        targetContainer = document.getElementById('roadmap-layer');
                         iframeType = this.IFRAME_TYPES.ROADMAP;
+                        console.log('📊 路单iframe -> 底部层');
+                    } else if (containerId.includes('video') || containerId.includes('camera')) {
+                        // 视频iframe - 顶部固定
+                        if (containerId.includes('far') || containerId.includes('wide') || containerId.includes('overview')) {
+                            targetContainer = document.getElementById('video-far-layer');
+                            iframeType = this.IFRAME_TYPES.VIDEO_FAR;
+                            console.log('📹 远景视频iframe -> 顶部远景层');
+                        } else {
+                            targetContainer = document.getElementById('video-near-layer');
+                            iframeType = this.IFRAME_TYPES.VIDEO_NEAR;
+                            console.log('📹 近景视频iframe -> 顶部近景层');
+                        }
                     } else {
                         // 默认为近景视频
-                        targetContainer = document.getElementById('video-near-container');
+                        targetContainer = document.getElementById('video-near-layer');
                         iframeType = this.IFRAME_TYPES.VIDEO_NEAR;
+                        console.log('📹 默认视频iframe -> 顶部近景层');
                     }
                     
                     if (!targetContainer) {
@@ -672,6 +698,9 @@
                         height: 100%;
                         border: none;
                         display: block;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
                     `;
                     
                     // 根据类型设置iframe属性
@@ -680,13 +709,15 @@
                         iframe.setAttribute('scrolling', 'auto');
                         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms');
                         iframe.style.background = '#f5f5f5';
+                        iframe.style.zIndex = '1';
                     } else {
-                        // 视频iframe配置
+                        // 视频iframe配置  
                         iframe.setAttribute('allowfullscreen', 'true');
                         iframe.setAttribute('scrolling', 'no');
                         iframe.setAttribute('allow', 'autoplay; fullscreen; camera; microphone');
                         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-presentation');
                         iframe.style.background = '#000';
+                        iframe.style.zIndex = iframeType === this.IFRAME_TYPES.VIDEO_FAR ? '3' : '4';
                     }
                     
                     iframe.setAttribute('frameborder', '0');
@@ -694,9 +725,7 @@
                     // iframe事件处理
                     iframe.onload = () => {
                         console.log(`✅ ${iframeType} iframe加载完成:`, url);
-                        
-                        // 尝试优化iframe内容
-                        this.optimizeIframeContent(iframe, iframeType);
+                        this.updateDebugInfo();
                     };
                     
                     iframe.onerror = (error) => {
@@ -706,7 +735,17 @@
                     
                     // 添加到容器
                     targetContainer.appendChild(iframe);
-                    targetContainer.style.display = 'block';
+                    
+                    // 显示容器（如果是视频iframe，需要显示对应的层）
+                    if (iframeType === this.IFRAME_TYPES.VIDEO_FAR) {
+                        targetContainer.style.display = 'block';
+                        // 隐藏近景
+                        document.getElementById('video-near-layer').style.display = 'none';
+                    } else if (iframeType === this.IFRAME_TYPES.VIDEO_NEAR) {
+                        targetContainer.style.display = 'block';
+                        // 隐藏远景
+                        document.getElementById('video-far-layer').style.display = 'none';
+                    }
                     
                     // 保存引用
                     this.containers.set(containerId, {
@@ -717,6 +756,7 @@
                     });
                     
                     console.log(`✅ ${iframeType} iframe创建成功:`, containerId);
+                    this.updateDebugInfo();
                     return true;
                     
                 } catch (error) {
@@ -725,108 +765,26 @@
                 }
             },
             
-            // 优化iframe内容
-            optimizeIframeContent: function(iframe, type) {
-                try {
-                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                    if (!iframeDoc) return;
-                    
-                    const style = iframeDoc.createElement('style');
-                    
-                    if (type === this.IFRAME_TYPES.ROADMAP) {
-                        // 路单样式优化
-                        style.textContent = `
-                            body { 
-                                margin: 0; 
-                                padding: 8px; 
-                                font-family: Arial, sans-serif;
-                                background: #f8f9fa;
-                                overflow-x: auto;
-                                font-size: 12px;
-                            }
-                            table { 
-                                width: 100%; 
-                                border-collapse: collapse; 
-                                margin-bottom: 10px;
-                            }
-                            th, td { 
-                                padding: 4px 6px; 
-                                border: 1px solid #ddd; 
-                                text-align: center;
-                                font-size: 11px;
-                            }
-                            th { 
-                                background: #e9ecef; 
-                                font-weight: bold;
-                            }
-                            .roadmap-grid {
-                                display: grid;
-                                gap: 2px;
-                                padding: 4px;
-                            }
-                            .road-item {
-                                min-height: 20px;
-                                display: flex;
-                                align-items: center;
-                                justify-content: center;
-                                font-size: 10px;
-                                border-radius: 2px;
-                            }
-                        `;
-                    } else {
-                        // 视频样式优化
-                        style.textContent = `
-                            body { 
-                                margin: 0; 
-                                padding: 0; 
-                                background: #000;
-                                overflow: hidden;
-                            }
-                            video {
-                                width: 100%;
-                                height: 100%;
-                                object-fit: cover;
-                            }
-                            .video-controls {
-                                position: absolute;
-                                bottom: 10px;
-                                left: 50%;
-                                transform: translateX(-50%);
-                                background: rgba(0,0,0,0.7);
-                                padding: 5px 10px;
-                                border-radius: 4px;
-                                color: white;
-                                font-size: 12px;
-                            }
-                        `;
-                    }
-                    
-                    iframeDoc.head.appendChild(style);
-                    console.log(`📝 ${type} iframe样式优化完成`);
-                    
-                } catch (e) {
-                    console.log(`⚠️ 无法优化${type} iframe内容 (跨域限制):`, e.message);
-                }
-            },
-            
             // 显示iframe错误
             showIframeError: function(container, url, type) {
                 const errorContent = `
                     <div style="display: flex; flex-direction: column; justify-content: center; 
-                                align-items: center; height: 100%; background: ${type === this.IFRAME_TYPES.ROADMAP ? '#f5f5f5' : '#1a1a1a'}; 
-                                color: ${type === this.IFRAME_TYPES.ROADMAP ? '#333' : '#fff'}; text-align: center; padding: 20px;">
+                                align-items: center; height: 100%; 
+                                background: ${type === this.IFRAME_TYPES.ROADMAP ? '#f5f5f5' : '#1a1a1a'}; 
+                                color: ${type === this.IFRAME_TYPES.ROADMAP ? '#333' : '#fff'}; 
+                                text-align: center; padding: 20px; position: absolute; top: 0; left: 0; width: 100%;">
                         <div style="font-size: 24px; margin-bottom: 10px;">
                             ${type === this.IFRAME_TYPES.ROADMAP ? '📊' : '📹'}
                         </div>
-                        <h4 style="margin-bottom: 8px;">
+                        <h4 style="margin-bottom: 8px; font-size: 14px;">
                             ${type === this.IFRAME_TYPES.ROADMAP ? '路单加载失败' : '视频加载失败'}
                         </h4>
-                        <p style="margin-bottom: 15px; opacity: 0.7; font-size: 12px;">
-                            无法连接到: ${url.length > 50 ? url.substring(0, 50) + '...' : url}
+                        <p style="margin-bottom: 15px; opacity: 0.7; font-size: 11px;">
+                            无法连接: ${url.length > 40 ? url.substring(0, 40) + '...' : url}
                         </p>
-                        <button onclick="window.BaccaratIframeManager.retryLoad('${container.id}', '${url}')" 
+                        <button onclick="window.LayeredIframeManager.retryLoad('${container.id}', '${url}')" 
                                 style="background: #007bff; color: white; border: none; 
-                                       padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                       padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 11px;">
                             重新加载
                         </button>
                     </div>
@@ -852,6 +810,7 @@
                 if (containerData) {
                     containerData.container.style.display = visible ? 'block' : 'none';
                     console.log(`🔄 ${containerData.type} 可见性:`, visible ? '显示' : '隐藏');
+                    this.updateDebugInfo();
                     return true;
                 }
                 return false;
@@ -877,9 +836,12 @@
                 const containerData = this.containers.get(containerId);
                 if (containerData) {
                     containerData.container.innerHTML = '';
-                    containerData.container.style.display = 'none';
+                    if (containerData.type !== this.IFRAME_TYPES.ROADMAP) {
+                        containerData.container.style.display = 'none';
+                    }
                     this.containers.delete(containerId);
                     console.log(`🗑️ ${containerData.type} iframe已销毁`);
+                    this.updateDebugInfo();
                     return true;
                 }
                 return false;
@@ -887,17 +849,33 @@
             
             // 切换视频源（远景/近景）
             switchVideoSource: function(toFar = true) {
-                const farContainer = document.getElementById('video-far-container');
-                const nearContainer = document.getElementById('video-near-container');
+                const farLayer = document.getElementById('video-far-layer');
+                const nearLayer = document.getElementById('video-near-layer');
                 
                 if (toFar) {
-                    farContainer.style.display = 'block';
-                    nearContainer.style.display = 'none';
+                    farLayer.style.display = 'block';
+                    nearLayer.style.display = 'none';
                     console.log('📹 切换到远景视频');
                 } else {
-                    farContainer.style.display = 'none';
-                    nearContainer.style.display = 'block';
+                    farLayer.style.display = 'none';
+                    nearLayer.style.display = 'block';
                     console.log('📹 切换到近景视频');
+                }
+                this.updateDebugInfo();
+            },
+            
+            // 更新调试信息
+            updateDebugInfo: function() {
+                const debugDiv = document.getElementById('debug-info');
+                if (debugDiv && debugDiv.style.display !== 'none') {
+                    const farLayer = document.getElementById('video-far-layer');
+                    const nearLayer = document.getElementById('video-near-layer');
+                    const roadmapLayer = document.getElementById('roadmap-layer');
+                    
+                    document.getElementById('debug-video').textContent = 
+                        `远景:${farLayer.style.display !== 'none' ? '显示' : '隐藏'} 近景:${nearLayer.style.display !== 'none' ? '显示' : '隐藏'}`;
+                    document.getElementById('debug-roadmap').textContent = 
+                        roadmapLayer.innerHTML ? '已加载' : '未加载';
                 }
             }
         };
@@ -907,30 +885,30 @@
             const parts = containerIdAndUrl.split(',');
             const containerId = parts[0];
             const url = parts.slice(1).join(',');
-            return window.BaccaratIframeManager.createIframe(containerId, url);
+            return window.LayeredIframeManager.createIframe(containerId, url);
         };
         
         window.setIframeVisibility = function(containerIdAndVisibility) {
             const parts = containerIdAndVisibility.split(',');
             const containerId = parts[0];
             const visible = parts[1] === '1';
-            return window.BaccaratIframeManager.setVisibility(containerId, visible);
+            return window.LayeredIframeManager.setVisibility(containerId, visible);
         };
         
         window.refreshIframe = function(containerId) {
-            return window.BaccaratIframeManager.refresh(containerId);
+            return window.LayeredIframeManager.refresh(containerId);
         };
         
         window.destroyIframe = function(containerId) {
-            return window.BaccaratIframeManager.destroyIframe(containerId);
+            return window.LayeredIframeManager.destroyIframe(containerId);
         };
         
         // 切换视频源的全局函数
         window.switchVideoSource = function(toFar) {
-            return window.BaccaratIframeManager.switchVideoSource(toFar);
+            return window.LayeredIframeManager.switchVideoSource(toFar);
         };
         
-        console.log('🎰 百家乐iframe管理器已加载');
+        console.log('🎰 分层iframe管理器已加载');
     </script>
     
     <!-- 加载管理器 -->
@@ -943,7 +921,7 @@
                 { id: 'step-webgl', name: 'WebGL初始化', duration: 800 },
                 { id: 'step-loader', name: 'Unity Loader', duration: 2000 },
                 { id: 'step-framework', name: 'Framework加载', duration: 3000 },
-                { id: 'step-assets', name: '资源下载', duration: 0 }, // 动态计算
+                { id: 'step-assets', name: '资源下载', duration: 0 },
                 { id: 'step-complete', name: '启动完成', duration: 500 }
             ],
             currentStepIndex: 0,
@@ -958,11 +936,8 @@
             },
             
             init: function() {
-                // 计算总文件大小
                 const totalSize = Object.values(this.fileSizes).reduce((a, b) => a + b, 0);
                 document.getElementById('estimated-size').textContent = this.formatBytes(totalSize * 1024);
-                
-                // 开始第一步
                 this.nextStep();
             },
             
@@ -975,7 +950,6 @@
             },
             
             activateStep: function(stepId) {
-                // 标记前面的步骤为完成
                 for (let i = 0; i < this.currentStepIndex; i++) {
                     const prevStep = document.getElementById(this.steps[i].id);
                     if (prevStep) {
@@ -984,14 +958,12 @@
                     }
                 }
                 
-                // 激活当前步骤
                 const currentStep = document.getElementById(stepId);
                 if (currentStep) {
                     currentStep.className = 'loading-step active';
                     currentStep.querySelector('.step-icon').textContent = '⏳';
                 }
                 
-                // 更新状态文本
                 const stepName = this.steps.find(s => s.id === stepId)?.name || '处理中';
                 document.getElementById('progress-status').textContent = stepName + '...';
             },
@@ -1006,7 +978,6 @@
                     document.getElementById('progress-status').textContent = status;
                 }
                 
-                // 显示时间估算
                 this.updateTimeEstimate();
             },
             
@@ -1024,7 +995,6 @@
             },
             
             complete: function() {
-                // 标记所有步骤完成
                 this.steps.forEach(step => {
                     const stepEl = document.getElementById(step.id);
                     if (stepEl) {
@@ -1035,7 +1005,6 @@
                 
                 this.updateProgress(100, '游戏准备完成');
                 
-                // 延迟隐藏加载界面
                 setTimeout(() => {
                     document.getElementById('loading-overlay').style.display = 'none';
                     document.getElementById('game-container').style.display = 'block';
@@ -1085,7 +1054,7 @@
         // DOM元素
         const canvas = document.querySelector("#unity-canvas");
         
-        // Canvas初始化
+        // Canvas初始化 - 完全透明的全屏交互层
         function initializeCanvas() {
             DeviceCompatibilityManager.detectEnvironment();
             
@@ -1094,16 +1063,45 @@
             
             const optimalSize = DeviceCompatibilityManager.getOptimalCanvasSize(targetWidth, targetHeight);
             
+            // 设置Canvas内部分辨率
             canvas.width = optimalSize.width;
             canvas.height = optimalSize.height;
             
-            // Unity区域自适应，Canvas会自动缩放
-            canvas.style.maxWidth = '100%';
-            canvas.style.maxHeight = '100%';
-            canvas.style.objectFit = 'contain';
+            // 🔥 关键：设置Canvas为完全透明的全屏交互层
+            canvas.style.width = '100%';
+            canvas.style.height = '100%';
+            canvas.style.position = 'absolute';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.background = 'transparent'; // 完全透明
+            canvas.style.zIndex = '999'; // 最高层级
+            canvas.style.pointerEvents = 'auto'; // 接收所有交互事件
+            canvas.style.border = 'none';
+            canvas.style.outline = 'none';
             
             console.log(`✅ Canvas初始化: ${optimalSize.width}x${optimalSize.height}`);
+            console.log(`🔍 Canvas样式: 透明全屏交互层 (z-index: 999)`);
+            
+            // 更新调试信息
+            updateDebugInfo();
+            
             return optimalSize;
+        }
+        
+        // 更新调试信息
+        function updateDebugInfo() {
+            const debugDiv = document.getElementById('debug-info');
+            if (DeviceCompatibilityManager.isSimulator) {
+                debugDiv.style.display = 'block';
+                
+                document.getElementById('debug-device').textContent = 
+                    DeviceCompatibilityManager.isSimulator ? '模拟器' : 
+                    DeviceCompatibilityManager.isMobile ? '移动' : '桌面';
+                document.getElementById('debug-ratio').textContent = 
+                    (window.devicePixelRatio || 1).toFixed(2);
+                document.getElementById('debug-canvas').textContent = 
+                    `${canvas.width}x${canvas.height}`;
+            }
         }
         
         // 等待Unity Loader
@@ -1154,8 +1152,8 @@
         
         // Unity资源加载进度回调
         function updateUnityProgress(progress) {
-            const baseProgress = 60; // 前面步骤占60%
-            const unityProgress = baseProgress + (progress * 35); // Unity资源加载占35%
+            const baseProgress = 60;
+            const unityProgress = baseProgress + (progress * 35);
             
             LoadingManager.updateProgress(unityProgress, `下载游戏资源 ${Math.round(progress * 100)}%`);
         }
@@ -1169,7 +1167,7 @@
         // Unity初始化主流程
         async function initializeUnity() {
             try {
-                console.log('🚀 开始Unity初始化...');
+                console.log('🚀 开始Unity分层初始化...');
                 
                 // 步骤1: 环境检测 (0-10%)
                 LoadingManager.updateProgress(5, '检测设备环境...');
@@ -1196,8 +1194,8 @@
                 LoadingManager.nextStep();
                 LoadingManager.updateProgress(60, '游戏框架初始化完成');
                 
-                // 步骤5: 创建Unity实例和资源加载 (60-95%)
-                LoadingManager.updateProgress(65, '创建游戏实例...');
+                // 步骤5: 创建Unity实例 (60-95%)
+                LoadingManager.updateProgress(65, '创建透明游戏实例...');
                 window.gameConfig = DeviceCompatibilityManager.getOptimizedUnityConfig();
                 
                 unityInstance = await createUnityInstance(canvas, window.gameConfig, updateUnityProgress);
@@ -1205,7 +1203,7 @@
                 LoadingManager.nextStep();
                 
                 // 步骤6: 完成 (95-100%)
-                LoadingManager.updateProgress(98, '启动游戏...');
+                LoadingManager.updateProgress(98, '启动分层游戏界面...');
                 
                 // 初始化游戏桥接
                 if (window.unityBridge) {
@@ -1218,7 +1216,9 @@
                 LoadingManager.nextStep();
                 LoadingManager.complete();
                 
-                console.log("✅ Unity百家乐游戏初始化完成!");
+                console.log("✅ Unity分层百家乐游戏初始化完成!");
+                console.log("🎯 Canvas: 透明交互层 (z-index: 999)");
+                console.log("🎯 iframe: 背景内容层 (z-index: 1-10)");
                 
                 // 发送URL参数
                 setTimeout(() => {
@@ -1262,13 +1262,18 @@
         }
         
         function contactSupport() {
-            // 这里可以添加客服联系逻辑
             alert('请联系客服获取技术支持\n\n客服QQ: 123456789\n客服微信: support123');
+        }
+        
+        function toggleDebugInfo() {
+            const debugDiv = document.getElementById('debug-info');
+            const isVisible = debugDiv.style.display !== 'none';
+            debugDiv.style.display = isVisible ? 'none' : 'block';
         }
         
         // 页面初始化
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🎰 百家乐游戏页面加载完成');
+            console.log('🎰 分层百家乐游戏页面加载完成');
             
             // 检查兼容性模式
             const savedCompatMode = localStorage.getItem('baccarat-compatibility-mode');
@@ -1305,7 +1310,7 @@
             }
         });
         
-        console.log('🎰 百家乐游戏 - 专业版本已加载');
+        console.log('🎰 分层百家乐游戏 - 透明Canvas + 底层iframe架构已加载');
     </script>
 
 </body>
