@@ -1,6 +1,6 @@
 // Assets/UI/Components/BettingArea/ChipSelectionArea.cs
-// 筹码选择区域组件 - 完整自创建版本
-// 功能：自动创建UI、持久显示、防重复、逻辑绑定
+// 筹码选择区域组件 - 修复版本
+// 修复：1.移除文字显示 2.修正位置显示
 // 修改时间: 2025/6/27
 
 using System;
@@ -12,8 +12,8 @@ using UnityEngine.UI;
 namespace BaccaratGame.UI.Components
 {
     /// <summary>
-    /// 筹码选择区域组件 - 完整自创建版本
-    /// 从空GameObject开始创建完整的筹码选择UI
+    /// 筹码选择区域组件 - 修复版本
+    /// 修复位置显示和移除文字显示
     /// </summary>
     public class ChipSelectionArea : MonoBehaviour
     {
@@ -47,11 +47,11 @@ namespace BaccaratGame.UI.Components
         [Tooltip("下边距")]
         public int paddingBottom = 10;
 
-        [Header("📍 按钮布局")]
-        [Tooltip("按钮位置")]
-        public Vector2 buttonPosition = Vector2.zero;
-        [Tooltip("自动居中")]
-        public bool autoCenter = true;
+        [Header("📍 位置设置")]
+        [Tooltip("距离屏幕底部的偏移")]
+        public float bottomOffset = 0f;
+        [Tooltip("强制使用屏幕空间坐标")]
+        public bool useScreenSpace = true;
 
         [Header("🎨 UI样式")]
         [Tooltip("普通状态颜色")]
@@ -66,18 +66,6 @@ namespace BaccaratGame.UI.Components
         public Color disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
         [Tooltip("背景颜色")]
         public Color backgroundColor = new Color(0f, 0f, 0f, 0.8f);
-        [Tooltip("按钮文字颜色")]
-        public Color textColor = Color.white;
-        [Tooltip("数字颜色")]
-        public Color numberColor = Color.yellow;
-
-        [Header("📝 字体设置")]
-        [Tooltip("文字大小")]
-        public int fontSize = 16;
-        [Tooltip("数字文字大小")]
-        public int numberFontSize = 18;
-        [Tooltip("字体样式")]
-        public FontStyle fontStyle = FontStyle.Bold;
 
         [Header("🎬 动画设置")]
         [Tooltip("启用选择动画")]
@@ -264,7 +252,7 @@ namespace BaccaratGame.UI.Components
         #region 🔧 初始化
 
         /// <summary>
-        /// 初始化组件
+        /// 初始化组件 - 修复位置设置
         /// </summary>
         private void InitializeComponent()
         {
@@ -279,11 +267,11 @@ namespace BaccaratGame.UI.Components
                     rectTransform = gameObject.AddComponent<RectTransform>();
                 }
 
-                // 设置为屏幕底部锚点 - 宽度100%，高度固定
-                rectTransform.anchorMin = new Vector2(0f, 0f);
-                rectTransform.anchorMax = new Vector2(1f, 0f);
-                rectTransform.anchoredPosition = Vector2.zero;
-                rectTransform.sizeDelta = new Vector2(0f, chipBarHeight); // 宽度0表示使用锚点拉伸，高度使用chipBarHeight
+                // 确保在正确的Canvas下
+                EnsureProperCanvasParent();
+
+                // 设置为屏幕底部锚点 - 修复版本
+                SetBottomAnchor();
 
                 isInitialized = true;
                 LogDebug("组件初始化完成");
@@ -292,6 +280,63 @@ namespace BaccaratGame.UI.Components
             {
                 LogError($"初始化失败: {ex.Message}");
             }
+        }
+
+        /// <summary>
+        /// 确保在正确的Canvas下
+        /// </summary>
+        private void EnsureProperCanvasParent()
+        {
+            Canvas parentCanvas = GetComponentInParent<Canvas>();
+            if (parentCanvas == null)
+            {
+                // 查找场景中的Canvas
+                Canvas[] canvases = FindObjectsOfType<Canvas>();
+                Canvas targetCanvas = null;
+
+                // 优先选择Screen Space - Overlay的Canvas
+                foreach (Canvas canvas in canvases)
+                {
+                    if (canvas.renderMode == RenderMode.ScreenSpaceOverlay)
+                    {
+                        targetCanvas = canvas;
+                        break;
+                    }
+                }
+
+                // 如果没找到Overlay Canvas，使用第一个Canvas
+                if (targetCanvas == null && canvases.Length > 0)
+                {
+                    targetCanvas = canvases[0];
+                }
+
+                if (targetCanvas != null)
+                {
+                    transform.SetParent(targetCanvas.transform, false);
+                    LogDebug($"设置父Canvas: {targetCanvas.name}");
+                }
+                else
+                {
+                    LogError("未找到可用的Canvas");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 设置底部锚点 - 修复版本
+        /// </summary>
+        private void SetBottomAnchor()
+        {
+            // 设置锚点为屏幕中心
+            rectTransform.anchorMin = new Vector2(0.5f, 0.5f);  // 中心锚点
+            rectTransform.anchorMax = new Vector2(0.5f, 0.5f);  // 中心锚点
+            
+            // 设置位置和大小
+            rectTransform.anchoredPosition = new Vector2(0f, 0f);  // 正中心
+            rectTransform.sizeDelta = new Vector2(600f, chipBarHeight);  // 固定宽度600
+            
+            // 确保层级在最前面
+            rectTransform.SetAsLastSibling();
         }
 
         #endregion
@@ -414,13 +459,13 @@ namespace BaccaratGame.UI.Components
             // 设置按钮样式
             SetButtonStyle(moreButton, new Color(0.3f, 0.3f, 0.3f, 1f));
 
-            // 创建文字
-            CreateButtonText(moreObj, "...", fontSize);
+            // 创建文字（更多按钮保留文字）
+            CreateButtonText(moreObj, "...", 16);
 
             // 设置事件
             moreButton.onClick.AddListener(() => {
                 LogDebug("更多按钮被点击");
-                PlaySound(clickSound); // 播放点击音效
+                PlaySound(clickSound);
                 OnMoreButtonClicked?.Invoke();
             });
 
@@ -428,7 +473,7 @@ namespace BaccaratGame.UI.Components
         }
 
         /// <summary>
-        /// 创建筹码按钮
+        /// 创建筹码按钮 - 移除文字显示
         /// </summary>
         private void CreateChipButtons()
         {
@@ -456,22 +501,27 @@ namespace BaccaratGame.UI.Components
                 Color chipColor = i < chipColors.Length ? chipColors[i] : Color.gray;
                 SetButtonStyle(chipButtons[i], chipColor);
 
-                // 尝试加载图片，失败则创建文字
-                if (!LoadChipImage(chipObj, imageName))
+                // 只加载图片，不创建文字后备方案
+                if (LoadChipImage(chipObj, imageName))
                 {
-                    CreateButtonText(chipObj, value.ToString(), fontSize);
-                    LogDebug($"筹码 {value} 使用文字显示（图片加载失败）");
+                    LogDebug($"筹码 {value} 图片加载成功：{imageName}");
                 }
                 else
                 {
-                    LogDebug($"筹码 {value} 使用图片显示：{imageName}");
+                    LogDebug($"筹码 {value} 图片加载失败：{imageName}，使用纯色显示");
+                    // 使用纯色显示，不添加文字
+                    Image buttonImage = chipObj.GetComponent<Image>();
+                    if (buttonImage != null)
+                    {
+                        buttonImage.color = chipColor;
+                    }
                 }
 
                 // 设置事件（使用闭包变量）
                 int chipIndex = i;
                 chipButtons[i].onClick.AddListener(() => {
                     SelectChip(chipIndex);
-                    PlaySound(selectSound); // 播放选择音效
+                    PlaySound(selectSound);
                 });
 
                 LogDebug($"筹码按钮 {value} 创建完成");
@@ -491,12 +541,13 @@ namespace BaccaratGame.UI.Components
             // 设置按钮样式
             SetButtonStyle(rebetButton, new Color(0.3f, 0.3f, 0.3f, 1f));
 
-            // 创建文字
-            CreateButtonText(rebetObj, "续压", fontSize);
+            // 创建文字（续压按钮保留文字）
+            CreateButtonText(rebetObj, "续压", 16);
 
             // 设置事件
             rebetButton.onClick.AddListener(() => {
                 LogDebug("续压按钮被点击");
+                PlaySound(clickSound);
                 OnRebetButtonClicked?.Invoke();
             });
 
@@ -582,9 +633,9 @@ namespace BaccaratGame.UI.Components
             textComp.font = defaultFont;
             
             textComp.fontSize = textSize;
-            textComp.color = textColor;
+            textComp.color = Color.white;
             textComp.alignment = TextAnchor.MiddleCenter;
-            textComp.fontStyle = fontStyle;
+            textComp.fontStyle = FontStyle.Bold;
 
             return textComp;
         }
@@ -596,7 +647,7 @@ namespace BaccaratGame.UI.Components
         {
             GameObject borderObj = new GameObject("Border");
             borderObj.transform.SetParent(buttonObj.transform);
-            borderObj.transform.SetAsFirstSibling(); // 放在最底层
+            borderObj.transform.SetAsFirstSibling();
 
             RectTransform borderRect = borderObj.AddComponent<RectTransform>();
             borderRect.anchorMin = Vector2.zero;
@@ -609,7 +660,6 @@ namespace BaccaratGame.UI.Components
             borderImage.color = borderColor;
             borderImage.sprite = CreateSolidSprite(Color.white);
             
-            // 创建边框效果（通过调整sizeDelta）
             borderRect.sizeDelta = new Vector2(borderWidth * 2, borderWidth * 2);
         }
 
@@ -620,7 +670,6 @@ namespace BaccaratGame.UI.Components
         {
             if (!enableButtonSound || clip == null) return;
             
-            // 简单的音效播放，可以根据需要使用AudioSource
             AudioSource.PlayClipAtPoint(clip, Camera.main.transform.position);
         }
 
@@ -629,12 +678,10 @@ namespace BaccaratGame.UI.Components
         /// </summary>
         private string GenerateChipImageName(int chipValue)
         {
-            // 根据筹码数值生成对应的图片文件名
-            // 规则：B_01.png, B_10.png, B_20.png, B_50.png, B_100.png
             switch (chipValue)
             {
                 case 1: return "B_01";
-                case 2: return "B_01";  // 使用B_01作为2的图片
+                case 2: return "B_01";
                 case 5: return "B_05";
                 case 10: return "B_10";
                 case 20: return "B_20";
@@ -645,29 +692,38 @@ namespace BaccaratGame.UI.Components
                 case 1000: return "B_1K";
                 case 5000: return "B_5K";
                 case 10000: return "B_10K";
-                case 20000: return "B_20K";
-                case 50000: return "B_50K";
-                case 100000: return "B_100K";
-                case 200000: return "B_200K";
-                case 500000: return "B_500K";
-                case 1000000: return "B_1M";
-                case 5000000: return "B_5M";
-                case 10000000: return "B_10M";
-                case 20000000: return "B_20M";
-                case 50000000: return "B_50M";
-                case 100000000: return "B_100M";
-                case 200000000: return "B_200M";
-                case 500000000: return "B_500M";
-                case 1000000000: return "B_1000M";
                 default: return $"B_{chipValue}";
             }
         }
+
+        /// <summary>
+        /// 加载筹码图片 - 移除文字后备方案
+        /// </summary>
         private bool LoadChipImage(GameObject buttonObj, string imageName)
         {
             if (string.IsNullOrEmpty(imageName)) return false;
 
             try
             {
+                // 1. 优先使用手动指定的Sprites
+                if (manualChipSprites != null && manualChipSprites.Length > 0)
+                {
+                    for (int i = 0; i < manualChipSprites.Length && i < chipButtons.Length; i++)
+                    {
+                        if (manualChipSprites[i] != null)
+                        {
+                            Image image = buttonObj.GetComponent<Image>();
+                            if (image != null)
+                            {
+                                image.sprite = manualChipSprites[i];
+                                LogDebug($"使用手动指定图片成功");
+                                return true;
+                            }
+                        }
+                    }
+                }
+
+                // 2. 从Resources加载
                 string fullPath = chipImagePath + imageName;
                 Sprite sprite = Resources.Load<Sprite>(fullPath);
                 
@@ -900,7 +956,6 @@ namespace BaccaratGame.UI.Components
                 chipValues = newValues;
                 LogDebug($"筹码数值已更新: [{string.Join(", ", chipValues)}]");
                 
-                // 如果UI已创建，重新创建以应用新配置
                 if (isUICreated)
                 {
                     RecreateUI();
@@ -908,13 +963,22 @@ namespace BaccaratGame.UI.Components
             }
         }
 
+        /// <summary>
+        /// 强制设置到屏幕底部
+        /// </summary>
+        [ContextMenu("🔧 强制底部位置")]
+        public void ForceBottomPosition()
+        {
+            if (rectTransform == null) return;
+            
+            SetBottomAnchor();
+            LogDebug("强制设置到底部位置");
+        }
+
         #endregion
 
         #region 🐛 调试方法
 
-        /// <summary>
-        /// 调试日志
-        /// </summary>
         private void LogDebug(string message)
         {
             if (enableDebugMode)
@@ -923,25 +987,16 @@ namespace BaccaratGame.UI.Components
             }
         }
 
-        /// <summary>
-        /// 静态调试日志
-        /// </summary>
         private static void LogStaticDebug(string message)
         {
             Debug.Log($"[ChipSelectionArea-Static] {message}");
         }
 
-        /// <summary>
-        /// 错误日志
-        /// </summary>
         private void LogError(string message)
         {
             Debug.LogError($"[ChipSelectionArea] ❌ {message}");
         }
 
-        /// <summary>
-        /// 显示状态
-        /// </summary>
         [ContextMenu("📊 显示状态")]
         public void ShowStatus()
         {
@@ -953,50 +1008,13 @@ namespace BaccaratGame.UI.Components
             Debug.Log($"🎯 选中筹码: {GetSelectedChipValue()}");
             Debug.Log($"📋 筹码配置: [{string.Join(", ", chipValues)}]");
             Debug.Log($"🏠 单例实例: {(instance == this ? "是" : "否")}");
+            Debug.Log($"📍 当前位置: {rectTransform.anchoredPosition}");
+            Debug.Log($"📏 当前大小: {rectTransform.sizeDelta}");
+            Debug.Log($"⚓ 锚点: min{rectTransform.anchorMin}, max{rectTransform.anchorMax}");
             
-            // 检查按钮状态
             Debug.Log($"更多按钮: {(moreButton != null ? "✓" : "✗")}");
             Debug.Log($"筹码按钮: {(chipButtons != null ? chipButtons.Length : 0)}个");
             Debug.Log($"续压按钮: {(rebetButton != null ? "✓" : "✗")}");
-        }
-
-        /// <summary>
-        /// 测试所有按钮功能
-        /// </summary>
-        [ContextMenu("🧪 测试按钮功能")]
-        public void TestButtonFunctions()
-        {
-            LogDebug("开始测试按钮功能...");
-
-            // 测试更多按钮
-            if (moreButton != null)
-            {
-                LogDebug("测试更多按钮点击");
-                moreButton.onClick.Invoke();
-            }
-
-            // 测试筹码按钮
-            if (chipButtons != null)
-            {
-                for (int i = 0; i < chipButtons.Length; i++)
-                {
-                    if (chipButtons[i] != null)
-                    {
-                        LogDebug($"测试筹码按钮{i+1}点击");
-                        chipButtons[i].onClick.Invoke();
-                        break; // 只测试第一个
-                    }
-                }
-            }
-
-            // 测试续压按钮
-            if (rebetButton != null)
-            {
-                LogDebug("测试续压按钮点击");
-                rebetButton.onClick.Invoke();
-            }
-
-            LogDebug("按钮功能测试完成");
         }
 
         #endregion
