@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <title>Unity WebGL 正确加载</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f0f0f0; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .panel { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .progress-bar { width: 100%; height: 20px; background: #ddd; border-radius: 10px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #4CAF50, #2196F3); width: 0%; transition: width 0.3s; }
+        .status { padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        .warning { background: #fff3e0; color: #f57c00; }
+        .error { background: #ffebee; color: #c62828; }
+        .info { background: #e3f2fd; color: #1976d2; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; background: #2196F3; color: white; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #unity-canvas { border: 1px solid #ccc; border-radius: 8px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Unity WebGL 正确加载</h1>
+        
+        <div class="panel">
+            <h3>📊 加载状态</h3>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress"></div>
+            </div>
+            <div id="status">准备开始...</div>
+            <div id="details"></div>
+            <button onclick="startCorrectLoad()" id="start-btn">开始正确加载</button>
+        </div>
+        
+        <div class="panel">
+            <canvas id="unity-canvas" width="800" height="600"></canvas>
+        </div>
+        
+        <div class="panel">
+            <h3>📝 加载日志</h3>
+            <div id="log-container" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
+        </div>
+    </div>
+
+    <script>
+        let unityInstance = null;
+        const progressBar = document.getElementById('progress');
+        const statusDiv = document.getElementById('status');
+        const detailsDiv = document.getElementById('details');
+        const logContainer = document.getElementById('log-container');
+        const canvas = document.getElementById('unity-canvas');
+        const startBtn = document.getElementById('start-btn');
+
+        function addLog(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.textContent = `${time} - ${message}`;
+            logContainer.appendChild(div);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function updateProgress(percent, status, details = '') {
+            progressBar.style.width = percent + '%';
+            statusDiv.textContent = status;
+            detailsDiv.textContent = details;
+        }
+
+        async function startCorrectLoad() {
+            startBtn.disabled = true;
+            addLog('🚀 开始正确的Unity WebGL加载流程', 'info');
+            
+            try {
+                // 步骤1: 清理之前的脚本（如果有）
+                updateProgress(5, '清理环境...', '移除之前加载的脚本');
+                cleanupScripts();
+                
+                // 步骤2: 加载 Loader.js
+                updateProgress(10, '加载 Loader...', '正在加载 Unity Loader');
+                await loadUnityLoader();
+                addLog('✅ Unity Loader 加载完成', 'success');
+                
+                // 步骤3: 等待 Loader 初始化
+                updateProgress(20, '初始化 Loader...', '等待 Loader 准备完成');
+                await waitForLoader();
+                addLog('✅ Unity Loader 初始化完成', 'success');
+                
+                // 步骤4: 通过 Loader 加载 Framework
+                updateProgress(30, '加载 Framework...', '通过 Loader 加载 Framework');
+                await loadUnityFramework();
+                addLog('✅ Unity Framework 加载完成', 'success');
+                
+                // 步骤5: 验证 createUnityInstance
+                updateProgress(40, '验证 Unity 函数...', '检查 createUnityInstance 可用性');
+                if (typeof createUnityInstance === 'undefined') {
+                    throw new Error('createUnityInstance 仍然不可用');
+                }
+                addLog('✅ createUnityInstance 函数已就绪', 'success');
+                
+                // 步骤6: 创建 Unity 实例
+                updateProgress(50, '创建 Unity 实例...', '正在初始化游戏');
+                await createUnityGame();
+                
+                updateProgress(100, '加载完成！', '游戏已准备就绪');
+                addLog('🎉 Unity 游戏加载成功！', 'success');
+                
+                // 显示游戏
+                showGame();
+                
+            } catch (error) {
+                addLog(`❌ 加载失败: ${error.message}`, 'error');
+                updateProgress(0, '加载失败', error.message);
+                startBtn.disabled = false;
+            }
+        }
+
+        function cleanupScripts() {
+            // 移除之前可能加载的 Unity 脚本
+            const existingScripts = document.querySelectorAll('script[src*="dj_game_test"]');
+            existingScripts.forEach(script => {
+                addLog(`移除脚本: ${script.src}`, 'info');
+                script.remove();
+            });
+            
+            // 清理全局变量
+            if (window.unityInstance) {
+                delete window.unityInstance;
+            }
+            if (window.createUnityInstance) {
+                delete window.createUnityInstance;
+            }
+        }
+
+        function loadUnityLoader() {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'Build/dj_game_test.loader.js';
+                
+                script.onload = () => {
+                    addLog('Loader 脚本文件加载完成', 'info');
+                    resolve();
+                };
+                
+                script.onerror = (error) => {
+                    reject(new Error(`Loader 脚本加载失败: ${error}`));
+                };
+                
+                // 设置超时
+                setTimeout(() => {
+                    reject(new Error('Loader 脚本加载超时'));
+                }, 10000);
+                
+                document.head.appendChild(script);
+                addLog('开始加载 Loader 脚本...', 'info');
+            });
+        }
+
+        function waitForLoader() {
+            return new Promise((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 50; // 5秒
+                
+                const checkLoader = () => {
+                    // 检查 Unity Loader 是否已经准备好
+                    if (window.UnityLoader || window.createUnityInstance) {
+                        addLog('检测到 Unity Loader 全局对象', 'info');
+                        resolve();
+                    } else if (attempts++ < maxAttempts) {
+                        setTimeout(checkLoader, 100);
+                    } else {
+                        reject(new Error('Unity Loader 初始化超时'));
+                    }
+                };
+                
+                checkLoader();
+            });
+        }
+
+        function loadUnityFramework() {
+            return new Promise((resolve, reject) => {
+                // 检查是否已经有 createUnityInstance
+                if (typeof createUnityInstance !== 'undefined') {
+                    addLog('createUnityInstance 已经可用，跳过 Framework 加载', 'info');
+                    resolve();
+                    return;
+                }
+                
+                const script = document.createElement('script');
+                script.src = 'Build/dj_game_test.framework.js';
+                
+                script.onload = () => {
+                    addLog('Framework 脚本文件加载完成', 'info');
+                    
+                    // 等待一下让脚本执行
+                    setTimeout(() => {
+                        if (typeof createUnityInstance !== 'undefined') {
+                            resolve();
+                        } else {
+                            reject(new Error('Framework 加载后 createUnityInstance 仍不可用'));
+                        }
+                    }, 200);
+                };
+                
+                script.onerror = (error) => {
+                    reject(new Error(`Framework 脚本加载失败: ${error}`));
+                };
+                
+                // 设置超时
+                setTimeout(() => {
+                    reject(new Error('Framework 脚本加载超时'));
+                }, 15000);
+                
+                document.head.appendChild(script);
+                addLog('开始加载 Framework 脚本...', 'info');
+            });
+        }
+
+        async function createUnityGame() {
+            const config = {
+                dataUrl: "Build/dj_game_test.data",
+                frameworkUrl: "Build/dj_game_test.framework.js", 
+                codeUrl: "Build/dj_game_test.wasm",
+                streamingAssetsUrl: "StreamingAssets",
+                companyName: "Game Studio",
+                productName: "DJ Game Test",
+                productVersion: "1.0.0",
+            };
+
+            addLog('Unity 配置: ' + JSON.stringify(config, null, 2), 'info');
+
+            return new Promise((resolve, reject) => {
+                createUnityInstance(canvas, config, (progress) => {
+                    const percent = Math.round(progress * 100);
+                    const adjustedProgress = 50 + (percent * 0.5); // 50% 到 100%
+                    updateProgress(adjustedProgress, `加载游戏资源... ${percent}%`, '正在下载和初始化游戏数据');
+                    
+                    if (percent % 10 === 0) {
+                        addLog(`游戏资源加载进度: ${percent}%`, 'info');
+                    }
+                }).then((unity) => {
+                    unityInstance = unity;
+                    window.unityInstance = unity;
+                    addLog('Unity 实例创建成功', 'success');
+                    resolve(unity);
+                }).catch((error) => {
+                    addLog(`Unity 实例创建失败: ${error}`, 'error');
+                    reject(error);
+                });
+            });
+        }
+
+        function showGame() {
+            canvas.style.display = 'block';
+            canvas.style.width = '100%';
+            canvas.style.maxWidth = '800px';
+            canvas.style.height = 'auto';
+            addLog('游戏画布已显示', 'info');
+        }
+
+        // 全局错误处理
+        window.addEventListener('error', function(event) {
+            addLog(`全局错误: ${event.error?.message || event.message}`, 'error');
+        });
+
+        window.addEventListener('unhandledrejection', function(event) {
+            addLog(`Promise 错误: ${event.reason}`, 'error');
+        });
+
+        // 页面加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('页面加载完成，可以开始Unity加载流程', 'info');
+        });
+    </script>
+</body>
+</html>

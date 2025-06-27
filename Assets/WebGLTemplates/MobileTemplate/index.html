@@ -2,318 +2,567 @@
 <html lang="zh-CN">
 <head>
     <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Unity 加载调试</title>
+    
+    <title>百家乐游戏</title>
+    
+    <!-- 样式 -->
     <style>
-        body { 
-            margin: 0; 
-            background: #000; 
-            color: white; 
+        body {
             font-family: Arial, sans-serif;
-            padding: 20px;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
         }
-        #unity-container { 
-            width: 750px; 
-            height: 600px; 
-            background: #222; 
-            border: 1px solid #444;
-            position: relative;
-            margin: 20px auto;
-        }
-        #unity-canvas { 
-            width: 100%; 
-            height: 100%; 
-            background: #000; 
-        }
-        .debug-panel {
-            background: #111;
-            padding: 15px;
-            margin: 10px;
-            border-radius: 5px;
-            border: 1px solid #333;
-        }
-        .status {
-            margin: 5px 0;
-            padding: 5px;
-            border-radius: 3px;
-        }
-        .status.success { background: #0d4f21; }
-        .status.error { background: #4f0d0d; }
-        .status.warning { background: #4f3d0d; }
-        .status.info { background: #0d2f4f; }
-        .progress-bar {
+
+        .unity-container {
             width: 100%;
-            height: 20px;
-            background: #333;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 10px 0;
+            max-width: 800px;
+            text-align: center;
+            position: relative;
         }
-        .progress-fill {
+
+        #unity-canvas {
+            background: #232628;
+            border-radius: 8px;
+            display: none;
+        }
+
+        /* 详细加载界面 */
+        .detailed-loading {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .loading-header {
+            margin-bottom: 30px;
+        }
+
+        .loading-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .loading-subtitle {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* 总进度条 */
+        .overall-progress {
+            margin-bottom: 30px;
+        }
+
+        .overall-progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #333;
+        }
+
+        .overall-progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .overall-progress-fill {
             height: 100%;
             background: linear-gradient(90deg, #4CAF50, #2196F3);
             width: 0%;
-            transition: width 0.3s;
+            transition: width 0.3s ease;
         }
-        button {
+
+        /* 步骤列表 */
+        .loading-steps {
+            text-align: left;
+        }
+
+        .step {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #f0f0f0;
+            font-size: 14px;
+        }
+
+        .step:last-child {
+            border-bottom: none;
+        }
+
+        .step-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin-right: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .step-pending {
+            background: #f5f5f5;
+            color: #999;
+        }
+
+        .step-loading {
             background: #2196F3;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+
+        .step-success {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .step-error {
+            background: #f44336;
+            color: white;
+        }
+
+        .step-text {
+            flex: 1;
+        }
+
+        .step-details {
+            font-size: 12px;
+            color: #666;
+            margin-left: 36px;
+            margin-top: 4px;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        /* 错误界面 */
+        .error-container {
+            background: rgba(244, 67, 54, 0.1);
+            border: 2px solid #f44336;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .error-title {
+            color: #f44336;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .error-message {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .retry-button {
+            background: #f44336;
             color: white;
             border: none;
             padding: 10px 20px;
-            margin: 5px;
-            border-radius: 5px;
+            border-radius: 4px;
             cursor: pointer;
+            transition: background 0.3s;
         }
-        button:hover { background: #1976D2; }
-        button:disabled { background: #666; cursor: not-allowed; }
+
+        .retry-button:hover {
+            background: #d32f2f;
+        }
+
+        /* 成功后隐藏加载界面 */
+        .loading-complete {
+            display: none;
+        }
+
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .detailed-loading {
+                margin: 20px;
+                padding: 20px;
+            }
+        }
     </style>
 </head>
+
 <body>
-    <h1>🔍 Unity WebGL 加载调试器</h1>
-    
-    <div class="debug-panel">
-        <h3>📊 加载状态</h3>
-        <div id="status-container"></div>
+    <div class="unity-container">
+        <!-- 游戏画布 -->
+        <canvas id="unity-canvas" width="800" height="600"></canvas>
         
-        <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
+        <!-- 详细加载界面 -->
+        <div class="detailed-loading" id="loading-container">
+            <div class="loading-header">
+                <div class="loading-title">🎮 百家乐游戏</div>
+                <div class="loading-subtitle">正在初始化游戏引擎...</div>
+            </div>
+
+            <!-- 总进度 -->
+            <div class="overall-progress">
+                <div class="overall-progress-label">
+                    <span>加载进度</span>
+                    <span id="overall-percent">0%</span>
+                </div>
+                <div class="overall-progress-bar">
+                    <div class="overall-progress-fill" id="overall-progress"></div>
+                </div>
+            </div>
+
+            <!-- 加载步骤 -->
+            <div class="loading-steps">
+                <div class="step" id="step-webgl">
+                    <div class="step-icon step-pending">1</div>
+                    <div class="step-text">检查 WebGL 支持</div>
+                </div>
+                <div class="step-details" id="step-webgl-details"></div>
+
+                <div class="step" id="step-files">
+                    <div class="step-icon step-pending">2</div>
+                    <div class="step-text">验证游戏文件</div>
+                </div>
+                <div class="step-details" id="step-files-details"></div>
+
+                <div class="step" id="step-loader">
+                    <div class="step-icon step-pending">3</div>
+                    <div class="step-text">加载 Unity Loader</div>
+                </div>
+                <div class="step-details" id="step-loader-details"></div>
+
+                <div class="step" id="step-framework">
+                    <div class="step-icon step-pending">4</div>
+                    <div class="step-text">加载 Unity Framework</div>
+                </div>
+                <div class="step-details" id="step-framework-details"></div>
+
+                <div class="step" id="step-instance">
+                    <div class="step-icon step-pending">5</div>
+                    <div class="step-text">创建游戏实例</div>
+                </div>
+                <div class="step-details" id="step-instance-details"></div>
+
+                <div class="step" id="step-resources">
+                    <div class="step-icon step-pending">6</div>
+                    <div class="step-text">加载游戏资源</div>
+                </div>
+                <div class="step-details" id="step-resources-details"></div>
+            </div>
+
+            <!-- 错误容器 -->
+            <div class="error-container" id="error-container">
+                <div class="error-title">❌ 加载失败</div>
+                <div class="error-message" id="error-message"></div>
+                <button class="retry-button" onclick="window.location.reload()">重新加载</button>
+            </div>
         </div>
-        <div id="progress-text">等待开始...</div>
-        
-        <button onclick="startUnityLoad()" id="start-btn">开始加载 Unity</button>
-        <button onclick="testIframe()" id="iframe-btn" disabled>测试 iframe</button>
-        <button onclick="clearLog()" id="clear-btn">清除日志</button>
-    </div>
-    
-    <div id="unity-container">
-        <canvas id="unity-canvas"></canvas>
-    </div>
-    
-    <div class="debug-panel">
-        <h3>📝 详细日志</h3>
-        <div id="log-container" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 12px;"></div>
     </div>
 
-    <!-- 加载 Unity Framework -->
-    <script src="Build/dj_game_test.framework.js"></script>
-    
-    <!-- iframe 功能 -->
+    <!-- Unity 脚本 -->
+    <script src="Build/dj_game_test.loader.js"></script>
+
     <script>
-    window.loadIframe = function(containerIdAndUrl) {
-        try {
-            addLog('🎯 loadIframe 调用: ' + containerIdAndUrl, 'info');
-            var parts = containerIdAndUrl.split(',');
-            var containerId = parts[0];
-            var url = parts.slice(1).join(',');
-            
-            var container = document.getElementById(containerId);
-            if (!container) {
-                container = document.createElement('div');
-                container.id = containerId;
-                container.style.cssText = `
-                    position: fixed; top: 0; left: 0;
-                    width: 100%; height: 100%;
-                    z-index: 2000; background: rgba(0,0,0,0.9);
-                    display: flex; justify-content: center; align-items: center;
-                `;
-                document.body.appendChild(container);
+        // 加载状态管理
+        const LoadingManager = {
+            currentStep: 0,
+            steps: [
+                { id: 'step-webgl', name: 'WebGL检查', weight: 5 },
+                { id: 'step-files', name: '文件验证', weight: 10 },
+                { id: 'step-loader', name: 'Loader加载', weight: 15 },
+                { id: 'step-framework', name: 'Framework加载', weight: 25 },
+                { id: 'step-instance', name: '实例创建', weight: 20 },
+                { id: 'step-resources', name: '资源加载', weight: 25 }
+            ],
+            totalProgress: 0,
+
+            updateStep(stepId, status, details = '', progress = 0) {
+                const step = document.getElementById(stepId);
+                const icon = step.querySelector('.step-icon');
+                const detailsEl = document.getElementById(stepId + '-details');
+
+                // 更新图标状态
+                icon.className = 'step-icon step-' + status;
+                
+                // 更新详情
+                if (details) {
+                    detailsEl.textContent = details;
+                    detailsEl.style.display = 'block';
+                } else {
+                    detailsEl.style.display = 'none';
+                }
+
+                // 更新总进度
+                this.calculateProgress(stepId, progress);
+                
+                console.log(`📊 [${stepId}] ${status}: ${details}`);
+            },
+
+            calculateProgress(currentStepId, stepProgress) {
+                let totalProgress = 0;
+                
+                for (let i = 0; i < this.steps.length; i++) {
+                    const step = this.steps[i];
+                    if (step.id === currentStepId) {
+                        // 当前步骤按实际进度计算
+                        totalProgress += step.weight * (stepProgress / 100);
+                        break;
+                    } else {
+                        // 已完成步骤算100%
+                        const stepEl = document.getElementById(step.id);
+                        const icon = stepEl.querySelector('.step-icon');
+                        if (icon.classList.contains('step-success')) {
+                            totalProgress += step.weight;
+                        }
+                    }
+                }
+
+                this.totalProgress = Math.min(100, totalProgress);
+                document.getElementById('overall-progress').style.width = this.totalProgress + '%';
+                document.getElementById('overall-percent').textContent = Math.round(this.totalProgress) + '%';
+            },
+
+            showError(message, stepId = null) {
+                if (stepId) {
+                    this.updateStep(stepId, 'error', message);
+                }
+                
+                document.getElementById('error-message').textContent = message;
+                document.getElementById('error-container').style.display = 'block';
+            },
+
+            complete() {
+                // 标记所有步骤为成功
+                this.steps.forEach(step => {
+                    this.updateStep(step.id, 'success');
+                });
+                
+                this.totalProgress = 100;
+                document.getElementById('overall-progress').style.width = '100%';
+                document.getElementById('overall-percent').textContent = '100%';
+                
+                // 延迟隐藏加载界面
+                setTimeout(() => {
+                    document.getElementById('loading-container').style.display = 'none';
+                    document.getElementById('unity-canvas').style.display = 'block';
+                }, 1000);
             }
-            
-            var wrapper = document.createElement('div');
-            wrapper.style.cssText = `
-                width: 90%; height: 90%; max-width: 750px;
-                position: relative; background: #000;
-                border-radius: 8px; overflow: hidden;
-            `;
-            
-            var closeBtn = document.createElement('button');
-            closeBtn.innerHTML = '✕ 关闭';
-            closeBtn.style.cssText = `
-                position: absolute; top: 10px; right: 10px;
-                background: #f44336; z-index: 2001;
-            `;
-            closeBtn.onclick = function() {
-                container.parentNode.removeChild(container);
-                addLog('🚫 iframe 已关闭', 'info');
-            };
-            
-            var iframe = document.createElement('iframe');
-            iframe.src = url;
-            iframe.style.cssText = 'width:100%;height:100%;border:none;';
-            iframe.setAttribute('allowfullscreen', 'true');
-            
-            wrapper.appendChild(iframe);
-            wrapper.appendChild(closeBtn);
-            container.appendChild(wrapper);
-            
-            addLog('✅ iframe 创建成功', 'success');
-            return true;
-        } catch (e) {
-            addLog('❌ iframe 创建失败: ' + e.message, 'error');
-            return false;
-        }
-    };
-    </script>
+        };
 
-    <!-- 调试脚本 -->
-    <script>
-        var unityInstance = null;
-        var statusContainer = document.getElementById('status-container');
-        var logContainer = document.getElementById('log-container');
-        var progressFill = document.getElementById('progress-fill');
-        var progressText = document.getElementById('progress-text');
-        var startBtn = document.getElementById('start-btn');
-        var iframeBtn = document.getElementById('iframe-btn');
-        
-        function addStatus(message, type) {
-            var div = document.createElement('div');
-            div.className = 'status ' + type;
-            div.textContent = new Date().toLocaleTimeString() + ' - ' + message;
-            statusContainer.appendChild(div);
-        }
-        
-        function addLog(message, type = 'info') {
-            var div = document.createElement('div');
-            div.style.color = type === 'error' ? '#ff6b6b' : 
-                              type === 'success' ? '#4CAF50' : 
-                              type === 'warning' ? '#ff9800' : '#2196F3';
-            div.textContent = new Date().toLocaleTimeString() + ' - ' + message;
-            logContainer.appendChild(div);
-            logContainer.scrollTop = logContainer.scrollHeight;
-            console.log(message);
-        }
-        
-        function clearLog() {
-            logContainer.innerHTML = '';
-            statusContainer.innerHTML = '';
-        }
-        
-        function testIframe() {
-            addLog('🧪 测试 iframe 功能...', 'info');
-            window.loadIframe('test-iframe,https://www.baidu.com');
-        }
-        
-        function startUnityLoad() {
-            startBtn.disabled = true;
-            addLog('🚀 开始 Unity 加载调试...', 'info');
-            
-            // 步骤 1: 检查基础环境
-            addLog('📋 检查基础环境...', 'info');
-            addStatus('检查 WebGL 支持', 'info');
-            
+        // Unity 配置
+        window.gameConfig = {
+            dataUrl: "Build/dj_game_test.data",
+            frameworkUrl: "Build/dj_game_test.framework.js",
+            codeUrl: "Build/dj_game_test.wasm",
+            streamingAssetsUrl: "StreamingAssets",
+            companyName: "Game Studio",
+            productName: "DJ Game Test",
+            productVersion: "1.0.0",
+        };
+
+        let unityInstance = null;
+        const canvas = document.getElementById('unity-canvas');
+
+        // 主加载流程
+        async function initializeUnity() {
             try {
-                var canvas = document.createElement('canvas');
-                var gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-                if (gl) {
-                    addLog('✅ WebGL 支持正常', 'success');
-                    addStatus('WebGL 支持: ✅', 'success');
-                } else {
-                    addLog('❌ WebGL 不支持', 'error');
-                    addStatus('WebGL 支持: ❌', 'error');
-                    return;
-                }
-            } catch (e) {
-                addLog('❌ WebGL 检查失败: ' + e.message, 'error');
-                return;
+                // 步骤1: 检查WebGL支持
+                LoadingManager.updateStep('step-webgl', 'loading', '正在检查浏览器WebGL支持...', 50);
+                await checkWebGLSupport();
+                LoadingManager.updateStep('step-webgl', 'success', 'WebGL支持正常', 100);
+
+                // 步骤2: 验证文件
+                LoadingManager.updateStep('step-files', 'loading', '正在验证游戏文件...', 0);
+                await verifyGameFiles();
+                LoadingManager.updateStep('step-files', 'success', '所有游戏文件验证通过', 100);
+
+                // 步骤3: 等待Loader
+                LoadingManager.updateStep('step-loader', 'loading', '正在等待Unity Loader初始化...', 0);
+                await waitForUnityLoader();
+                LoadingManager.updateStep('step-loader', 'success', 'Unity Loader 已就绪', 100);
+
+                // 步骤4: 等待Framework
+                LoadingManager.updateStep('step-framework', 'loading', '正在加载Unity Framework...', 0);
+                await waitForCreateUnityInstance();
+                LoadingManager.updateStep('step-framework', 'success', 'createUnityInstance 函数已就绪', 100);
+
+                // 步骤5: 创建实例
+                LoadingManager.updateStep('step-instance', 'loading', '正在创建Unity游戏实例...', 0);
+                await createUnityGameInstance();
+                LoadingManager.updateStep('step-instance', 'success', 'Unity实例创建成功', 100);
+
+                // 完成
+                LoadingManager.complete();
+                console.log('🎉 Unity游戏加载完成！');
+
+            } catch (error) {
+                console.error('❌ 加载失败:', error);
+                LoadingManager.showError(error.message);
             }
-            
-            // 步骤 2: 检查 createUnityInstance
-            addLog('🔍 检查 createUnityInstance 函数...', 'info');
-            if (typeof createUnityInstance === 'undefined') {
-                addLog('❌ createUnityInstance 不存在', 'error');
-                addStatus('Unity 框架: ❌', 'error');
-                addLog('检查 dj_game_test.framework.js 是否正确加载', 'warning');
-                startBtn.disabled = false;
-                return;
-            } else {
-                addLog('✅ createUnityInstance 函数存在', 'success');
-                addStatus('Unity 框架: ✅', 'success');
-            }
-            
-            // 步骤 3: 配置 Unity
-            var canvas = document.getElementById('unity-canvas');
-            var config = {
-                dataUrl: "Build/dj_game_test.data",
-                frameworkUrl: "Build/dj_game_test.framework.js",
-                codeUrl: "Build/dj_game_test.wasm",
-                streamingAssetsUrl: "StreamingAssets",
-                companyName: "SlotMachine Studio",
-                productName: "Slot Machine Game",
-                productVersion: "1.0.0",
-            };
-            
-            addLog('⚙️ Unity 配置: ' + JSON.stringify(config, null, 2), 'info');
-            
-            // 步骤 4: 创建 Unity 实例
-            addLog('🎮 创建 Unity 实例...', 'info');
-            addStatus('创建 Unity 实例...', 'info');
-            
-            createUnityInstance(canvas, config, function(progress) {
-                var percent = Math.round(progress * 100);
-                progressFill.style.width = percent + "%";
-                progressText.textContent = "加载进度: " + percent + "%";
-                
-                if (percent % 10 === 0 || percent > 95) {
-                    addLog('⏳ 加载进度: ' + percent + '%', 'info');
-                }
-                
-            }).then(function(unity) {
-                unityInstance = unity;
-                window.unityInstance = unity;
-                
-                addLog('🎉 Unity 实例创建成功！', 'success');
-                addStatus('Unity 加载: ✅', 'success');
-                
-                progressText.textContent = "✅ Unity 加载完成！";
-                iframeBtn.disabled = false;
-                
-                addLog('🔧 可以开始测试 iframe 功能', 'info');
-                
-            }).catch(function(error) {
-                addLog('💥 Unity 实例创建失败: ' + error, 'error');
-                addStatus('Unity 加载: ❌', 'error');
-                
-                progressText.textContent = "❌ 加载失败";
-                startBtn.disabled = false;
-                
-                // 详细错误分析
-                addLog('🔍 错误详情分析:', 'warning');
-                if (error.toString().includes('memory')) {
-                    addLog('可能是内存不足，尝试减少 Initial Memory Size', 'warning');
-                } else if (error.toString().includes('wasm')) {
-                    addLog('可能是 WASM 文件损坏或浏览器不支持', 'warning');
-                } else if (error.toString().includes('network')) {
-                    addLog('可能是网络问题，检查文件是否完整下载', 'warning');
-                } else {
-                    addLog('未知错误，检查浏览器控制台获取更多信息', 'warning');
-                }
+        }
+
+        // 检查WebGL支持
+        function checkWebGLSupport() {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    try {
+                        const canvas = document.createElement('canvas');
+                        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                        if (gl) {
+                            resolve();
+                        } else {
+                            reject(new Error('您的浏览器不支持WebGL'));
+                        }
+                    } catch (e) {
+                        reject(new Error('WebGL检查失败: ' + e.message));
+                    }
+                }, 500);
             });
         }
-        
-        // 页面加载完成后的初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            addLog('📄 页面加载完成', 'success');
-            addLog('点击 "开始加载 Unity" 按钮开始调试', 'info');
-            
-            // 检查文件是否存在的方法
-            var files = [
+
+        // 验证游戏文件
+        async function verifyGameFiles() {
+            const files = [
+                'Build/dj_game_test.loader.js',
                 'Build/dj_game_test.framework.js',
-                'Build/dj_game_test.wasm', 
+                'Build/dj_game_test.wasm',
                 'Build/dj_game_test.data'
             ];
+
+            for (let i = 0; i < files.length; i++) {
+                const file = files[i];
+                const progress = ((i + 1) / files.length) * 100;
+                
+                LoadingManager.updateStep('step-files', 'loading', `检查文件: ${file.split('/').pop()}`, progress);
+                
+                try {
+                    const response = await fetch(file, { method: 'HEAD' });
+                    if (!response.ok) {
+                        throw new Error(`文件不存在或无法访问: ${file}`);
+                    }
+                } catch (error) {
+                    throw new Error(`文件验证失败: ${file} - ${error.message}`);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 200)); // 模拟检查时间
+            }
+        }
+
+        // 等待Unity Loader
+        function waitForUnityLoader() {
+            return new Promise((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 100;
+                
+                const checkLoader = () => {
+                    attempts++;
+                    const progress = (attempts / maxAttempts) * 100;
+                    
+                    LoadingManager.updateStep('step-loader', 'loading', 
+                        `等待Unity Loader... (${attempts}/${maxAttempts})`, progress);
+                    
+                    if (window.UnityLoader || typeof createUnityInstance !== 'undefined') {
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        reject(new Error('Unity Loader 加载超时 (10秒)'));
+                    } else {
+                        setTimeout(checkLoader, 100);
+                    }
+                };
+                
+                checkLoader();
+            });
+        }
+
+        // 等待createUnityInstance
+        function waitForCreateUnityInstance() {
+            return new Promise((resolve, reject) => {
+                let attempts = 0;
+                const maxAttempts = 100;
+                
+                const checkFunction = () => {
+                    attempts++;
+                    const progress = (attempts / maxAttempts) * 100;
+                    
+                    LoadingManager.updateStep('step-framework', 'loading', 
+                        `等待createUnityInstance... (${attempts}/${maxAttempts})`, progress);
+                    
+                    if (typeof createUnityInstance !== 'undefined') {
+                        resolve();
+                    } else if (attempts >= maxAttempts) {
+                        reject(new Error('createUnityInstance 函数加载超时 (10秒)'));
+                    } else {
+                        setTimeout(checkFunction, 100);
+                    }
+                };
+                
+                checkFunction();
+            });
+        }
+
+        // 创建Unity实例
+        function createUnityGameInstance() {
+            return new Promise((resolve, reject) => {
+                LoadingManager.updateStep('step-instance', 'loading', '正在初始化Unity引擎...', 10);
+                
+                createUnityInstance(canvas, window.gameConfig, (progress) => {
+                    const percent = Math.round(progress * 100);
+                    LoadingManager.updateStep('step-resources', 'loading', 
+                        `加载游戏资源... ${percent}%`, percent);
+                    
+                    // 实例创建进度 (10% - 90%)
+                    const instanceProgress = 10 + (progress * 80);
+                    LoadingManager.updateStep('step-instance', 'loading', 
+                        `下载游戏数据... ${percent}%`, instanceProgress);
+                    
+                }).then((unity) => {
+                    unityInstance = unity;
+                    window.unityInstance = unity;
+                    
+                    LoadingManager.updateStep('step-resources', 'success', '所有游戏资源加载完成', 100);
+                    resolve(unity);
+                    
+                }).catch((error) => {
+                    reject(new Error('Unity实例创建失败: ' + error.message));
+                });
+            });
+        }
+
+        // 页面加载完成后开始
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 开始Unity WebGL详细加载流程...');
             
-            addLog('📁 检查必要文件...', 'info');
-            // 注意：实际文件检查需要通过网络请求
+            // 延迟开始，让页面渲染完成
+            setTimeout(() => {
+                initializeUnity();
+            }, 500);
         });
-        
-        // 全局错误捕获
+
+        // 全局错误处理
         window.addEventListener('error', function(event) {
-            addLog('🚨 全局错误: ' + event.error?.message || event.message, 'error');
+            console.error('全局错误:', event.error);
+            LoadingManager.showError('页面错误: ' + (event.error?.message || '未知错误'));
         });
-        
-        // 未处理的 Promise 拒绝
+
         window.addEventListener('unhandledrejection', function(event) {
-            addLog('🚨 Promise 拒绝: ' + event.reason, 'error');
+            console.error('Promise错误:', event.reason);
+            LoadingManager.showError('异步错误: ' + event.reason);
         });
     </script>
 </body>
