@@ -109,6 +109,233 @@
     <!-- 错误处理脚本 -->
     <script src="TemplateData/error-handler.js"></script>
     
+    <!-- 🔥 新增：iframe 管理脚本 -->
+    <script>
+        // ================================================================================================
+        // iframe 管理功能 - 移动端优化版
+        // ================================================================================================
+        
+        /**
+         * 通用 iframe 加载函数
+         * Unity 调用: CallWebGLFunction("loadIframe", "容器ID,URL")
+         */
+        window.loadIframe = function(containerIdAndUrl) {
+            try {
+                console.log('🎯 loadIframe 调用:', containerIdAndUrl);
+                
+                var parts = containerIdAndUrl.split(',');
+                var containerId = parts[0];
+                var url = parts.slice(1).join(','); // 处理URL中可能包含逗号的情况
+                
+                console.log('📦 容器ID:', containerId);
+                console.log('🔗 URL:', url);
+                
+                // 查找或创建容器
+                var container = document.getElementById(containerId);
+                if (!container) {
+                    container = document.createElement('div');
+                    container.id = containerId;
+                    // 移动端优化的容器样式
+                    container.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        z-index: 1000;
+                        background: rgba(0, 0, 0, 0.95);
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                    `;
+                    document.body.appendChild(container);
+                    console.log('✅ 容器已创建:', containerId);
+                }
+                
+                // 创建 iframe 包装器
+                var wrapper = document.createElement('div');
+                wrapper.style.cssText = `
+                    width: 100%;
+                    height: 100%;
+                    max-width: 750px;
+                    max-height: 1344px;
+                    position: relative;
+                    background: #000;
+                    border-radius: 8px;
+                    overflow: hidden;
+                `;
+                
+                // 创建关闭按钮
+                var closeBtn = document.createElement('button');
+                closeBtn.innerHTML = '✕';
+                closeBtn.style.cssText = `
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    width: 40px;
+                    height: 40px;
+                    background: rgba(0, 0, 0, 0.8);
+                    color: white;
+                    border: 2px solid rgba(255, 255, 255, 0.3);
+                    border-radius: 50%;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    z-index: 1001;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    transition: all 0.3s ease;
+                `;
+                
+                // 关闭按钮事件
+                closeBtn.onclick = function() {
+                    console.log('🚫 关闭iframe:', containerId);
+                    if (container && container.parentNode) {
+                        container.parentNode.removeChild(container);
+                    }
+                };
+                
+                // 关闭按钮悬停效果
+                closeBtn.onmouseover = function() {
+                    this.style.background = 'rgba(255, 0, 0, 0.8)';
+                    this.style.borderColor = 'rgba(255, 255, 255, 0.6)';
+                };
+                closeBtn.onmouseout = function() {
+                    this.style.background = 'rgba(0, 0, 0, 0.8)';
+                    this.style.borderColor = 'rgba(255, 255, 255, 0.3)';
+                };
+                
+                // 创建 iframe
+                var iframe = document.createElement('iframe');
+                iframe.src = url;
+                iframe.style.cssText = `
+                    width: 100%;
+                    height: 100%;
+                    border: none;
+                    display: block;
+                    background: #000;
+                `;
+                iframe.setAttribute('allowfullscreen', 'true');
+                iframe.setAttribute('frameborder', '0');
+                iframe.setAttribute('scrolling', 'no');
+                iframe.setAttribute('allow', 'autoplay; fullscreen');
+                
+                // iframe 加载事件
+                iframe.onload = function() {
+                    console.log('✅ iframe 加载完成:', url);
+                };
+                
+                iframe.onerror = function() {
+                    console.error('❌ iframe 加载失败:', url);
+                };
+                
+                // 组装元素
+                container.innerHTML = '';
+                wrapper.appendChild(iframe);
+                wrapper.appendChild(closeBtn);
+                container.appendChild(wrapper);
+                
+                console.log('✅ iframe 加载成功:', containerId, url);
+                return true;
+                
+            } catch (e) {
+                console.error('❌ loadIframe 失败:', e);
+                return false;
+            }
+        };
+        
+        /**
+         * 设置 iframe 可见性
+         * Unity 调用: CallWebGLFunction("setIframeVisibility", "容器ID,1") // 1=显示, 0=隐藏
+         */
+        window.setIframeVisibility = function(containerIdAndVisibility) {
+            try {
+                var parts = containerIdAndVisibility.split(',');
+                var containerId = parts[0];
+                var visible = parts[1] === '1';
+                
+                var container = document.getElementById(containerId);
+                if (container) {
+                    container.style.display = visible ? 'flex' : 'none';
+                    console.log('🔄 iframe 可见性设置:', containerId, visible ? '显示' : '隐藏');
+                    return true;
+                } else {
+                    console.warn('⚠️ 未找到容器:', containerId);
+                    return false;
+                }
+            } catch (e) {
+                console.error('❌ setIframeVisibility 失败:', e);
+                return false;
+            }
+        };
+        
+        /**
+         * 刷新 iframe
+         * Unity 调用: CallWebGLFunction("refreshIframe", "容器ID")
+         */
+        window.refreshIframe = function(containerId) {
+            try {
+                var container = document.getElementById(containerId);
+                if (container) {
+                    var iframe = container.querySelector('iframe');
+                    if (iframe) {
+                        var currentSrc = iframe.src;
+                        iframe.src = '';
+                        setTimeout(function() {
+                            iframe.src = currentSrc;
+                        }, 100);
+                        console.log('🔄 iframe 已刷新:', containerId);
+                        return true;
+                    }
+                }
+                console.warn('⚠️ 未找到要刷新的iframe:', containerId);
+                return false;
+            } catch (e) {
+                console.error('❌ refreshIframe 失败:', e);
+                return false;
+            }
+        };
+        
+        /**
+         * 销毁 iframe
+         * Unity 调用: CallWebGLFunction("destroyIframe", "容器ID")
+         */
+        window.destroyIframe = function(containerId) {
+            try {
+                var container = document.getElementById(containerId);
+                if (container && container.parentNode) {
+                    container.parentNode.removeChild(container);
+                    console.log('🗑️ iframe 已销毁:', containerId);
+                    return true;
+                }
+                return false;
+            } catch (e) {
+                console.error('❌ destroyIframe 失败:', e);
+                return false;
+            }
+        };
+        
+        // 键盘 ESC 关闭功能
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                // 查找所有活跃的iframe容器并关闭最新的一个
+                var containers = document.querySelectorAll('[id$="-container"]');
+                if (containers.length > 0) {
+                    var latestContainer = containers[containers.length - 1];
+                    if (latestContainer.style.display !== 'none') {
+                        latestContainer.style.display = 'none';
+                        console.log('⌨️ ESC 关闭iframe:', latestContainer.id);
+                    }
+                }
+            }
+        });
+        
+        console.log('🚀 iframe 管理功能已加载');
+        console.log('📋 可用函数:', ['loadIframe', 'setIframeVisibility', 'refreshIframe', 'destroyIframe']);
+    </script>
+    
     <!-- 主初始化脚本 -->
     <script>
         // 全局配置
@@ -232,7 +459,9 @@
             if (unityInstance && !document.fullscreenElement) {
                 // 响应式调整逻辑
                 var containerRect = container.getBoundingClientRect();
-                var aspectRatio = {{{ WIDTH }}} / {{{ HEIGHT }}};
+                var gameWidth = {{{ WIDTH }}};
+                var gameHeight = {{{ HEIGHT }}};
+                var aspectRatio = gameWidth / gameHeight;
                 
                 var newWidth = containerRect.width;
                 var newHeight = newWidth / aspectRatio;
