@@ -1,7 +1,7 @@
 // Assets/UI/Components/BettingArea/MoreChipPanel.cs
-// 筹码配置面板组件 - 完全重写版本
-// 修复所有问题：位置居中、图片正确加载、专业黑色系风格
-// 重写时间: 2025/6/27
+// 筹码配置面板组件 - 修复边框覆盖问题版本
+// 修复选中边框覆盖筹码图片的问题，移除悬停效果
+// 修复时间: 2025/6/27
 
 using System;
 using System.Collections;
@@ -14,8 +14,8 @@ using UnityEngine.EventSystems;
 namespace BaccaratGame.UI.Components
 {
     /// <summary>
-    /// 筹码配置面板组件 - 完全重写版本
-    /// 专业黑色系风格，完美支持图片加载和居中显示
+    /// 筹码配置面板组件 - 修复版本
+    /// 专业黑色系风格，修复边框覆盖问题
     /// </summary>
     public class MoreChipPanel : MonoBehaviour
     {
@@ -49,14 +49,12 @@ namespace BaccaratGame.UI.Components
         public float topPadding = 20f;
         public float sidePadding = 25f;
         
-        [Header("选中效果 - 金色系")]
-        public Color selectedBorderColor = new Color(1f, 0.84f, 0f, 1f);           // 金色
-        public Color hoverBorderColor = new Color(0.9f, 0.9f, 0.9f, 0.9f);        // 银色
-        public Color chipNormalColor = new Color(1f, 1f, 1f, 1f);                 // 正常白色
-        public Color chipSelectedColor = new Color(1f, 1f, 1f, 1f);               // 选中白色
-        public float selectedScale = 1.15f;
-        public float hoverScale = 1.08f;
-        public float borderWidth = 4f;
+        [Header("选中效果 - 优化版")]
+        public Color selectedBorderColor = new Color(0f, 1f, 0.6f, 1f);            // 亮绿色
+        public Color chipNormalColor = new Color(1f, 1f, 1f, 1f);                  // 正常白色
+        public Color chipSelectedColor = new Color(1f, 1f, 1f, 1f);                // 选中白色
+        public float selectedScale = 1.08f;                                        // 轻微缩放
+        public float borderWidth = 3f;                                             // 边框宽度
         
         [Header("文字设置")]
         public int titleFontSize = 22;
@@ -113,7 +111,7 @@ namespace BaccaratGame.UI.Components
             public GameObject buttonObject;
             public Button button;
             public Image chipImage;
-            public Image borderImage;
+            public Outline outline;             // 改用Outline替代边框
             public RectTransform rectTransform;
             public int chipValue;
             public bool isSelected;
@@ -125,6 +123,9 @@ namespace BaccaratGame.UI.Components
 
         private void Awake()
         {
+            // 强制重置数组为默认值
+            allAvailableChips = new int[] { 1, 5, 10, 20, 50, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000 };
+            
             InitializeComponent();
         }
 
@@ -571,20 +572,16 @@ namespace BaccaratGame.UI.Components
             colors.disabledColor = Color.gray;
             button.colors = colors;
 
-            // 5. 创建选中边框
-            Image borderImage = CreateSelectionBorder(buttonObj);
-
-            // 6. 设置点击事件和悬停效果
+            // 5. 设置点击事件 (移除悬停效果)
             button.onClick.AddListener(() => ToggleChipSelection(chipValue));
-            AddHoverEffect(buttonObj, chipValue);
 
-            // 7. 保存数据
+            // 6. 保存数据
             ChipButtonData buttonData = new ChipButtonData
             {
                 buttonObject = buttonObj,
                 button = button,
                 chipImage = chipImage,
-                borderImage = borderImage,
+                outline = null,  // 初始没有outline
                 rectTransform = buttonRect,
                 chipValue = chipValue,
                 isSelected = false
@@ -729,40 +726,6 @@ namespace BaccaratGame.UI.Components
             return value.ToString();
         }
 
-        private Image CreateSelectionBorder(GameObject parent)
-        {
-            GameObject borderObj = new GameObject("SelectionBorder");
-            borderObj.transform.SetParent(parent.transform, false);
-
-            RectTransform borderRect = borderObj.AddComponent<RectTransform>();
-            borderRect.anchorMin = Vector2.zero;
-            borderRect.anchorMax = Vector2.one;
-            borderRect.sizeDelta = new Vector2(borderWidth * 2, borderWidth * 2);
-            borderRect.anchoredPosition = Vector2.zero;
-
-            Image borderImage = borderObj.AddComponent<Image>();
-            borderImage.color = selectedBorderColor;
-            borderImage.sprite = CreateSolidSprite();
-            borderImage.enabled = false;
-
-            return borderImage;
-        }
-
-        private void AddHoverEffect(GameObject buttonObj, int chipValue)
-        {
-            EventTrigger trigger = buttonObj.AddComponent<EventTrigger>();
-
-            EventTrigger.Entry pointerEnter = new EventTrigger.Entry();
-            pointerEnter.eventID = EventTriggerType.PointerEnter;
-            pointerEnter.callback.AddListener((data) => OnChipHoverEnter(chipValue));
-            trigger.triggers.Add(pointerEnter);
-
-            EventTrigger.Entry pointerExit = new EventTrigger.Entry();
-            pointerExit.eventID = EventTriggerType.PointerExit;
-            pointerExit.callback.AddListener((data) => OnChipHoverExit(chipValue));
-            trigger.triggers.Add(pointerExit);
-        }
-
         private void ClearAllChipButtons()
         {
             foreach (var pair in chipButtonDataMap)
@@ -823,8 +786,31 @@ namespace BaccaratGame.UI.Components
             bool isSelected = currentSelectedChips.Contains(chipValue);
             data.isSelected = isSelected;
 
-            data.borderImage.enabled = isSelected;
+            // 使用Outline替代边框，避免覆盖图片
+            if (isSelected)
+            {
+                // 添加outline
+                if (data.outline == null)
+                {
+                    data.outline = data.buttonObject.AddComponent<Outline>();
+                    data.outline.effectColor = selectedBorderColor;
+                    data.outline.effectDistance = new Vector2(borderWidth, -borderWidth);
+                }
+            }
+            else
+            {
+                // 移除outline
+                if (data.outline != null)
+                {
+                    if (Application.isPlaying)
+                        Destroy(data.outline);
+                    else
+                        DestroyImmediate(data.outline);
+                    data.outline = null;
+                }
+            }
             
+            // 缩放效果
             float targetScale = isSelected ? selectedScale : 1f;
             if (enableAnimation)
             {
@@ -835,6 +821,7 @@ namespace BaccaratGame.UI.Components
                 data.rectTransform.localScale = Vector3.one * targetScale;
             }
 
+            // 颜色调整
             data.chipImage.color = isSelected ? chipSelectedColor : chipNormalColor;
         }
 
@@ -843,43 +830,6 @@ namespace BaccaratGame.UI.Components
             foreach (var pair in chipButtonDataMap)
             {
                 UpdateChipSelectionState(pair.Key);
-            }
-        }
-
-        private void OnChipHoverEnter(int chipValue)
-        {
-            if (!chipButtonDataMap.ContainsKey(chipValue)) return;
-
-            ChipButtonData data = chipButtonDataMap[chipValue];
-            if (!data.isSelected)
-            {
-                data.borderImage.color = hoverBorderColor;
-                data.borderImage.enabled = true;
-                
-                if (enableAnimation)
-                {
-                    StartCoroutine(AnimateScale(data.rectTransform, hoverScale));
-                }
-            }
-        }
-
-        private void OnChipHoverExit(int chipValue)
-        {
-            if (!chipButtonDataMap.ContainsKey(chipValue)) return;
-
-            ChipButtonData data = chipButtonDataMap[chipValue];
-            if (!data.isSelected)
-            {
-                data.borderImage.enabled = false;
-                
-                if (enableAnimation)
-                {
-                    StartCoroutine(AnimateScale(data.rectTransform, 1f));
-                }
-            }
-            else
-            {
-                data.borderImage.color = selectedBorderColor;
             }
         }
 
