@@ -395,6 +395,43 @@ mergeInto(LibraryManager.library, {
         }
     },
 
+    /**
+    * 通用iframe加载函数
+    * @param {string} containerIdAndUrl - 格式："容器ID,URL"
+    */
+    loadIframe: function(containerIdAndUrlPtr) {
+        try {
+            var param = UTF8ToString(containerIdAndUrlPtr);
+            var parts = param.split(',');
+            var containerId = parts[0];
+            var url = parts.slice(1).join(','); // 处理URL中可能包含逗号的情况
+            
+            // 查找或创建容器
+            var container = document.getElementById(containerId);
+            if (!container) {
+                container = document.createElement('div');
+                container.id = containerId;
+                container.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;';
+                document.body.appendChild(container);
+            }
+            
+            // 创建iframe
+            var iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+            iframe.setAttribute('allowfullscreen', 'true');
+            iframe.setAttribute('frameborder', '0');
+            
+            // 清空容器并添加iframe
+            container.innerHTML = '';
+            container.appendChild(iframe);
+            
+            console.log('✅ iframe加载成功:', containerId, url);
+        } catch (e) {
+            console.error('❌ loadIframe失败:', e);
+        }
+    },
+
     // ================================================================================================
     // 调试和日志函数
     // ================================================================================================

@@ -78,7 +78,7 @@ namespace BaccaratGame.UI.Components
             currentIframeUrl = fullUrl;
             
             // 使用与VideoController相同的调用方式
-            CallWebGLFunction("loadVideo", $"{iframeContainerId},{fullUrl}");
+            CallWebGLFunction("loadIframe", $"{iframeContainerId},{fullUrl}");
             
             LogDebug($"加载路单iframe: {fullUrl}");
         }
