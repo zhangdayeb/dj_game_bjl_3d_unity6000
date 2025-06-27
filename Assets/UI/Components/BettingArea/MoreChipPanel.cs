@@ -26,7 +26,7 @@ namespace BaccaratGame.UI.Components
         public bool showOnAwake = false;
 
         [Header("面板尺寸和位置")]
-        public Vector2 panelSize = new Vector2(750, 750);
+        public Vector2 panelSize = new Vector2(650, 500);
         
         [Header("专业黑色系风格")]
         public Color panelBackgroundColor = new Color(0.06f, 0.06f, 0.06f, 0.98f);  // 深黑背景
@@ -43,9 +43,9 @@ namespace BaccaratGame.UI.Components
         public int maxSelectionCount = 5;
         
         [Header("网格布局")]
-        public Vector2 buttonSize = new Vector2(85, 85);
-        public Vector2 spacing = new Vector2(18, 18);
-        public int columnsPerRow = 8;
+        public Vector2 buttonSize = new Vector2(75, 75);
+        public Vector2 spacing = new Vector2(12, 12);
+        public int columnsPerRow = 6;
         public float topPadding = 20f;
         public float sidePadding = 25f;
         
