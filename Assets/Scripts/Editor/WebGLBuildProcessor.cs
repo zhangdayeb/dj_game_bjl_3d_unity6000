@@ -106,6 +106,9 @@ namespace BaccaratGame.Editor
                 // 注入Safari兼容性代码
                 InjectSafariCompatibility(buildPath);
                 
+                // 🔥 新增：注入iframe功能
+                InjectIframeSupport(buildPath);
+                
                 // 创建配置文件
                 CreateConfigurationFiles(buildPath);
                 
@@ -128,14 +131,14 @@ namespace BaccaratGame.Editor
         #region WebGL Optimizations
         
         /// <summary>
-        /// 应用WebGL优化设置
+        /// 应用WebGL优化设置 - 🔥 移动端优化版本
         /// </summary>
         private static void ApplyWebGLOptimizations()
         {
-            Debug.Log("[WebGLBuildProcessor] 应用WebGL优化设置...");
+            Debug.Log("[WebGLBuildProcessor] 应用移动端WebGL优化设置...");
             
-            // 设置WebGL内存大小
-            PlayerSettings.WebGL.memorySize = 512; // 512MB
+            // 🔥 移动端内存优化：从512MB改为128MB
+            PlayerSettings.WebGL.memorySize = 128; 
             
             // 启用异常支持（用于调试）
             PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
@@ -146,33 +149,35 @@ namespace BaccaratGame.Editor
             // 启用数据缓存
             PlayerSettings.WebGL.dataCaching = true;
             
-            // 启用名称文件
-            PlayerSettings.WebGL.nameFilesAsHashes = true;
+            // 🔥 关键修复：禁用文件名哈希，解决文件名问题
+            PlayerSettings.WebGL.nameFilesAsHashes = false;
             
             // 设置代码优化
             PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.Off;
             
-            // 启用WebAssembly
-            PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
+            // 🔥 移除重复的压缩格式设置
+            // PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip; // 删除重复行
             
-            Debug.Log("[WebGLBuildProcessor] WebGL优化设置应用完成");
+            Debug.Log("[WebGLBuildProcessor] 移动端WebGL优化设置应用完成");
+            Debug.Log($"[WebGLBuildProcessor] ✅ Name Files As Hashes: {PlayerSettings.WebGL.nameFilesAsHashes}");
+            Debug.Log($"[WebGLBuildProcessor] ✅ Memory Size: {PlayerSettings.WebGL.memorySize} MB");
         }
         
         /// <summary>
-        /// 配置播放器设置
+        /// 配置播放器设置 - 🔥 移动端适配
         /// </summary>
         private static void ConfigurePlayerSettings()
         {
-            Debug.Log("[WebGLBuildProcessor] 配置播放器设置...");
+            Debug.Log("[WebGLBuildProcessor] 配置移动端播放器设置...");
             
             // 基础设置
             PlayerSettings.companyName = BuildSettings["CompanyName"].ToString();
             PlayerSettings.productName = BuildSettings["ProductName"].ToString();
             PlayerSettings.bundleVersion = BuildSettings["Version"].ToString();
             
-            // 分辨率和呈现
-            PlayerSettings.defaultScreenWidth = 1920;
-            PlayerSettings.defaultScreenHeight = 1080;
+            // 🔥 移动端分辨率设置：改为竖屏750x1344
+            PlayerSettings.defaultScreenWidth = 750;
+            PlayerSettings.defaultScreenHeight = 1344;
             PlayerSettings.runInBackground = true;
             
             // 配置设置
@@ -186,6 +191,7 @@ namespace BaccaratGame.Editor
 
             symbolSet.Add("WEBGL_BUILD");
             symbolSet.Add("SLOT_MACHINE");
+            symbolSet.Add("MOBILE_OPTIMIZED"); // 🔥 新增移动端标识
 
             #if UNITY_2023_1_OR_NEWER
             symbolSet.Add("UNITY_2023_OR_NEWER");
@@ -195,6 +201,7 @@ namespace BaccaratGame.Editor
             PlayerSettings.SetScriptingDefineSymbols(namedBuildTarget, newSymbols);
             
             Debug.Log($"[WebGLBuildProcessor] 脚本定义符号: {newSymbols}");
+            Debug.Log($"[WebGLBuildProcessor] ✅ 移动端分辨率: {PlayerSettings.defaultScreenWidth} x {PlayerSettings.defaultScreenHeight}");
         }
         
         /// <summary>
@@ -287,7 +294,7 @@ namespace BaccaratGame.Editor
         }
         
         /// <summary>
-        /// 优化加载性能
+        /// 优化加载性能 - 🔥 修复文件名引用
         /// </summary>
         private static void OptimizeLoadingPerformance(string buildPath)
         {
@@ -298,15 +305,15 @@ namespace BaccaratGame.Editor
             {
                 string content = File.ReadAllText(indexPath);
                 
-                // 添加预加载提示
+                // 🔥 修复预加载提示，使用正确的文件名
                 content = content.Replace("</head>", 
-                    "  <link rel=\"preload\" as=\"script\" href=\"Build/UnityLoader.js\">\n" +
+                    "  <link rel=\"preload\" as=\"script\" href=\"Build/build.loader.js\">\n" +
                     "  <link rel=\"preload\" as=\"fetch\" href=\"Build/build.wasm\" crossorigin>\n" +
                     "  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n" +
                     "</head>");
                 
                 File.WriteAllText(indexPath, content);
-                Debug.Log("[WebGLBuildProcessor] 添加预加载优化");
+                Debug.Log("[WebGLBuildProcessor] 添加预加载优化（使用固定文件名）");
             }
         }
         
@@ -378,6 +385,38 @@ namespace BaccaratGame.Editor
         }
         
         /// <summary>
+        /// 🔥 新增：注入iframe支持功能
+        /// </summary>
+        private static void InjectIframeSupport(string buildPath)
+        {
+            Debug.Log("[WebGLBuildProcessor] 注入iframe支持功能...");
+            
+            try
+            {
+                string indexPath = Path.Combine(buildPath, "index.html");
+                if (!File.Exists(indexPath))
+                {
+                    Debug.LogWarning($"[WebGLBuildProcessor] index.html不存在: {indexPath}");
+                    return;
+                }
+                
+                string content = File.ReadAllText(indexPath);
+                
+                // 注入iframe支持脚本
+                string iframeScript = GenerateIframeSupportScript();
+                content = content.Replace("</body>", $"{iframeScript}\n</body>");
+                
+                File.WriteAllText(indexPath, content);
+                
+                Debug.Log("[WebGLBuildProcessor] iframe支持功能注入完成");
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[WebGLBuildProcessor] iframe支持功能注入失败: {e.Message}");
+            }
+        }
+        
+        /// <summary>
         /// 生成Safari兼容性脚本
         /// </summary>
         private static string GenerateSafariCompatibilityScript()
@@ -432,6 +471,163 @@ namespace BaccaratGame.Editor
 </script>";
         }
         
+        /// <summary>
+        /// 🔥 新增：生成iframe支持脚本
+        /// </summary>
+        private static string GenerateIframeSupportScript()
+        {
+            return @"
+<script>
+// iframe 管理功能 - 移动端优化版
+(function() {
+    'use strict';
+    
+    /**
+     * 通用 iframe 加载函数
+     * Unity 调用: CallWebGLFunction('loadIframe', 'containerID,URL')
+     */
+    window.loadIframe = function(containerIdAndUrl) {
+        try {
+            console.log('🎯 loadIframe 调用:', containerIdAndUrl);
+            
+            var parts = containerIdAndUrl.split(',');
+            var containerId = parts[0];
+            var url = parts.slice(1).join(',');
+            
+            var container = document.getElementById(containerId);
+            if (!container) {
+                container = document.createElement('div');
+                container.id = containerId;
+                container.style.cssText = 
+                    'position: fixed; top: 0; left: 0; width: 100%; height: 100%; ' +
+                    'z-index: 2000; background: rgba(0,0,0,0.9); ' +
+                    'display: flex; justify-content: center; align-items: center;';
+                document.body.appendChild(container);
+            }
+            
+            var wrapper = document.createElement('div');
+            wrapper.style.cssText = 
+                'width: 100%; height: 100%; max-width: 750px; max-height: 1344px; ' +
+                'position: relative; background: #000; border-radius: 8px; overflow: hidden;';
+            
+            var closeBtn = document.createElement('button');
+            closeBtn.innerHTML = '✕';
+            closeBtn.style.cssText = 
+                'position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; ' +
+                'background: rgba(255,0,0,0.8); color: white; border: none; ' +
+                'border-radius: 50%; cursor: pointer; z-index: 2001; font-size: 16px; ' +
+                'transition: all 0.3s;';
+            
+            closeBtn.onclick = function() {
+                console.log('🚫 关闭iframe:', containerId);
+                if (container && container.parentNode) {
+                    container.parentNode.removeChild(container);
+                }
+            };
+            
+            var iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.style.cssText = 'width:100%;height:100%;border:none;';
+            iframe.setAttribute('allowfullscreen', 'true');
+            iframe.setAttribute('frameborder', '0');
+            iframe.setAttribute('scrolling', 'no');
+            
+            container.innerHTML = '';
+            wrapper.appendChild(iframe);
+            wrapper.appendChild(closeBtn);
+            container.appendChild(wrapper);
+            
+            console.log('✅ iframe 加载成功:', containerId, url);
+            return true;
+        } catch (e) {
+            console.error('❌ loadIframe 失败:', e);
+            return false;
+        }
+    };
+    
+    /**
+     * 设置 iframe 可见性
+     */
+    window.setIframeVisibility = function(containerIdAndVisibility) {
+        try {
+            var parts = containerIdAndVisibility.split(',');
+            var containerId = parts[0];
+            var visible = parts[1] === '1';
+            
+            var container = document.getElementById(containerId);
+            if (container) {
+                container.style.display = visible ? 'flex' : 'none';
+                console.log('🔄 iframe 可见性:', containerId, visible ? '显示' : '隐藏');
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error('❌ setIframeVisibility 失败:', e);
+            return false;
+        }
+    };
+    
+    /**
+     * 刷新 iframe
+     */
+    window.refreshIframe = function(containerId) {
+        try {
+            var container = document.getElementById(containerId);
+            if (container) {
+                var iframe = container.querySelector('iframe');
+                if (iframe) {
+                    var currentSrc = iframe.src;
+                    iframe.src = '';
+                    setTimeout(function() { iframe.src = currentSrc; }, 100);
+                    console.log('🔄 iframe 已刷新:', containerId);
+                    return true;
+                }
+            }
+            return false;
+        } catch (e) {
+            console.error('❌ refreshIframe 失败:', e);
+            return false;
+        }
+    };
+    
+    /**
+     * 销毁 iframe
+     */
+    window.destroyIframe = function(containerId) {
+        try {
+            var container = document.getElementById(containerId);
+            if (container && container.parentNode) {
+                container.parentNode.removeChild(container);
+                console.log('🗑️ iframe 已销毁:', containerId);
+                return true;
+            }
+            return false;
+        } catch (e) {
+            console.error('❌ destroyIframe 失败:', e);
+            return false;
+        }
+    };
+    
+    // ESC 键关闭功能
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            var containers = document.querySelectorAll('[id$=""-container""]');
+            if (containers.length > 0) {
+                var latestContainer = containers[containers.length - 1];
+                if (latestContainer.style.display !== 'none') {
+                    latestContainer.style.display = 'none';
+                    console.log('⌨️ ESC 关闭iframe:', latestContainer.id);
+                }
+            }
+        }
+    });
+    
+    console.log('🚀 iframe 管理功能已加载');
+    console.log('📋 可用函数:', ['loadIframe', 'setIframeVisibility', 'refreshIframe', 'destroyIframe']);
+})();
+</script>";
+        }
+        
         #endregion
         
         #region Configuration and Validation
@@ -461,6 +657,13 @@ namespace BaccaratGame.Editor
                 {
                     initialHeapSize = PlayerSettings.WebGL.memorySize,
                     maximumHeapSize = PlayerSettings.WebGL.memorySize * 2
+                },
+                // 🔥 新增移动端配置
+                mobileSettings = new
+                {
+                    screenWidth = PlayerSettings.defaultScreenWidth,
+                    screenHeight = PlayerSettings.defaultScreenHeight,
+                    nameFilesAsHashes = PlayerSettings.WebGL.nameFilesAsHashes
                 }
             };
             
@@ -484,12 +687,27 @@ namespace BaccaratGame.Editor
                 return;
             }
             
-            // 检查自定义模板
-            string customTemplatePath = Path.Combine(templatePath, "SlotMachineTemplate");
-            if (Directory.Exists(customTemplatePath))
+            // 🔥 检查 MobileTemplate
+            string mobileTemplatePath = Path.Combine(templatePath, "MobileTemplate");
+            if (Directory.Exists(mobileTemplatePath))
             {
-                Debug.Log("[WebGLBuildProcessor] 找到自定义WebGL模板");
-                PlayerSettings.WebGL.template = "PROJECT:SlotMachineTemplate";
+                Debug.Log("[WebGLBuildProcessor] 找到MobileTemplate模板");
+                PlayerSettings.WebGL.template = "PROJECT:MobileTemplate";
+            }
+            // 检查自定义模板
+            else
+            {
+                string customTemplatePath = Path.Combine(templatePath, "SlotMachineTemplate");
+                if (Directory.Exists(customTemplatePath))
+                {
+                    Debug.Log("[WebGLBuildProcessor] 找到自定义WebGL模板");
+                    PlayerSettings.WebGL.template = "PROJECT:SlotMachineTemplate";
+                }
+                else
+                {
+                    Debug.Log("[WebGLBuildProcessor] 使用默认WebGL模板");
+                    PlayerSettings.WebGL.template = "APPLICATION:Default";
+                }
             }
         }
         
@@ -660,7 +878,10 @@ location / {
                     productName = PlayerSettings.productName,
                     version = PlayerSettings.bundleVersion,
                     memorySize = PlayerSettings.WebGL.memorySize,
-                    compressionFormat = PlayerSettings.WebGL.compressionFormat.ToString()
+                    compressionFormat = PlayerSettings.WebGL.compressionFormat.ToString(),
+                    // 🔥 新增移动端信息
+                    screenSize = $"{PlayerSettings.defaultScreenWidth} x {PlayerSettings.defaultScreenHeight}",
+                    nameFilesAsHashes = PlayerSettings.WebGL.nameFilesAsHashes
                 },
                 files = report.GetFiles()?.Length ?? 0,
                 errors = report.summary.totalErrors,
@@ -731,7 +952,7 @@ location / {
             ValidateWebGLTemplate();
             
             Debug.Log("[WebGLBuildProcessor] WebGL优化应用完成");
-            EditorUtility.DisplayDialog("WebGL优化", "WebGL优化设置已应用", "确定");
+            EditorUtility.DisplayDialog("WebGL优化", "移动端WebGL优化设置已应用\n\n✅ 文件名哈希已禁用\n✅ 内存设置已优化\n✅ 移动端分辨率已设置", "确定");
         }
         
         /// <summary>
@@ -768,7 +989,7 @@ location / {
             if (report.summary.result == BuildResult.Succeeded)
             {
                 Debug.Log($"[WebGLBuildProcessor] WebGL构建成功: {buildPath}");
-                EditorUtility.DisplayDialog("构建完成", $"WebGL构建成功!\n路径: {buildPath}", "确定");
+                EditorUtility.DisplayDialog("构建完成", $"移动端WebGL构建成功!\n\n路径: {buildPath}\n\n✅ iframe功能已自动注入\n✅ Safari兼容性已优化", "确定");
             }
             else
             {
