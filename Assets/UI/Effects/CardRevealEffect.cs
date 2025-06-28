@@ -13,8 +13,8 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         #region 配置参数
 
         [Header("🎨 视觉配置")]
-        public Vector2 cardSize = new Vector2(200, 280); // 进一步增大卡牌，接近红框大小
-        public float cardSpacing = 30f;
+        public Vector2 cardSize = new Vector2(120, 168); // 调整为合适的卡牌尺寸
+        public float cardSpacing = 20f;
         public Color panelBgColor = new Color(0, 0, 0, 0.85f); // 黑色半透明
         public Color maskColor = new Color(0, 0, 0, 0.6f);
         
@@ -36,7 +36,7 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         /// </summary>
         private void ShowDefaultCards()
         {
-            List<string> playerCards = new List<string> { "h2", "s10", "d5" }; // 红桃2, 黑桃10, 方块5
+            List<string> playerCards = new List<string> { "h2", "s10", "f5" }; // 红桃2, 黑桃10, 方块5
             List<string> bankerCards = new List<string> { "f2", "h13" };       // 测试用f2, 红桃K
             ShowCards(playerCards, bankerCards, "🏛️ 庄家获胜！");
         }
@@ -224,14 +224,14 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             bankerRect.offsetMin = Vector2.zero;
             bankerRect.offsetMax = Vector2.zero;
 
-            // 背景 - 半透明深色
+            // 背景 - 红色半透明
             Image bankerBg = bankerArea.AddComponent<Image>();
-            bankerBg.color = new Color(0.2f, 0.05f, 0.05f, 0.6f); // 深红色半透明
+            bankerBg.color = new Color(0.6f, 0.1f, 0.1f, 0.8f); // 红色背景
             bankerBg.sprite = CreatePixelSprite();
 
             // 边框
             Outline bankerOutline = bankerArea.AddComponent<Outline>();
-            bankerOutline.effectColor = new Color(1f, 0.4f, 0.4f, 0.8f); // 红色边框
+            bankerOutline.effectColor = new Color(1f, 0.3f, 0.3f, 0.9f); // 红色边框
             bankerOutline.effectDistance = new Vector2(2, -2);
 
             // 标题
@@ -255,14 +255,14 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             playerRect.offsetMin = Vector2.zero;
             playerRect.offsetMax = Vector2.zero;
 
-            // 背景 - 半透明深色
+            // 背景 - 蓝色半透明
             Image playerBg = playerArea.AddComponent<Image>();
-            playerBg.color = new Color(0.05f, 0.2f, 0.05f, 0.6f); // 深绿色半透明
+            playerBg.color = new Color(0.1f, 0.1f, 0.6f, 0.8f); // 蓝色背景
             playerBg.sprite = CreatePixelSprite();
 
             // 边框
             Outline playerOutline = playerArea.AddComponent<Outline>();
-            playerOutline.effectColor = new Color(0.4f, 1f, 0.4f, 0.8f); // 绿色边框
+            playerOutline.effectColor = new Color(0.3f, 0.3f, 1f, 0.9f); // 蓝色边框
             playerOutline.effectDistance = new Vector2(2, -2);
 
             // 标题
@@ -382,8 +382,7 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             string spriteKey = isBack ? "back" : cardKey;
             cardImg.sprite = LoadCardSprite(spriteKey);
 
-            // 添加卡牌文字显示
-            CreateCardText(cardObj, isBack ? "?" : GetCardDisplayText(cardKey));
+            // 移除文字显示 - 不再添加卡牌文字
 
             // 卡牌边框 - 更精致的边框
             Outline cardBorder = cardObj.AddComponent<Outline>();
@@ -439,12 +438,7 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             cardInfo.cardKey = targetCardKey;
             cardInfo.isRevealed = true;
             
-            // 更新卡牌文字
-            Text cardText = card.GetComponentInChildren<Text>();
-            if (cardText != null)
-            {
-                cardText.text = GetCardDisplayText(targetCardKey);
-            }
+            // 移除文字更新 - 不再使用文字显示
 
             // 第二阶段：翻转回来（显示）
             time = 0f;
@@ -615,8 +609,8 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         /// </summary>
         private Sprite CreateBeautifulCard(string cardKey)
         {
-            int width = 200;  // 增大备用卡牌尺寸
-            int height = 280;
+            int width = 120;  // 调整备用卡牌尺寸
+            int height = 168;
             Texture2D tex = new Texture2D(width, height);
             
             Color cardColor;
@@ -628,15 +622,9 @@ namespace BaccaratGame.UI.Components.VideoOverlay
                 cardColor = new Color(0.1f, 0.2f, 0.4f, 1f);
                 borderColor = new Color(0.3f, 0.4f, 0.6f, 1f);
             }
-            else if (cardKey.StartsWith("h") || cardKey.StartsWith("d"))
-            {
-                // 红色花色 - 白底红边
-                cardColor = new Color(0.95f, 0.95f, 0.95f, 1f);
-                borderColor = new Color(0.8f, 0.2f, 0.2f, 1f);
-            }
             else
             {
-                // 黑色花色 - 白底黑边  
+                // 所有卡牌使用白底
                 cardColor = new Color(0.95f, 0.95f, 0.95f, 1f);
                 borderColor = new Color(0.2f, 0.2f, 0.2f, 1f);
             }
@@ -647,10 +635,10 @@ namespace BaccaratGame.UI.Components.VideoOverlay
                 for (int y = 0; y < height; y++)
                 {
                     // 边框检测
-                    bool isBorder = x < 6 || x >= width - 6 || y < 6 || y >= height - 6;
+                    bool isBorder = x < 4 || x >= width - 4 || y < 4 || y >= height - 4;
                     // 圆角检测
-                    bool isCorner = (x < 15 && y < 15) || (x >= width - 15 && y < 15) || 
-                                   (x < 15 && y >= height - 15) || (x >= width - 15 && y >= height - 15);
+                    bool isCorner = (x < 10 && y < 10) || (x >= width - 10 && y < 10) || 
+                                   (x < 10 && y >= height - 10) || (x >= width - 10 && y >= height - 10);
                     
                     if (isCorner)
                     {
