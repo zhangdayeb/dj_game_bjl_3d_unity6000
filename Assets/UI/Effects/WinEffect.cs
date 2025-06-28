@@ -1,42 +1,33 @@
 // Assets/UI/Components/VideoOverlay/Set/WinEffect.cs
-// 简化版中奖特效组件 - 仅用于UI生成
-// 挂载到节点上自动创建中奖展示UI
+// 简洁优雅的中奖展示UI
+// 挂载到节点上自动创建美观的中奖展示界面
 // 创建时间: 2025/6/28
 
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections.Generic;
 
 namespace BaccaratGame.UI.Components.VideoOverlay
 {
     /// <summary>
-    /// 简化版中奖特效组件
-    /// 挂载到节点上自动创建UI，包含不同等级的中奖展示
+    /// 简洁优雅的中奖展示UI组件
+    /// 专注于美观的页面布局，无复杂特效
     /// </summary>
     public class WinEffect : MonoBehaviour
     {
         #region 配置参数
 
         [Header("面板配置")]
-        public Vector2 panelSize = new Vector2(500, 350);
-        public Color backgroundColor = new Color(0.05f, 0.05f, 0.05f, 0.95f);
-        public Color titleColor = Color.white;
-        public int fontSize = 16;
+        public Vector2 panelSize = new Vector2(480, 320);
+        public Color panelBackgroundColor = new Color(0.12f, 0.12f, 0.15f, 0.95f);
+        public Color accentColor = new Color(1f, 0.84f, 0.2f, 1f); // 金色
         
         [Header("遮罩层设置")]
-        public Color maskColor = new Color(0, 0, 0, 0.4f);
+        public Color maskColor = new Color(0, 0, 0, 0.6f);
         
-        [Header("中奖等级配置")]
-        public Color smallWinColor = new Color(0.2f, 0.8f, 0.2f, 1f);  // 绿色
-        public Color mediumWinColor = new Color(0.2f, 0.6f, 1f, 1f);   // 蓝色
-        public Color bigWinColor = new Color(1f, 0.6f, 0.2f, 1f);      // 橙色
-        public Color jackpotWinColor = new Color(1f, 0.8f, 0.2f, 1f);  // 金色
-        
-        [Header("中奖阈值")]
-        public int smallWinThreshold = 10;
-        public int mediumWinThreshold = 100;
-        public int bigWinThreshold = 1000;
-        public int jackpotWinThreshold = 10000;
+        [Header("文字配置")]
+        public Color primaryTextColor = Color.white;
+        public Color secondaryTextColor = new Color(0.8f, 0.8f, 0.8f, 1f);
+        public int baseFontSize = 18;
 
         #endregion
 
@@ -49,13 +40,9 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         
         // UI组件引用
         private Text winAmountText;
-        private Text winMessageText;
-        private Image flashOverlay;
-        
-        // 中奖等级数据
-        private readonly string[] winLevelNames = { "小奖", "中奖", "大奖", "超级大奖" };
-        private readonly int[] winAmounts = { 50, 300, 2000, 50000 };
-        private Color[] winColors;
+        private Text congratsText;
+        private Button continueButton;
+        private Button closeButton;
 
         #endregion
 
@@ -63,7 +50,6 @@ namespace BaccaratGame.UI.Components.VideoOverlay
 
         private void Awake()
         {
-            InitializeWinColors();
             CreateUI();
             ShowSampleWin();
         }
@@ -82,18 +68,9 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             CreateCanvas();
             CreateMaskLayer();
             CreateWinPanel();
-            CreateWinDisplay();
-            CreateWinButtons();
+            CreateWinContent();
             
             uiCreated = true;
-        }
-
-        /// <summary>
-        /// 初始化中奖颜色
-        /// </summary>
-        private void InitializeWinColors()
-        {
-            winColors = new Color[] { smallWinColor, mediumWinColor, bigWinColor, jackpotWinColor };
         }
 
         /// <summary>
@@ -109,7 +86,7 @@ namespace BaccaratGame.UI.Components.VideoOverlay
                 
                 uiCanvas = canvasObj.AddComponent<Canvas>();
                 uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                uiCanvas.sortingOrder = 4000; // 确保在最上层
+                uiCanvas.sortingOrder = 5000;
                 
                 CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
                 scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -169,88 +146,81 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             winPanel.transform.SetParent(transform);
 
             RectTransform panelRect = winPanel.AddComponent<RectTransform>();
-            panelRect.anchorMin = new Vector2(0.5f, 0.5f); // 居中
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0.5f);
             panelRect.sizeDelta = panelSize;
             panelRect.anchoredPosition = Vector2.zero;
 
+            // 主背景
             Image panelBg = winPanel.AddComponent<Image>();
-            panelBg.color = backgroundColor;
-            panelBg.sprite = CreateSimpleSprite();
+            panelBg.color = panelBackgroundColor;
+            panelBg.sprite = CreateRoundedSprite();
 
-            // 添加发光边框
-            Outline outline = winPanel.AddComponent<Outline>();
-            outline.effectColor = jackpotWinColor;
-            outline.effectDistance = new Vector2(3, -3);
-
-            // 添加阴影
+            // 顶部装饰条
+            CreateTopAccent();
+            
+            // 添加微妙阴影
             Shadow shadow = winPanel.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
-            shadow.effectDistance = new Vector2(5, -5);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.4f);
+            shadow.effectDistance = new Vector2(0, -4);
         }
 
         /// <summary>
-        /// 创建中奖显示区域
+        /// 创建顶部装饰条
         /// </summary>
-        private void CreateWinDisplay()
+        private void CreateTopAccent()
         {
-            // 创建闪光层
-            CreateFlashOverlay();
-            
-            // 创建标题
-            CreateTitle();
-            
-            // 创建中奖金额显示
+            GameObject accentObj = new GameObject("TopAccent");
+            accentObj.transform.SetParent(winPanel.transform);
+
+            RectTransform accentRect = accentObj.AddComponent<RectTransform>();
+            accentRect.anchorMin = new Vector2(0, 0.85f);
+            accentRect.anchorMax = new Vector2(1, 0.95f);
+            accentRect.offsetMin = Vector2.zero;
+            accentRect.offsetMax = Vector2.zero;
+
+            Image accentImage = accentObj.AddComponent<Image>();
+            accentImage.color = accentColor;
+            accentImage.sprite = CreateSimpleSprite();
+        }
+
+        /// <summary>
+        /// 创建中奖内容
+        /// </summary>
+        private void CreateWinContent()
+        {
+            CreateCongratulationsText();
             CreateWinAmountDisplay();
-            
-            // 创建中奖消息显示
-            CreateWinMessageDisplay();
+            CreateBottomButtons();
         }
 
         /// <summary>
-        /// 创建闪光覆盖层
+        /// 创建祝贺文字
         /// </summary>
-        private void CreateFlashOverlay()
+        private void CreateCongratulationsText()
         {
-            GameObject flashObj = new GameObject("FlashOverlay");
-            flashObj.transform.SetParent(winPanel.transform);
+            GameObject congratsObj = new GameObject("CongratulationsText");
+            congratsObj.transform.SetParent(winPanel.transform);
 
-            RectTransform flashRect = flashObj.AddComponent<RectTransform>();
-            flashRect.anchorMin = Vector2.zero;
-            flashRect.anchorMax = Vector2.one;
-            flashRect.offsetMin = Vector2.zero;
-            flashRect.offsetMax = Vector2.zero;
+            RectTransform congratsRect = congratsObj.AddComponent<RectTransform>();
+            congratsRect.anchorMin = new Vector2(0.1f, 0.65f);
+            congratsRect.anchorMax = new Vector2(0.9f, 0.85f);
+            congratsRect.offsetMin = Vector2.zero;
+            congratsRect.offsetMax = Vector2.zero;
 
-            flashOverlay = flashObj.AddComponent<Image>();
-            flashOverlay.color = new Color(1f, 1f, 1f, 0.3f);
-            flashOverlay.sprite = CreateSimpleSprite();
-            
-            // 默认隐藏
-            flashObj.SetActive(false);
-        }
+            congratsText = congratsObj.AddComponent<Text>();
+            congratsText.text = "恭喜中奖！";
+            congratsText.color = primaryTextColor;
+            congratsText.alignment = TextAnchor.MiddleCenter;
+            congratsText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            congratsText.fontSize = baseFontSize + 6;
+            congratsText.fontStyle = FontStyle.Bold;
 
-        /// <summary>
-        /// 创建标题
-        /// </summary>
-        private void CreateTitle()
-        {
-            GameObject titleObj = new GameObject("Title");
-            titleObj.transform.SetParent(winPanel.transform);
-
-            RectTransform titleRect = titleObj.AddComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0, 0.8f);
-            titleRect.anchorMax = new Vector2(1, 1f);
-            titleRect.offsetMin = new Vector2(15, 0);
-            titleRect.offsetMax = new Vector2(-15, -5);
-
-            Text titleText = titleObj.AddComponent<Text>();
-            titleText.text = "🎉 中奖特效展示 🎉";
-            titleText.color = titleColor;
-            titleText.alignment = TextAnchor.MiddleCenter;
-            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            titleText.fontSize = fontSize + 4;
-            titleText.fontStyle = FontStyle.Bold;
+            // 添加文字阴影
+            Shadow textShadow = congratsObj.AddComponent<Shadow>();
+            textShadow.effectColor = new Color(0f, 0f, 0f, 0.5f);
+            textShadow.effectDistance = new Vector2(1, -1);
         }
 
         /// <summary>
@@ -258,106 +228,105 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         /// </summary>
         private void CreateWinAmountDisplay()
         {
+            // 金额背景框
+            GameObject amountBgObj = new GameObject("AmountBackground");
+            amountBgObj.transform.SetParent(winPanel.transform);
+
+            RectTransform amountBgRect = amountBgObj.AddComponent<RectTransform>();
+            amountBgRect.anchorMin = new Vector2(0.15f, 0.35f);
+            amountBgRect.anchorMax = new Vector2(0.85f, 0.6f);
+            amountBgRect.offsetMin = Vector2.zero;
+            amountBgRect.offsetMax = Vector2.zero;
+
+            Image amountBgImage = amountBgObj.AddComponent<Image>();
+            amountBgImage.color = new Color(0.08f, 0.08f, 0.1f, 0.8f);
+            amountBgImage.sprite = CreateRoundedSprite();
+
+            // 金额文字
             GameObject amountObj = new GameObject("WinAmount");
-            amountObj.transform.SetParent(winPanel.transform);
+            amountObj.transform.SetParent(amountBgObj.transform);
 
             RectTransform amountRect = amountObj.AddComponent<RectTransform>();
-            amountRect.anchorMin = new Vector2(0, 0.5f);
-            amountRect.anchorMax = new Vector2(1, 0.8f);
-            amountRect.offsetMin = new Vector2(20, 0);
-            amountRect.offsetMax = new Vector2(-20, 0);
+            amountRect.anchorMin = Vector2.zero;
+            amountRect.anchorMax = Vector2.one;
+            amountRect.offsetMin = new Vector2(10, 0);
+            amountRect.offsetMax = new Vector2(-10, 0);
 
             winAmountText = amountObj.AddComponent<Text>();
-            winAmountText.text = "¥50,000";
-            winAmountText.color = jackpotWinColor;
+            winAmountText.text = "¥ 88,888";
+            winAmountText.color = accentColor;
             winAmountText.alignment = TextAnchor.MiddleCenter;
             winAmountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            winAmountText.fontSize = fontSize + 12;
+            winAmountText.fontSize = baseFontSize + 14;
             winAmountText.fontStyle = FontStyle.Bold;
 
-            // 添加发光效果
+            // 金额文字发光效果
             Outline amountOutline = amountObj.AddComponent<Outline>();
-            amountOutline.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            amountOutline.effectColor = new Color(accentColor.r, accentColor.g, accentColor.b, 0.3f);
             amountOutline.effectDistance = new Vector2(2, -2);
         }
 
         /// <summary>
-        /// 创建中奖消息显示
+        /// 创建底部按钮
         /// </summary>
-        private void CreateWinMessageDisplay()
+        private void CreateBottomButtons()
         {
-            GameObject messageObj = new GameObject("WinMessage");
-            messageObj.transform.SetParent(winPanel.transform);
+            // 按钮容器
+            GameObject buttonsContainer = new GameObject("ButtonsContainer");
+            buttonsContainer.transform.SetParent(winPanel.transform);
 
-            RectTransform messageRect = messageObj.AddComponent<RectTransform>();
-            messageRect.anchorMin = new Vector2(0, 0.35f);
-            messageRect.anchorMax = new Vector2(1, 0.5f);
-            messageRect.offsetMin = new Vector2(20, 0);
-            messageRect.offsetMax = new Vector2(-20, 0);
+            RectTransform buttonsRect = buttonsContainer.AddComponent<RectTransform>();
+            buttonsRect.anchorMin = new Vector2(0.1f, 0.08f);
+            buttonsRect.anchorMax = new Vector2(0.9f, 0.28f);
+            buttonsRect.offsetMin = Vector2.zero;
+            buttonsRect.offsetMax = Vector2.zero;
 
-            winMessageText = messageObj.AddComponent<Text>();
-            winMessageText.text = "🏆 超级大奖!!! 🏆";
-            winMessageText.color = jackpotWinColor;
-            winMessageText.alignment = TextAnchor.MiddleCenter;
-            winMessageText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            winMessageText.fontSize = fontSize + 2;
-            winMessageText.fontStyle = FontStyle.Bold;
+            // 水平布局组
+            HorizontalLayoutGroup layoutGroup = buttonsContainer.AddComponent<HorizontalLayoutGroup>();
+            layoutGroup.spacing = 20;
+            layoutGroup.childAlignment = TextAnchor.MiddleCenter;
+            layoutGroup.childControlWidth = true;
+            layoutGroup.childControlHeight = true;
+            layoutGroup.childForceExpandWidth = true;
+            layoutGroup.childForceExpandHeight = true;
 
-            // 添加阴影
-            Shadow messageShadow = messageObj.AddComponent<Shadow>();
-            messageShadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
-            messageShadow.effectDistance = new Vector2(1, -1);
+            // 继续按钮
+            continueButton = CreateStyledButton(buttonsContainer, "继续游戏", accentColor, primaryTextColor);
+            continueButton.onClick.AddListener(() => {
+                HidePanel();
+                Debug.Log("[WinEffect] 继续游戏");
+            });
+
+            // 关闭按钮
+            closeButton = CreateStyledButton(buttonsContainer, "关闭", 
+                new Color(0.3f, 0.3f, 0.3f, 1f), secondaryTextColor);
+            closeButton.onClick.AddListener(() => {
+                HidePanel();
+                Debug.Log("[WinEffect] 关闭面板");
+            });
         }
 
         /// <summary>
-        /// 创建中奖按钮
+        /// 创建样式化按钮
         /// </summary>
-        private void CreateWinButtons()
+        private Button CreateStyledButton(GameObject parent, string text, Color bgColor, Color textColor)
         {
-            GameObject buttonsObj = new GameObject("WinButtons");
-            buttonsObj.transform.SetParent(winPanel.transform);
-
-            RectTransform buttonsRect = buttonsObj.AddComponent<RectTransform>();
-            buttonsRect.anchorMin = new Vector2(0, 0.05f);
-            buttonsRect.anchorMax = new Vector2(1, 0.35f);
-            buttonsRect.offsetMin = new Vector2(20, 0);
-            buttonsRect.offsetMax = new Vector2(-20, 0);
-
-            // 添加网格布局
-            GridLayoutGroup gridLayout = buttonsObj.AddComponent<GridLayoutGroup>();
-            gridLayout.cellSize = new Vector2(100, 50);
-            gridLayout.spacing = new Vector2(10, 10);
-            gridLayout.startCorner = GridLayoutGroup.Corner.UpperLeft;
-            gridLayout.startAxis = GridLayoutGroup.Axis.Horizontal;
-            gridLayout.childAlignment = TextAnchor.MiddleCenter;
-            gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            gridLayout.constraintCount = 2;
-
-            // 创建中奖等级按钮
-            for (int i = 0; i < winLevelNames.Length; i++)
-            {
-                CreateWinLevelButton(buttonsObj, i);
-            }
-        }
-
-        /// <summary>
-        /// 创建中奖等级按钮
-        /// </summary>
-        private void CreateWinLevelButton(GameObject parent, int levelIndex)
-        {
-            GameObject buttonObj = new GameObject($"WinButton_{winLevelNames[levelIndex]}");
+            GameObject buttonObj = new GameObject($"Button_{text}");
             buttonObj.transform.SetParent(parent.transform);
 
-            RectTransform buttonRect = buttonObj.AddComponent<RectTransform>();
-            buttonRect.sizeDelta = new Vector2(100, 50);
-
-            Button winButton = buttonObj.AddComponent<Button>();
+            Button button = buttonObj.AddComponent<Button>();
             
             Image buttonImage = buttonObj.AddComponent<Image>();
-            buttonImage.color = winColors[levelIndex];
-            buttonImage.sprite = CreateSimpleSprite();
+            buttonImage.color = bgColor;
+            buttonImage.sprite = CreateRoundedSprite();
 
-            winButton.onClick.AddListener(() => ShowWinLevel(levelIndex));
+            // 按钮状态颜色
+            ColorBlock colors = button.colors;
+            colors.normalColor = bgColor;
+            colors.highlightedColor = new Color(bgColor.r * 1.1f, bgColor.g * 1.1f, bgColor.b * 1.1f, bgColor.a);
+            colors.pressedColor = new Color(bgColor.r * 0.9f, bgColor.g * 0.9f, bgColor.b * 0.9f, bgColor.a);
+            colors.disabledColor = new Color(bgColor.r * 0.5f, bgColor.g * 0.5f, bgColor.b * 0.5f, bgColor.a);
+            button.colors = colors;
 
             // 按钮文字
             GameObject textObj = new GameObject("Text");
@@ -370,21 +339,18 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             textRect.offsetMax = Vector2.zero;
 
             Text buttonText = textObj.AddComponent<Text>();
-            buttonText.text = winLevelNames[levelIndex];
-            buttonText.color = Color.white;
+            buttonText.text = text;
+            buttonText.color = textColor;
             buttonText.alignment = TextAnchor.MiddleCenter;
             buttonText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            buttonText.fontSize = fontSize - 2;
+            buttonText.fontSize = baseFontSize;
             buttonText.fontStyle = FontStyle.Bold;
 
-            // 添加阴影
-            Shadow textShadow = textObj.AddComponent<Shadow>();
-            textShadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
-            textShadow.effectDistance = new Vector2(1, -1);
+            return button;
         }
 
         /// <summary>
-        /// 创建简单背景
+        /// 创建简单背景Sprite
         /// </summary>
         private Sprite CreateSimpleSprite()
         {
@@ -393,6 +359,15 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             texture.Apply();
             
             return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
+        }
+
+        /// <summary>
+        /// 创建圆角背景Sprite（简化版）
+        /// </summary>
+        private Sprite CreateRoundedSprite()
+        {
+            // 简化实现，实际项目中可以使用更复杂的圆角纹理
+            return CreateSimpleSprite();
         }
 
         #endregion
@@ -404,61 +379,25 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         /// </summary>
         private void ShowSampleWin()
         {
-            // 默认显示超级大奖
-            ShowWinLevel(3);
+            UpdateWinDisplay(88888);
         }
 
         /// <summary>
-        /// 显示指定等级的中奖
+        /// 更新中奖显示
         /// </summary>
-        private void ShowWinLevel(int levelIndex)
+        private void UpdateWinDisplay(int amount)
         {
-            if (levelIndex < 0 || levelIndex >= winLevelNames.Length) return;
-
-            string levelName = winLevelNames[levelIndex];
-            int amount = winAmounts[levelIndex];
-            Color levelColor = winColors[levelIndex];
-
-            // 更新显示
             if (winAmountText != null)
             {
                 winAmountText.text = FormatWinAmount(amount);
-                winAmountText.color = levelColor;
             }
 
-            if (winMessageText != null)
+            if (congratsText != null)
             {
-                string message = GetWinMessage(levelIndex);
-                winMessageText.text = message;
-                winMessageText.color = levelColor;
+                congratsText.text = "恭喜中奖！";
             }
 
-            // 更新边框颜色
-            Outline panelOutline = winPanel.GetComponent<Outline>();
-            if (panelOutline != null)
-            {
-                panelOutline.effectColor = levelColor;
-            }
-
-            // 播放闪光效果
-            StartCoroutine(PlayFlashEffect(levelColor));
-
-            Debug.Log($"[WinEffect] 显示{levelName}: ¥{amount}");
-        }
-
-        /// <summary>
-        /// 获取中奖消息
-        /// </summary>
-        private string GetWinMessage(int levelIndex)
-        {
-            return levelIndex switch
-            {
-                0 => "🎉 小奖中奖! 🎉",
-                1 => "🎊 中奖来了! 🎊", 
-                2 => "🔥 巨额奖金! 🔥",
-                3 => "🏆 超级大奖!!! 🏆",
-                _ => "🎉 中奖了! 🎉"
-            };
+            Debug.Log($"[WinEffect] 显示中奖金额: ¥{amount}");
         }
 
         /// <summary>
@@ -467,34 +406,11 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         private string FormatWinAmount(int amount)
         {
             if (amount >= 10000)
-                return $"¥{amount / 10000:F1}万";
+                return $"¥ {amount / 10000:F1}万";
             else if (amount >= 1000)
-                return $"¥{amount / 1000:F1}K";
+                return $"¥ {amount:N0}";
             else
-                return $"¥{amount}";
-        }
-
-        /// <summary>
-        /// 播放闪光特效
-        /// </summary>
-        private System.Collections.IEnumerator PlayFlashEffect(Color flashColor)
-        {
-            if (flashOverlay == null) yield break;
-
-            // 设置闪光颜色
-            Color originalColor = flashColor;
-            originalColor.a = 0.5f;
-            flashOverlay.color = originalColor;
-
-            // 闪光3次
-            for (int i = 0; i < 3; i++)
-            {
-                flashOverlay.gameObject.SetActive(true);
-                yield return new WaitForSeconds(0.1f);
-                
-                flashOverlay.gameObject.SetActive(false);
-                yield return new WaitForSeconds(0.1f);
-            }
+                return $"¥ {amount}";
         }
 
         #endregion
@@ -506,8 +422,7 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         /// </summary>
         public void HidePanel()
         {
-            if (maskLayer != null) maskLayer.SetActive(false);
-            if (winPanel != null) winPanel.SetActive(false);
+            gameObject.SetActive(false);
             Debug.Log("[WinEffect] 面板已隐藏");
         }
 
@@ -516,8 +431,7 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         /// </summary>
         public void ShowPanel()
         {
-            if (maskLayer != null) maskLayer.SetActive(true);
-            if (winPanel != null) winPanel.SetActive(true);
+            gameObject.SetActive(true);
             Debug.Log("[WinEffect] 面板已显示");
         }
 
@@ -526,66 +440,23 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         #region 公共接口
 
         /// <summary>
+        /// 显示中奖效果
+        /// </summary>
+        public void ShowWinEffect(int winAmount)
+        {
+            UpdateWinDisplay(winAmount);
+            ShowPanel();
+        }
+
+        /// <summary>
         /// 切换面板显示状态
         /// </summary>
         public void TogglePanel()
         {
-            if (maskLayer != null && maskLayer.activeInHierarchy)
+            if (gameObject.activeInHierarchy)
                 HidePanel();
             else
                 ShowPanel();
-        }
-
-        /// <summary>
-        /// 播放中奖特效 (简化版本，仅更新显示)
-        /// </summary>
-        public void PlayWinEffect(int winAmount, string winType = "")
-        {
-            int levelIndex = GetWinLevelIndex(winAmount);
-            ShowWinLevel(levelIndex);
-        }
-
-        /// <summary>
-        /// 根据金额获取等级索引
-        /// </summary>
-        private int GetWinLevelIndex(int amount)
-        {
-            if (amount >= jackpotWinThreshold) return 3;
-            if (amount >= bigWinThreshold) return 2;
-            if (amount >= mediumWinThreshold) return 1;
-            return 0;
-        }
-
-        /// <summary>
-        /// 测试小奖
-        /// </summary>
-        public void TestSmallWin()
-        {
-            PlayWinEffect(50);
-        }
-
-        /// <summary>
-        /// 测试中奖
-        /// </summary>
-        public void TestMediumWin()
-        {
-            PlayWinEffect(300);
-        }
-
-        /// <summary>
-        /// 测试大奖
-        /// </summary>
-        public void TestBigWin()
-        {
-            PlayWinEffect(2000);
-        }
-
-        /// <summary>
-        /// 测试超级大奖
-        /// </summary>
-        public void TestJackpotWin()
-        {
-            PlayWinEffect(50000);
         }
 
         #endregion
@@ -612,6 +483,27 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         }
 
         /// <summary>
+        /// 测试不同金额
+        /// </summary>
+        [ContextMenu("测试小额中奖")]
+        public void TestSmallWin()
+        {
+            ShowWinEffect(288);
+        }
+
+        [ContextMenu("测试中等中奖")]
+        public void TestMediumWin()
+        {
+            ShowWinEffect(8888);
+        }
+
+        [ContextMenu("测试大额中奖")]
+        public void TestBigWin()
+        {
+            ShowWinEffect(66666);
+        }
+
+        /// <summary>
         /// 显示组件状态
         /// </summary>
         [ContextMenu("显示组件状态")]
@@ -620,28 +512,7 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             Debug.Log($"[WinEffect] UI已创建: {uiCreated}");
             Debug.Log($"[WinEffect] 遮罩层: {(maskLayer != null ? "✓" : "✗")}");
             Debug.Log($"[WinEffect] 中奖面板: {(winPanel != null ? "✓" : "✗")}");
-            Debug.Log($"[WinEffect] 中奖等级数: {winLevelNames.Length}");
-        }
-
-        /// <summary>
-        /// 测试所有等级
-        /// </summary>
-        [ContextMenu("测试所有等级")]
-        public void TestAllLevels()
-        {
-            StartCoroutine(TestAllLevelsCoroutine());
-        }
-
-        /// <summary>
-        /// 测试所有等级协程
-        /// </summary>
-        private System.Collections.IEnumerator TestAllLevelsCoroutine()
-        {
-            for (int i = 0; i < winLevelNames.Length; i++)
-            {
-                ShowWinLevel(i);
-                yield return new WaitForSeconds(2f);
-            }
+            Debug.Log($"[WinEffect] 当前状态: {(gameObject.activeInHierarchy ? "显示" : "隐藏")}");
         }
 
         #endregion
