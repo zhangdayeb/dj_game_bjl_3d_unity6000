@@ -1,80 +1,52 @@
 // Assets/UI/Components/VideoOverlay/Set/ButtonList.cs
-// 功能按钮列表组件 - 启动即显示版本
-// 自动创建并立即显示按钮UI
-// 创建时间: 2025/6/26
+// 带遮罩层的垂直按钮列表组件
+// 挂载后持久显示，点击遮罩层隐藏
+// 创建时间: 2025/6/28
 
-using System;
-using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Events;
-using BaccaratGame.Core.Events;
-using BaccaratGame.Data;
+using UnityEngine.EventSystems;
 
 namespace BaccaratGame.UI.Components.VideoOverlay
 {
     /// <summary>
-    /// 功能按钮列表组件 - 启动即显示版本
-    /// 组件启动时立即创建并显示所有按钮
+    /// 带遮罩层的垂直按钮列表组件
+    /// 自动创建UI并持久显示，支持遮罩层隐藏
     /// </summary>
     public class ButtonList : MonoBehaviour
     {
-        #region 序列化字段
+        #region 配置参数
 
-        [Header("自动显示设置")]
-        public bool autoCreateAndShow = false;
-        public bool showOnAwake = false;
-        public bool immediateDisplay = false;
-        
-        [Header("按钮布局")]
-        public Vector2 buttonSize = new Vector2(120, 40);
-        public float buttonSpacing = 15f;
-        public Vector2 startPosition = new Vector2(-250, -150);
-        public bool horizontalLayout = true;
+        [Header("按钮配置")]
+        public Vector2 buttonSize = new Vector2(150, 50);
+        public float buttonSpacing = 10f;
+        public Vector2 panelPosition = new Vector2(400, 200); // 相对屏幕右上角的偏移
         
         [Header("按钮样式")]
-        public Color buttonColor = new Color(0.2f, 0.6f, 1f, 1f);
+        public Color[] buttonColors = {
+            new Color(0.2f, 0.6f, 1f, 0.9f),   // 历史记录 - 蓝色
+            new Color(0.3f, 0.7f, 0.3f, 0.9f), // 充值 - 绿色
+            new Color(1f, 0.6f, 0.2f, 0.9f),   // 提现 - 橙色
+            new Color(0.6f, 0.2f, 0.8f, 0.9f)  // 客服 - 紫色
+        };
+        
         public Color textColor = Color.white;
-        public Color hoverColor = new Color(0.3f, 0.7f, 1f, 1f);
-        public int fontSize = 14;
+        public int fontSize = 16;
 
-        [Header("现有按钮引用 (可选)")]
-        public Button historyButton;
-        public Button rechargeButton;
-        public Button withdrawButton;
-        public Button customerServiceButton;
-        public Button backButton;
-
-        [Header("组件引用")]
-        public BaccaratGame.UI.Components.HistoryPanel historyPanel;
-
-        [Header("链接配置")]
-        public string rechargeUrl = "https://example.com/recharge";
-        public string withdrawUrl = "https://example.com/withdraw";
-        public string customerServiceUrl = "https://example.com/service";
-        public string backUrl = "https://www.google.com";
-
-        [Header("调试设置")]
-        public bool enableDebugMode = true;
+        [Header("遮罩层设置")]
+        public Color maskColor = new Color(0, 0, 0, 0.3f);
 
         #endregion
 
         #region 私有字段
 
-        private RectTransform rectTransform;
-        private Canvas parentCanvas;
-        private bool buttonsCreated = false;
-
-        #endregion
-
-        #region 事件定义
-
-        [Header("事件回调")]
-        public UnityEvent OnHistoryClicked;
-        public UnityEvent OnRechargeClicked;
-        public UnityEvent OnWithdrawClicked;
-        public UnityEvent OnCustomerServiceClicked;
-        public UnityEvent OnBackClicked;
+        private bool uiCreated = false;
+        private GameObject maskLayer;
+        private GameObject buttonPanel;
+        private Canvas uiCanvas;
+        
+        private readonly string[] buttonTexts = { "历史记录", "充值", "提现", "客服" };
+        private readonly string[] buttonIcons = { "📋", "💰", "💸", "🎧" };
 
         #endregion
 
@@ -82,222 +54,200 @@ namespace BaccaratGame.UI.Components.VideoOverlay
 
         private void Awake()
         {
-            InitializeComponent();
-            
-            if (showOnAwake)
-            {
-                CreateAndShowButtons();
-            }
-        }
-
-        private void Start()
-        {
-            if (!buttonsCreated && autoCreateAndShow)
-            {
-                CreateAndShowButtons();
-            }
-            
-            SetupExistingButtons();
-        }
-
-        private void OnValidate()
-        {
-            // 在编辑器中实时预览
-            if (Application.isEditor && !Application.isPlaying)
-            {
-                if (immediateDisplay)
-                {
-                    InitializeComponent();
-                    CreateAndShowButtons();
-                }
-            }
+            CreateUI();
         }
 
         #endregion
 
-        #region 初始化
+        #region UI创建
 
         /// <summary>
-        /// 初始化组件
+        /// 创建完整的UI系统
         /// </summary>
-        private void InitializeComponent()
+        private void CreateUI()
         {
-            // 确保有RectTransform
-            rectTransform = GetComponent<RectTransform>();
-            if (rectTransform == null)
-            {
-                rectTransform = gameObject.AddComponent<RectTransform>();
-            }
+            if (uiCreated) return;
 
-            // 查找父Canvas
-            parentCanvas = GetComponentInParent<Canvas>();
-            if (parentCanvas == null)
-            {
-                // 尝试创建Canvas
-                CreateCanvasIfNeeded();
-            }
-
-            if (enableDebugMode)
-                Debug.Log("[ButtonList] 组件初始化完成");
+            CreateCanvas();
+            CreateMaskLayer();
+            CreateButtonPanel();
+            CreateButtons();
+            
+            uiCreated = true;
         }
 
         /// <summary>
-        /// 如需要则创建Canvas
+        /// 创建Canvas
         /// </summary>
-        private void CreateCanvasIfNeeded()
+        private void CreateCanvas()
         {
-            GameObject canvasObj = new GameObject("ButtonListCanvas");
-            canvasObj.transform.SetParent(transform.parent);
-            
-            Canvas canvas = canvasObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 100;
-            
-            CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            
-            GraphicRaycaster raycaster = canvasObj.AddComponent<GraphicRaycaster>();
-            
-            // 将ButtonList移到Canvas下
-            transform.SetParent(canvasObj.transform);
-            
-            parentCanvas = canvas;
-            
-            if (enableDebugMode)
-                Debug.Log("[ButtonList] 创建了新的Canvas");
-        }
-
-        #endregion
-
-        #region 按钮创建
-
-        /// <summary>
-        /// 创建并显示所有按钮
-        /// </summary>
-        [ContextMenu("创建并显示按钮")]
-        public void CreateAndShowButtons()
-        {
-            if (buttonsCreated) return;
-
-            try
+            // 检查是否在Canvas下
+            uiCanvas = GetComponentInParent<Canvas>();
+            if (uiCanvas == null)
             {
-                // 确保组件已初始化
-                if (rectTransform == null)
-                    InitializeComponent();
-
-                // 创建按钮数据
-                var buttonData = new[]
-                {
-                    new { name = "history", text = "历史记录", url = "", color = new Color(0.5f, 0.7f, 1f, 1f) },
-                    new { name = "recharge", text = "充值", url = rechargeUrl, color = new Color(0.2f, 0.8f, 0.2f, 1f) },
-                    new { name = "withdraw", text = "提现", url = withdrawUrl, color = new Color(0.8f, 0.4f, 0.2f, 1f) },
-                    new { name = "customerservice", text = "客服", url = customerServiceUrl, color = new Color(0.6f, 0.2f, 0.8f, 1f) },
-                    new { name = "back", text = "返回", url = backUrl, color = new Color(0.8f, 0.2f, 0.2f, 1f) }
-                };
-
-                // 创建每个按钮
-                for (int i = 0; i < buttonData.Length; i++)
-                {
-                    var data = buttonData[i];
-                    Vector2 buttonPos = CalculateButtonPosition(i);
-                    Button button = CreateSingleButton(data.name, data.text, data.url, data.color, buttonPos);
-                    
-                    // 分配到对应的引用
-                    AssignButtonReference(data.name, button);
-                }
-
-                buttonsCreated = true;
+                // 创建新的Canvas
+                GameObject canvasObj = new GameObject("ButtonListCanvas");
+                canvasObj.transform.SetParent(transform.parent);
                 
-                if (enableDebugMode)
-                    Debug.Log("[ButtonList] 所有按钮创建完成并已显示");
+                uiCanvas = canvasObj.AddComponent<Canvas>();
+                uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                uiCanvas.sortingOrder = 1000; // 确保在最上层
+                
+                CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                scaler.matchWidthOrHeight = 0.5f;
+                
+                canvasObj.AddComponent<GraphicRaycaster>();
+                
+                // 移动ButtonList到Canvas下
+                transform.SetParent(canvasObj.transform);
             }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ButtonList] 创建按钮时出错: {ex.Message}");
-            }
+
+            // 设置ButtonList的RectTransform
+            RectTransform rectTransform = GetComponent<RectTransform>();
+            if (rectTransform == null)
+                rectTransform = gameObject.AddComponent<RectTransform>();
+                
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
         }
 
         /// <summary>
-        /// 计算按钮位置
+        /// 创建遮罩层
         /// </summary>
-        private Vector2 CalculateButtonPosition(int index)
+        private void CreateMaskLayer()
         {
-            if (horizontalLayout)
+            maskLayer = new GameObject("MaskLayer");
+            maskLayer.transform.SetParent(transform);
+
+            // 设置为全屏覆盖
+            RectTransform maskRect = maskLayer.AddComponent<RectTransform>();
+            maskRect.anchorMin = Vector2.zero;
+            maskRect.anchorMax = Vector2.one;
+            maskRect.offsetMin = Vector2.zero;
+            maskRect.offsetMax = Vector2.zero;
+
+            // 添加背景图片（半透明遮罩）
+            Image maskImage = maskLayer.AddComponent<Image>();
+            maskImage.color = maskColor;
+            maskImage.sprite = CreateSimpleSprite();
+
+            // 添加按钮组件用于点击检测
+            Button maskButton = maskLayer.AddComponent<Button>();
+            maskButton.onClick.AddListener(HidePanel);
+            
+            // 设置按钮颜色为透明
+            ColorBlock colors = maskButton.colors;
+            colors.normalColor = Color.clear;
+            colors.highlightedColor = Color.clear;
+            colors.pressedColor = Color.clear;
+            colors.disabledColor = Color.clear;
+            maskButton.colors = colors;
+        }
+
+        /// <summary>
+        /// 创建按钮面板
+        /// </summary>
+        private void CreateButtonPanel()
+        {
+            buttonPanel = new GameObject("ButtonPanel");
+            buttonPanel.transform.SetParent(transform);
+
+            // 设置面板位置（右上角）
+            RectTransform panelRect = buttonPanel.AddComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(1, 1); // 右上角锚点
+            panelRect.anchorMax = new Vector2(1, 1);
+            panelRect.pivot = new Vector2(1, 1);
+            
+            // 计算面板大小
+            float panelHeight = (buttonSize.y + buttonSpacing) * buttonTexts.Length - buttonSpacing + 20; // 20为padding
+            panelRect.sizeDelta = new Vector2(buttonSize.x + 20, panelHeight);
+            panelRect.anchoredPosition = new Vector2(-panelPosition.x, -panelPosition.y);
+
+            // 添加背景
+            Image panelBg = buttonPanel.AddComponent<Image>();
+            panelBg.color = new Color(0.1f, 0.1f, 0.1f, 0.8f);
+            panelBg.sprite = CreateSimpleSprite();
+
+            // 添加圆角效果（可选）
+            // 可以考虑使用Mask组件实现圆角
+        }
+
+        /// <summary>
+        /// 创建所有按钮
+        /// </summary>
+        private void CreateButtons()
+        {
+            for (int i = 0; i < buttonTexts.Length; i++)
             {
-                float x = startPosition.x + (index * (buttonSize.x + buttonSpacing));
-                return new Vector2(x, startPosition.y);
-            }
-            else
-            {
-                float y = startPosition.y - (index * (buttonSize.y + buttonSpacing));
-                return new Vector2(startPosition.x, y);
+                CreateSingleButton(i);
             }
         }
 
         /// <summary>
         /// 创建单个按钮
         /// </summary>
-        private Button CreateSingleButton(string buttonName, string displayText, string url, Color btnColor, Vector2 position)
+        private void CreateSingleButton(int index)
         {
-            // 创建按钮GameObject
-            GameObject buttonObj = new GameObject(buttonName + "Button");
-            buttonObj.transform.SetParent(transform);
+            GameObject buttonObj = new GameObject($"Button_{buttonTexts[index]}");
+            buttonObj.transform.SetParent(buttonPanel.transform);
 
-            // 设置RectTransform
+            // 设置按钮位置
             RectTransform buttonRect = buttonObj.AddComponent<RectTransform>();
             buttonRect.sizeDelta = buttonSize;
-            buttonRect.anchoredPosition = position;
-            buttonRect.localScale = Vector3.one;
+            buttonRect.anchorMin = new Vector2(0.5f, 1f); // 顶部中心锚点
+            buttonRect.anchorMax = new Vector2(0.5f, 1f);
+            buttonRect.pivot = new Vector2(0.5f, 1f);
+            
+            float yPos = -10 - (index * (buttonSize.y + buttonSpacing)); // 10为顶部padding
+            buttonRect.anchoredPosition = new Vector2(0, yPos);
 
-            // 添加背景图片
-            Image backgroundImage = buttonObj.AddComponent<Image>();
-            backgroundImage.color = btnColor;
-            backgroundImage.sprite = CreateButtonSprite();
+            // 添加按钮背景
+            Image buttonImage = buttonObj.AddComponent<Image>();
+            buttonImage.color = GetButtonColor(index);
+            buttonImage.sprite = CreateSimpleSprite();
 
             // 添加Button组件
             Button button = buttonObj.AddComponent<Button>();
+            SetupButtonColors(button, GetButtonColor(index));
             
-            // 设置按钮颜色状态
-            ColorBlock colors = button.colors;
-            colors.normalColor = btnColor;
-            colors.highlightedColor = hoverColor;
-            colors.pressedColor = new Color(btnColor.r * 0.8f, btnColor.g * 0.8f, btnColor.b * 0.8f, 1f);
-            colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
-            button.colors = colors;
+            // 添加点击事件（暂时只打印日志）
+            button.onClick.AddListener(() => OnButtonClick(buttonTexts[index]));
 
-            // 创建文本
-            CreateButtonText(buttonObj, displayText);
+            // 创建按钮文本
+            CreateButtonText(buttonObj, buttonTexts[index], buttonIcons[index]);
 
-            // 设置按钮点击事件
-            button.onClick.AddListener(() => HandleButtonClick(buttonName, url));
-
-            // 立即激活显示
             buttonObj.SetActive(true);
-
-            if (enableDebugMode)
-                Debug.Log($"[ButtonList] 创建按钮: {buttonName} 位置: {position}");
-
-            return button;
         }
 
         /// <summary>
-        /// 创建按钮Sprite
+        /// 获取按钮颜色
         /// </summary>
-        private Sprite CreateButtonSprite()
+        private Color GetButtonColor(int index)
         {
-            // 创建简单的按钮背景纹理
-            Texture2D texture = new Texture2D(1, 1);
-            texture.SetPixel(0, 0, Color.white);
-            texture.Apply();
-            
-            return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
+            return index < buttonColors.Length ? buttonColors[index] : Color.gray;
+        }
+
+        /// <summary>
+        /// 设置按钮颜色状态
+        /// </summary>
+        private void SetupButtonColors(Button button, Color baseColor)
+        {
+            ColorBlock colors = button.colors;
+            colors.normalColor = baseColor;
+            colors.highlightedColor = new Color(baseColor.r * 1.1f, baseColor.g * 1.1f, baseColor.b * 1.1f, baseColor.a);
+            colors.pressedColor = new Color(baseColor.r * 0.9f, baseColor.g * 0.9f, baseColor.b * 0.9f, baseColor.a);
+            colors.disabledColor = new Color(0.5f, 0.5f, 0.5f, 0.5f);
+            button.colors = colors;
         }
 
         /// <summary>
         /// 创建按钮文本
         /// </summary>
-        private void CreateButtonText(GameObject buttonObj, string displayText)
+        private void CreateButtonText(GameObject buttonObj, string displayText, string icon)
         {
             GameObject textObj = new GameObject("Text");
             textObj.transform.SetParent(buttonObj.transform);
@@ -307,10 +257,9 @@ namespace BaccaratGame.UI.Components.VideoOverlay
             textRect.anchorMax = Vector2.one;
             textRect.offsetMin = Vector2.zero;
             textRect.offsetMax = Vector2.zero;
-            textRect.localScale = Vector3.one;
 
             Text text = textObj.AddComponent<Text>();
-            text.text = displayText;
+            text.text = $"{icon} {displayText}";
             text.color = textColor;
             text.alignment = TextAnchor.MiddleCenter;
             text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
@@ -319,201 +268,64 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         }
 
         /// <summary>
-        /// 分配按钮引用
+        /// 创建简单背景
         /// </summary>
-        private void AssignButtonReference(string buttonName, Button button)
+        private Sprite CreateSimpleSprite()
         {
-            switch (buttonName.ToLower())
-            {
-                case "history":
-                    if (historyButton == null) historyButton = button;
-                    break;
-                case "recharge":
-                    if (rechargeButton == null) rechargeButton = button;
-                    break;
-                case "withdraw":
-                    if (withdrawButton == null) withdrawButton = button;
-                    break;
-                case "customerservice":
-                    if (customerServiceButton == null) customerServiceButton = button;
-                    break;
-                case "back":
-                    if (backButton == null) backButton = button;
-                    break;
-            }
+            Texture2D texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply();
+            
+            return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
         }
 
         #endregion
 
-        #region 现有按钮设置
+        #region 事件处理
 
         /// <summary>
-        /// 设置现有按钮
+        /// 按钮点击事件
         /// </summary>
-        private void SetupExistingButtons()
+        private void OnButtonClick(string buttonName)
         {
-            // 查找现有按钮（如果没有手动设置且没有自动创建）
-            if (!buttonsCreated)
+            Debug.Log($"[ButtonList] 点击了按钮: {buttonName}");
+            
+            // 这里可以根据按钮名称执行相应的功能
+            switch (buttonName)
             {
-                if (historyButton == null) historyButton = FindButtonByName("HistoryButton", "History");
-                if (rechargeButton == null) rechargeButton = FindButtonByName("RechargeButton", "Recharge");
-                if (withdrawButton == null) withdrawButton = FindButtonByName("WithdrawButton", "Withdraw");
-                if (customerServiceButton == null) customerServiceButton = FindButtonByName("CustomerServiceButton", "CustomerService");
-                if (backButton == null) backButton = FindButtonByName("BackButton", "Back");
+                case "历史记录":
+                    // 显示历史记录
+                    break;
+                case "充值":
+                    // 充值功能
+                    break;
+                case "提现":
+                    // 提现功能
+                    break;
+                case "客服":
+                    // 客服功能
+                    break;
             }
-
-            // 设置按钮回调
-            if (historyButton != null)
-            {
-                historyButton.onClick.RemoveAllListeners();
-                historyButton.onClick.AddListener(() => HandleButtonClick("history", ""));
-            }
-
-            if (rechargeButton != null)
-            {
-                rechargeButton.onClick.RemoveAllListeners();
-                rechargeButton.onClick.AddListener(() => HandleButtonClick("recharge", rechargeUrl));
-            }
-
-            if (withdrawButton != null)
-            {
-                withdrawButton.onClick.RemoveAllListeners();
-                withdrawButton.onClick.AddListener(() => HandleButtonClick("withdraw", withdrawUrl));
-            }
-
-            if (customerServiceButton != null)
-            {
-                customerServiceButton.onClick.RemoveAllListeners();
-                customerServiceButton.onClick.AddListener(() => HandleButtonClick("customerservice", customerServiceUrl));
-            }
-
-            if (backButton != null)
-            {
-                backButton.onClick.RemoveAllListeners();
-                backButton.onClick.AddListener(() => HandleButtonClick("back", backUrl));
-            }
-
-            // 查找历史面板组件
-            if (historyPanel == null)
-                historyPanel = FindFirstObjectByType<BaccaratGame.UI.Components.HistoryPanel>();
-
-            if (enableDebugMode)
-                Debug.Log("[ButtonList] 现有按钮设置完成");
         }
 
         /// <summary>
-        /// 按名称查找按钮
+        /// 隐藏面板
         /// </summary>
-        private Button FindButtonByName(params string[] names)
+        public void HidePanel()
         {
-            foreach (string name in names)
-            {
-                Transform found = transform.Find(name);
-                if (found != null)
-                {
-                    Button button = found.GetComponent<Button>();
-                    if (button != null)
-                        return button;
-                }
-            }
-            return null;
-        }
-
-        #endregion
-
-        #region 按钮处理
-
-        /// <summary>
-        /// 处理按钮点击
-        /// </summary>
-        private void HandleButtonClick(string buttonName, string url)
-        {
-            if (enableDebugMode)
-                Debug.Log($"[ButtonList] 按钮点击: {buttonName}");
-
-            switch (buttonName.ToLower())
-            {
-                case "history":
-                    HandleHistoryClick();
-                    break;
-                case "recharge":
-                    HandleRechargeClick(url);
-                    break;
-                case "withdraw":
-                    HandleWithdrawClick(url);
-                    break;
-                case "customerservice":
-                    HandleCustomerServiceClick(url);
-                    break;
-                case "back":
-                    HandleBackClick(url);
-                    break;
-            }
-        }
-
-        private void HandleHistoryClick()
-        {
-            OnHistoryClicked?.Invoke();
-
-            if (historyPanel != null)
-            {
-                historyPanel.OpenPanel();
-            }
-            else
-            {
-                UIEvents.TriggerPanelShown(UIPanel.BetHistory);
-            }
-
-            if (enableDebugMode)
-                Debug.Log("[ButtonList] 显示历史记录");
-        }
-
-        private void HandleRechargeClick(string url)
-        {
-            OnRechargeClicked?.Invoke();
-            OpenUrl(url, "充值");
-        }
-
-        private void HandleWithdrawClick(string url)
-        {
-            OnWithdrawClicked?.Invoke();
-            OpenUrl(url, "提现");
-        }
-
-        private void HandleCustomerServiceClick(string url)
-        {
-            OnCustomerServiceClicked?.Invoke();
-            OpenUrl(url, "客服");
-        }
-
-        private void HandleBackClick(string url)
-        {
-            OnBackClicked?.Invoke();
-            OpenUrl(url, "返回");
+            if (maskLayer != null) maskLayer.SetActive(false);
+            if (buttonPanel != null) buttonPanel.SetActive(false);
+            Debug.Log("[ButtonList] 面板已隐藏");
         }
 
         /// <summary>
-        /// 打开URL
+        /// 显示面板
         /// </summary>
-        private void OpenUrl(string url, string description)
+        public void ShowPanel()
         {
-            try
-            {
-                if (string.IsNullOrEmpty(url))
-                {
-                    Debug.LogWarning($"[ButtonList] {description}链接为空");
-                    return;
-                }
-
-                Application.OpenURL(url);
-                
-                if (enableDebugMode)
-                    Debug.Log($"[ButtonList] 打开{description}链接: {url}");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[ButtonList] 打开{description}链接失败: {ex.Message}");
-            }
+            if (maskLayer != null) maskLayer.SetActive(true);
+            if (buttonPanel != null) buttonPanel.SetActive(true);
+            Debug.Log("[ButtonList] 面板已显示");
         }
 
         #endregion
@@ -521,160 +333,63 @@ namespace BaccaratGame.UI.Components.VideoOverlay
         #region 公共接口
 
         /// <summary>
-        /// 强制显示按钮
+        /// 切换面板显示状态
         /// </summary>
-        [ContextMenu("强制显示按钮")]
-        public void ForceShowButtons()
+        public void TogglePanel()
         {
-            buttonsCreated = false;
-            CreateAndShowButtons();
+            if (maskLayer != null && maskLayer.activeInHierarchy)
+                HidePanel();
+            else
+                ShowPanel();
         }
 
         /// <summary>
-        /// 设置按钮可见性
+        /// 更新按钮位置
         /// </summary>
-        public void SetButtonVisible(string buttonName, bool visible)
+        public void UpdatePosition(Vector2 newPosition)
         {
-            Button button = GetButtonByName(buttonName);
-            if (button != null)
+            panelPosition = newPosition;
+            if (buttonPanel != null)
             {
-                button.gameObject.SetActive(visible);
-            }
-        }
-
-        /// <summary>
-        /// 设置按钮启用状态
-        /// </summary>
-        public void SetButtonEnabled(string buttonName, bool enabled)
-        {
-            Button button = GetButtonByName(buttonName);
-            if (button != null)
-            {
-                button.interactable = enabled;
-            }
-        }
-
-        /// <summary>
-        /// 根据名称获取按钮
-        /// </summary>
-        private Button GetButtonByName(string buttonName)
-        {
-            switch (buttonName.ToLower())
-            {
-                case "history": return historyButton;
-                case "recharge": return rechargeButton;
-                case "withdraw": return withdrawButton;
-                case "customerservice": return customerServiceButton;
-                case "back": return backButton;
-                default: return null;
-            }
-        }
-
-        /// <summary>
-        /// 更新链接配置
-        /// </summary>
-        public void UpdateUrls(string newRechargeUrl, string newWithdrawUrl, string newCustomerServiceUrl, string newBackUrl)
-        {
-            rechargeUrl = newRechargeUrl;
-            withdrawUrl = newWithdrawUrl;
-            customerServiceUrl = newCustomerServiceUrl;
-            backUrl = newBackUrl;
-
-            if (enableDebugMode)
-                Debug.Log("[ButtonList] 链接配置已更新");
-        }
-
-        /// <summary>
-        /// 重新定位所有按钮
-        /// </summary>
-        [ContextMenu("重新定位按钮")]
-        public void RepositionButtons()
-        {
-            var buttons = new[] { historyButton, rechargeButton, withdrawButton, customerServiceButton, backButton };
-            
-            for (int i = 0; i < buttons.Length; i++)
-            {
-                if (buttons[i] != null)
-                {
-                    RectTransform buttonRect = buttons[i].GetComponent<RectTransform>();
-                    if (buttonRect != null)
-                    {
-                        buttonRect.anchoredPosition = CalculateButtonPosition(i);
-                    }
-                }
+                RectTransform panelRect = buttonPanel.GetComponent<RectTransform>();
+                panelRect.anchoredPosition = new Vector2(-panelPosition.x, -panelPosition.y);
             }
         }
 
         #endregion
 
-        #region 调试方法
+        #region 编辑器辅助
+
+        /// <summary>
+        /// 重新创建UI
+        /// </summary>
+        [ContextMenu("重新创建UI")]
+        public void RecreateUI()
+        {
+            // 清理现有UI
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                if (Application.isPlaying)
+                    Destroy(transform.GetChild(i).gameObject);
+                else
+                    DestroyImmediate(transform.GetChild(i).gameObject);
+            }
+
+            uiCreated = false;
+            CreateUI();
+        }
 
         /// <summary>
         /// 显示组件状态
         /// </summary>
         [ContextMenu("显示组件状态")]
-        public void ShowComponentStatus()
+        public void ShowStatus()
         {
-            Debug.Log("=== ButtonList 组件状态 ===");
-            Debug.Log($"自动创建并显示: {autoCreateAndShow}");
-            Debug.Log($"启动时显示: {showOnAwake}");
-            Debug.Log($"立即显示: {immediateDisplay}");
-            Debug.Log($"按钮已创建: {buttonsCreated}");
-            Debug.Log($"父Canvas: {(parentCanvas != null ? "✓" : "✗")}");
-            Debug.Log($"历史记录按钮: {(historyButton != null ? "✓" : "✗")} - {(historyButton?.gameObject.activeInHierarchy == true ? "显示" : "隐藏")}");
-            Debug.Log($"充值按钮: {(rechargeButton != null ? "✓" : "✗")} - {(rechargeButton?.gameObject.activeInHierarchy == true ? "显示" : "隐藏")}");
-            Debug.Log($"提现按钮: {(withdrawButton != null ? "✓" : "✗")} - {(withdrawButton?.gameObject.activeInHierarchy == true ? "显示" : "隐藏")}");
-            Debug.Log($"客服按钮: {(customerServiceButton != null ? "✓" : "✗")} - {(customerServiceButton?.gameObject.activeInHierarchy == true ? "显示" : "隐藏")}");
-            Debug.Log($"返回按钮: {(backButton != null ? "✓" : "✗")} - {(backButton?.gameObject.activeInHierarchy == true ? "显示" : "隐藏")}");
-            Debug.Log($"按钮布局: {(horizontalLayout ? "水平" : "垂直")}");
-            Debug.Log($"起始位置: {startPosition}");
-        }
-
-        /// <summary>
-        /// 测试所有按钮
-        /// </summary>
-        [ContextMenu("测试所有按钮")]
-        public void TestAllButtons()
-        {
-            Debug.Log("[ButtonList] 开始测试所有按钮");
-            
-            if (historyButton != null) HandleButtonClick("history", "");
-            if (rechargeButton != null) HandleButtonClick("recharge", rechargeUrl);
-            if (withdrawButton != null) HandleButtonClick("withdraw", withdrawUrl);
-            if (customerServiceButton != null) HandleButtonClick("customerservice", customerServiceUrl);
-            if (backButton != null) HandleButtonClick("back", backUrl);
-            
-            Debug.Log("[ButtonList] 按钮测试完成");
-        }
-
-        /// <summary>
-        /// 删除所有创建的按钮
-        /// </summary>
-        [ContextMenu("删除所有按钮")]
-        public void ClearAllButtons()
-        {
-            var buttons = new[] { historyButton, rechargeButton, withdrawButton, customerServiceButton, backButton };
-            
-            foreach (var button in buttons)
-            {
-                if (button != null && button.transform.parent == transform)
-                {
-                    if (Application.isPlaying)
-                        Destroy(button.gameObject);
-                    else
-                        DestroyImmediate(button.gameObject);
-                }
-            }
-            
-            historyButton = null;
-            rechargeButton = null;
-            withdrawButton = null;
-            customerServiceButton = null;
-            backButton = null;
-            
-            buttonsCreated = false;
-            
-            Debug.Log("[ButtonList] 所有按钮已删除");
+            Debug.Log($"[ButtonList] UI已创建: {uiCreated}");
+            Debug.Log($"[ButtonList] 遮罩层: {(maskLayer != null ? "✓" : "✗")}");
+            Debug.Log($"[ButtonList] 按钮面板: {(buttonPanel != null ? "✓" : "✗")}");
+            Debug.Log($"[ButtonList] 按钮数量: {(buttonPanel != null ? buttonPanel.transform.childCount : 0)}");
+            Debug.Log($"[ButtonList] 当前显示状态: {gameObject.activeInHierarchy}");
         }
 
         #endregion
