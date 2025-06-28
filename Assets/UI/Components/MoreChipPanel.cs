@@ -1,124 +1,76 @@
-// Assets/UI/Components/BettingArea/MoreChipPanel.cs
-// 筹码配置面板组件 - 修复边框覆盖问题版本
-// 修复选中边框覆盖筹码图片的问题，移除悬停效果
-// 修复时间: 2025/6/27
-// 新增: 修复重复创建UI组件问题
+// Assets/UI/Components/VideoOverlay/Set/MoreChipPanel.cs
+// 简化版筹码配置面板组件 - 仅用于UI生成
+// 挂载到节点上自动创建筹码选择面板UI
+// 创建时间: 2025/6/28
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.EventSystems;
+using System.Collections.Generic;
 
-namespace BaccaratGame.UI.Components
+namespace BaccaratGame.UI.Components.VideoOverlay
 {
     /// <summary>
-    /// 筹码配置面板组件 - 修复版本
-    /// 专业黑色系风格，修复边框覆盖问题
+    /// 简化版筹码配置面板组件
+    /// 挂载到节点上自动创建UI，包含筹码选择和网格布局
     /// </summary>
     public class MoreChipPanel : MonoBehaviour
     {
-        #region 序列化字段
+        #region 配置参数
 
-        [Header("自动显示设置")]
-        public bool autoCreateAndShow = false;
-        public bool showOnAwake = false;
-
-        [Header("面板尺寸和位置")]
-        public Vector2 panelSize = new Vector2(650, 500);
+        [Header("面板配置")]
+        public Vector2 panelSize = new Vector2(600, 450);
+        public Color backgroundColor = new Color(0.1f, 0.1f, 0.1f, 0.95f);
+        public Color headerColor = new Color(0.15f, 0.15f, 0.15f, 1f);
+        public Color titleColor = Color.white;
+        public int fontSize = 14;
         
-        [Header("专业黑色系风格")]
-        public Color panelBackgroundColor = new Color(0.06f, 0.06f, 0.06f, 0.98f);  // 深黑背景
-        public Color maskColor = new Color(0f, 0f, 0f, 0.75f);                      // 遮罩
-        public Color headerColor = new Color(0.1f, 0.1f, 0.1f, 1f);                // 头部背景
-        public Color contentBackgroundColor = new Color(0.08f, 0.08f, 0.08f, 1f);   // 内容背景
-        public Color borderColor = new Color(0.3f, 0.3f, 0.3f, 1f);                // 边框
-
-        [Header("筹码配置 - 与您的图片文件完全对应")]
-        public int[] allAvailableChips = { 1, 5, 10, 20, 50, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000 };
+        [Header("遮罩层设置")]
+        public Color maskColor = new Color(0, 0, 0, 0.5f);
         
-        [Header("默认选择")]
-        public int[] defaultSelectedChips = { 5, 10, 20, 50, 100 };
-        public int maxSelectionCount = 5;
+        [Header("筹码配置")]
+        public int[] allChips = { 1, 5, 10, 20, 50, 100, 500, 1000, 5000, 10000 };
+        public int[] defaultSelected = { 5, 10, 20, 50, 100 };
+        public int maxSelection = 5;
         
         [Header("网格布局")]
-        public Vector2 buttonSize = new Vector2(75, 75);
-        public Vector2 spacing = new Vector2(12, 12);
-        public int columnsPerRow = 6;
-        public float topPadding = 20f;
-        public float sidePadding = 25f;
+        public Vector2 chipSize = new Vector2(70, 70);
+        public Vector2 chipSpacing = new Vector2(10, 10);
+        public int columnsPerRow = 5;
         
-        [Header("选中效果 - 优化版")]
-        public Color selectedBorderColor = new Color(0f, 1f, 0.6f, 1f);            // 亮绿色
-        public Color chipNormalColor = new Color(1f, 1f, 1f, 1f);                  // 正常白色
-        public Color chipSelectedColor = new Color(1f, 1f, 1f, 1f);                // 选中白色
-        public float selectedScale = 1.08f;                                        // 轻微缩放
-        public float borderWidth = 3f;                                             // 边框宽度
-        
-        [Header("文字设置")]
-        public int titleFontSize = 22;
-        public int statusFontSize = 16;
-        public int buttonFontSize = 14;
-        public Color titleColor = new Color(0.95f, 0.95f, 0.95f, 1f);
-        public Color textColor = new Color(0.85f, 0.85f, 0.85f, 1f);
-        public Color selectedTextColor = new Color(1f, 0.9f, 0.5f, 1f);
-        
-        [Header("动画设置")]
-        public bool enableAnimation = true;
-        public float animationDuration = 0.3f;
-        public float scaleAnimationDuration = 0.2f;
-        
-        [Header("调试设置")]
-        public bool enableDebugMode = true;
-
-        #endregion
-
-        #region 事件定义
-
-        public System.Action<int[]> OnChipsSelected;
-        public System.Action OnPanelClosed;
+        [Header("选中效果")]
+        public Color selectedBorderColor = new Color(0f, 1f, 0.6f, 1f);
+        public float borderWidth = 3f;
 
         #endregion
 
         #region 私有字段
 
-        private Canvas parentCanvas;
-        private bool panelUICreated = false;
-        private bool isVisible = false;
-        private Coroutine animationCoroutine;
+        private bool uiCreated = false;
+        private GameObject maskLayer;
+        private GameObject chipPanel;
+        private Canvas uiCanvas;
         
-        // 新增：防止重复创建的状态标记
-        private bool isCreatingUI = false;
-        private bool isDestroying = false;
-        
-        // UI组件
-        private GameObject panelRoot;
-        private GameObject mainPanel;
+        // UI组件引用
         private Transform chipContainer;
         private Text statusText;
         private Button confirmButton;
         private Button resetButton;
-        private ScrollRect scrollView;
-        private GridLayoutGroup gridLayout;
         
         // 筹码数据
-        private List<int> currentSelectedChips = new List<int>();
-        private Dictionary<int, ChipButtonData> chipButtonDataMap = new Dictionary<int, ChipButtonData>();
+        private List<int> selectedChips = new List<int>();
+        private Dictionary<int, ChipData> chipDataMap = new Dictionary<int, ChipData>();
 
         #endregion
 
         #region 数据结构
 
-        private class ChipButtonData
+        private class ChipData
         {
-            public GameObject buttonObject;
+            public GameObject chipObject;
             public Button button;
             public Image chipImage;
-            public Outline outline;             // 改用Outline替代边框
-            public RectTransform rectTransform;
-            public int chipValue;
+            public Outline outline;
+            public int value;
             public bool isSelected;
         }
 
@@ -128,558 +80,508 @@ namespace BaccaratGame.UI.Components
 
         private void Awake()
         {
-            // 强制重置数组为默认值
-            allAvailableChips = new int[] { 1, 5, 10, 20, 50, 100, 500, 1000, 5000, 10000, 20000, 50000, 100000 };
-            
-            InitializeComponent();
-        }
-
-        private void Start()
-        {
-            if (autoCreateAndShow && showOnAwake)
-            {
-                Show();
-            }
-        }
-
-        private void OnDestroy()
-        {
-            // 新增：设置销毁标记
-            isDestroying = true;
-            
-            if (animationCoroutine != null)
-            {
-                StopCoroutine(animationCoroutine);
-                animationCoroutine = null;
-            }
-            
-            // 新增：清理资源
-            CleanupUI();
-        }
-
-        #endregion
-
-        #region 初始化
-
-        private void InitializeComponent()
-        {
-            parentCanvas = GetComponentInParent<Canvas>();
-            if (parentCanvas == null)
-            {
-                CreateCanvasIfNeeded();
-            }
-
+            CreateUI();
             InitializeSelection();
-
-            if (enableDebugMode)
-                Debug.Log("[MoreChipPanel] 组件初始化完成");
-        }
-
-        private void InitializeSelection()
-        {
-            currentSelectedChips.Clear();
-            if (defaultSelectedChips != null)
-            {
-                foreach (int chip in defaultSelectedChips)
-                {
-                    if (currentSelectedChips.Count < maxSelectionCount)
-                    {
-                        currentSelectedChips.Add(chip);
-                    }
-                }
-            }
-
-            if (enableDebugMode)
-                Debug.Log($"[MoreChipPanel] 初始化选择: [{string.Join(", ", currentSelectedChips)}]");
-        }
-
-        private void CreateCanvasIfNeeded()
-        {
-            // 新增：检查是否已存在Canvas，避免重复创建
-            if (parentCanvas != null) return;
-
-            // 先尝试查找现有的Canvas
-            GameObject existingCanvas = GameObject.Find("MoreChipPanelCanvas");
-            if (existingCanvas != null)
-            {
-                Canvas existingCanvasComp = existingCanvas.GetComponent<Canvas>();
-                if (existingCanvasComp != null)
-                {
-                    parentCanvas = existingCanvasComp;
-                    transform.SetParent(existingCanvasComp.transform, false);
-                    if (enableDebugMode)
-                        Debug.Log("[MoreChipPanel] 找到现有Canvas，复用中");
-                    return;
-                }
-            }
-
-            GameObject canvasObj = new GameObject("MoreChipPanelCanvas");
-            Canvas canvas = canvasObj.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvas.sortingOrder = 100;
-            
-            CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920, 1080);
-            
-            canvasObj.AddComponent<GraphicRaycaster>();
-            
-            transform.SetParent(canvasObj.transform, false);
-            parentCanvas = canvas;
-            
-            if (enableDebugMode)
-                Debug.Log("[MoreChipPanel] 创建新Canvas");
         }
 
         #endregion
 
-        #region 面板创建
+        #region UI创建
 
-        private void CreatePanelUI()
+        /// <summary>
+        /// 创建完整的UI系统
+        /// </summary>
+        private void CreateUI()
         {
-            // 新增：严格的重复创建检查
-            if (panelUICreated)
-            {
-                if (enableDebugMode)
-                    Debug.LogWarning("[MoreChipPanel] 面板UI已存在，跳过创建");
-                return;
-            }
+            if (uiCreated) return;
 
-            if (isCreatingUI)
-            {
-                if (enableDebugMode)
-                    Debug.LogWarning("[MoreChipPanel] 正在创建UI中，跳过重复请求");
-                return;
-            }
+            CreateCanvas();
+            CreateMaskLayer();
+            CreateChipPanel();
+            CreatePanelHeader();
+            CreateChipGrid();
+            CreatePanelFooter();
+            
+            uiCreated = true;
+        }
 
-            if (isDestroying)
+        /// <summary>
+        /// 创建Canvas
+        /// </summary>
+        private void CreateCanvas()
+        {
+            uiCanvas = GetComponentInParent<Canvas>();
+            if (uiCanvas == null)
             {
-                if (enableDebugMode)
-                    Debug.LogWarning("[MoreChipPanel] 组件正在销毁，取消创建");
-                return;
-            }
-
-            // 新增：检查是否已存在panelRoot
-            if (panelRoot != null)
-            {
-                if (enableDebugMode)
-                    Debug.LogWarning("[MoreChipPanel] 检测到现有panelRoot，先清理再创建");
-                CleanupUI();
-            }
-
-            isCreatingUI = true;
-
-            try
-            {
-                CreateRootPanel();
-                CreateMaskBackground();
-                CreateMainPanel();
-                CreateHeaderPanel();
-                CreateContentArea();
-                CreateBottomPanel();
-                GenerateChipButtons();
+                GameObject canvasObj = new GameObject("ChipPanelCanvas");
+                canvasObj.transform.SetParent(transform.parent);
                 
-                panelUICreated = true;
-                if (panelRoot != null)
-                {
-                    panelRoot.SetActive(false);
-                }
+                uiCanvas = canvasObj.AddComponent<Canvas>();
+                uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                uiCanvas.sortingOrder = 2500; // 确保在最上层
+                
+                CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                scaler.matchWidthOrHeight = 0.5f;
+                
+                canvasObj.AddComponent<GraphicRaycaster>();
+                
+                transform.SetParent(canvasObj.transform);
+            }
 
-                if (enableDebugMode)
-                    Debug.Log("[MoreChipPanel] 专业黑色系面板创建完成");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[MoreChipPanel] 创建面板失败: {ex.Message}");
-                // 新增：创建失败时清理
-                CleanupUI();
-            }
-            finally
-            {
-                isCreatingUI = false;
-            }
+            RectTransform rectTransform = GetComponent<RectTransform>();
+            if (rectTransform == null)
+                rectTransform = gameObject.AddComponent<RectTransform>();
+                
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
         }
 
-        private void CreateRootPanel()
+        /// <summary>
+        /// 创建遮罩层
+        /// </summary>
+        private void CreateMaskLayer()
         {
-            panelRoot = new GameObject("MoreChipPanelRoot");
-            panelRoot.transform.SetParent(parentCanvas.transform, false);
+            maskLayer = new GameObject("MaskLayer");
+            maskLayer.transform.SetParent(transform);
 
-            RectTransform rootRect = panelRoot.AddComponent<RectTransform>();
-            rootRect.anchorMin = Vector2.zero;
-            rootRect.anchorMax = Vector2.one;
-            rootRect.sizeDelta = Vector2.zero;
-            rootRect.anchoredPosition = Vector2.zero;
-        }
-
-        private void CreateMaskBackground()
-        {
-            GameObject maskObj = new GameObject("MaskBackground");
-            maskObj.transform.SetParent(panelRoot.transform, false);
-
-            RectTransform maskRect = maskObj.AddComponent<RectTransform>();
+            RectTransform maskRect = maskLayer.AddComponent<RectTransform>();
             maskRect.anchorMin = Vector2.zero;
             maskRect.anchorMax = Vector2.one;
-            maskRect.sizeDelta = Vector2.zero;
-            maskRect.anchoredPosition = Vector2.zero;
+            maskRect.offsetMin = Vector2.zero;
+            maskRect.offsetMax = Vector2.zero;
 
-            Image maskImage = maskObj.AddComponent<Image>();
+            Image maskImage = maskLayer.AddComponent<Image>();
             maskImage.color = maskColor;
+            maskImage.sprite = CreateSimpleSprite();
 
-            Button maskButton = maskObj.AddComponent<Button>();
-            maskButton.onClick.AddListener(Hide);
+            Button maskButton = maskLayer.AddComponent<Button>();
+            maskButton.onClick.AddListener(HidePanel);
+            
+            ColorBlock colors = maskButton.colors;
+            colors.normalColor = Color.clear;
+            colors.highlightedColor = Color.clear;
+            colors.pressedColor = Color.clear;
+            colors.disabledColor = Color.clear;
+            maskButton.colors = colors;
         }
 
-        private void CreateMainPanel()
+        /// <summary>
+        /// 创建筹码面板
+        /// </summary>
+        private void CreateChipPanel()
         {
-            mainPanel = new GameObject("MainPanel");
-            mainPanel.transform.SetParent(panelRoot.transform, false);
+            chipPanel = new GameObject("ChipPanel");
+            chipPanel.transform.SetParent(transform);
 
-            RectTransform mainRect = mainPanel.AddComponent<RectTransform>();
-            mainRect.anchorMin = new Vector2(0.5f, 0.5f);
-            mainRect.anchorMax = new Vector2(0.5f, 0.5f);
-            mainRect.sizeDelta = panelSize;
-            mainRect.anchoredPosition = Vector2.zero; // 确保居中
+            RectTransform panelRect = chipPanel.AddComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f); // 居中
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = panelSize;
+            panelRect.anchoredPosition = Vector2.zero;
 
-            Image mainImage = mainPanel.AddComponent<Image>();
-            mainImage.color = panelBackgroundColor;
+            Image panelBg = chipPanel.AddComponent<Image>();
+            panelBg.color = backgroundColor;
+            panelBg.sprite = CreateSimpleSprite();
 
             // 添加边框效果
-            Outline outline = mainPanel.AddComponent<Outline>();
-            outline.effectColor = borderColor;
+            Outline outline = chipPanel.AddComponent<Outline>();
+            outline.effectColor = new Color(0.3f, 0.3f, 0.3f, 1f);
             outline.effectDistance = new Vector2(2, -2);
-
-            // 添加阴影
-            Shadow shadow = mainPanel.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
-            shadow.effectDistance = new Vector2(4, -4);
         }
 
-        private void CreateHeaderPanel()
+        /// <summary>
+        /// 创建面板头部
+        /// </summary>
+        private void CreatePanelHeader()
         {
-            GameObject headerObj = new GameObject("HeaderPanel");
-            headerObj.transform.SetParent(mainPanel.transform, false);
+            GameObject headerObj = new GameObject("Header");
+            headerObj.transform.SetParent(chipPanel.transform);
 
             RectTransform headerRect = headerObj.AddComponent<RectTransform>();
-            headerRect.anchorMin = new Vector2(0, 1);
-            headerRect.anchorMax = new Vector2(1, 1);
-            headerRect.sizeDelta = new Vector2(0, 60);
-            headerRect.anchoredPosition = new Vector2(0, -30);
+            headerRect.anchorMin = new Vector2(0, 0.85f);
+            headerRect.anchorMax = new Vector2(1, 1f);
+            headerRect.offsetMin = Vector2.zero;
+            headerRect.offsetMax = Vector2.zero;
 
-            Image headerImage = headerObj.AddComponent<Image>();
-            headerImage.color = headerColor;
+            Image headerBg = headerObj.AddComponent<Image>();
+            headerBg.color = headerColor;
+            headerBg.sprite = CreateSimpleSprite();
 
-            CreateTitleText(headerObj);
+            // 创建标题
+            CreateTitle(headerObj);
+            
+            // 创建关闭按钮
             CreateCloseButton(headerObj);
         }
 
-        private void CreateTitleText(GameObject parent)
+        /// <summary>
+        /// 创建标题
+        /// </summary>
+        private void CreateTitle(GameObject parent)
         {
             GameObject titleObj = new GameObject("Title");
-            titleObj.transform.SetParent(parent.transform, false);
+            titleObj.transform.SetParent(parent.transform);
 
             RectTransform titleRect = titleObj.AddComponent<RectTransform>();
             titleRect.anchorMin = new Vector2(0, 0);
-            titleRect.anchorMax = new Vector2(0.8f, 1);
-            titleRect.sizeDelta = Vector2.zero;
-            titleRect.anchoredPosition = new Vector2(0, 0);
+            titleRect.anchorMax = new Vector2(0.8f, 1f);
+            titleRect.offsetMin = new Vector2(15, 0);
+            titleRect.offsetMax = Vector2.zero;
 
             Text titleText = titleObj.AddComponent<Text>();
-            titleText.text = "选择筹码 (最多5个)";
-            titleText.font = GetDefaultFont();
-            titleText.fontSize = titleFontSize;
+            titleText.text = $"🪙 选择筹码 (最多{maxSelection}个)";
             titleText.color = titleColor;
             titleText.alignment = TextAnchor.MiddleLeft;
+            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleText.fontSize = fontSize + 4;
             titleText.fontStyle = FontStyle.Bold;
-            
-            // 添加左边距
-            titleRect.offsetMin = new Vector2(25, 0);
         }
 
+        /// <summary>
+        /// 创建关闭按钮
+        /// </summary>
         private void CreateCloseButton(GameObject parent)
         {
             GameObject closeObj = new GameObject("CloseButton");
-            closeObj.transform.SetParent(parent.transform, false);
+            closeObj.transform.SetParent(parent.transform);
 
             RectTransform closeRect = closeObj.AddComponent<RectTransform>();
-            closeRect.anchorMin = new Vector2(1, 0.5f);
-            closeRect.anchorMax = new Vector2(1, 0.5f);
-            closeRect.sizeDelta = new Vector2(45, 45);
-            closeRect.anchoredPosition = new Vector2(-35, 0);
-
-            Image closeImage = closeObj.AddComponent<Image>();
-            closeImage.color = new Color(0.8f, 0.2f, 0.2f, 1f);
+            closeRect.anchorMin = new Vector2(0.85f, 0.1f);
+            closeRect.anchorMax = new Vector2(0.95f, 0.9f);
+            closeRect.offsetMin = Vector2.zero;
+            closeRect.offsetMax = Vector2.zero;
 
             Button closeBtn = closeObj.AddComponent<Button>();
-            closeBtn.onClick.AddListener(Hide);
+            
+            Image closeImage = closeObj.AddComponent<Image>();
+            closeImage.color = Color.red;
+            closeImage.sprite = CreateSimpleSprite();
 
-            CreateButtonText(closeObj, "×", 28, Color.white);
+            closeBtn.onClick.AddListener(HidePanel);
+
+            // 关闭按钮文字
+            GameObject closeTextObj = new GameObject("Text");
+            closeTextObj.transform.SetParent(closeObj.transform);
+
+            RectTransform closeTextRect = closeTextObj.AddComponent<RectTransform>();
+            closeTextRect.anchorMin = Vector2.zero;
+            closeTextRect.anchorMax = Vector2.one;
+            closeTextRect.offsetMin = Vector2.zero;
+            closeTextRect.offsetMax = Vector2.zero;
+
+            Text closeText = closeTextObj.AddComponent<Text>();
+            closeText.text = "✕";
+            closeText.color = Color.white;
+            closeText.alignment = TextAnchor.MiddleCenter;
+            closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            closeText.fontSize = fontSize + 2;
+            closeText.fontStyle = FontStyle.Bold;
         }
 
-        private void CreateContentArea()
-        {
-            GameObject contentObj = new GameObject("ContentArea");
-            contentObj.transform.SetParent(mainPanel.transform, false);
-
-            RectTransform contentRect = contentObj.AddComponent<RectTransform>();
-            contentRect.anchorMin = new Vector2(0, 0);
-            contentRect.anchorMax = new Vector2(1, 1);
-            contentRect.offsetMin = new Vector2(0, 80);  // 底部留空间
-            contentRect.offsetMax = new Vector2(0, -60); // 顶部留空间
-
-            Image contentImage = contentObj.AddComponent<Image>();
-            contentImage.color = contentBackgroundColor;
-
-            CreateScrollView(contentObj);
-        }
-
-        private void CreateScrollView(GameObject parent)
-        {
-            GameObject scrollObj = new GameObject("ScrollView");
-            scrollObj.transform.SetParent(parent.transform, false);
-
-            RectTransform scrollRect = scrollObj.AddComponent<RectTransform>();
-            scrollRect.anchorMin = Vector2.zero;
-            scrollRect.anchorMax = Vector2.one;
-            scrollRect.sizeDelta = Vector2.zero;
-            scrollRect.anchoredPosition = Vector2.zero;
-
-            scrollView = scrollObj.AddComponent<ScrollRect>();
-            scrollView.horizontal = false;
-            scrollView.vertical = true;
-            scrollView.movementType = ScrollRect.MovementType.Clamped;
-
-            CreateChipGrid(scrollObj);
-        }
-
-        private void CreateChipGrid(GameObject parent)
+        /// <summary>
+        /// 创建筹码网格
+        /// </summary>
+        private void CreateChipGrid()
         {
             GameObject gridObj = new GameObject("ChipGrid");
-            gridObj.transform.SetParent(parent.transform, false);
+            gridObj.transform.SetParent(chipPanel.transform);
 
             RectTransform gridRect = gridObj.AddComponent<RectTransform>();
-            gridRect.anchorMin = new Vector2(0, 1);
-            gridRect.anchorMax = new Vector2(1, 1);
-            gridRect.pivot = new Vector2(0.5f, 1);
-            gridRect.anchoredPosition = Vector2.zero;
+            gridRect.anchorMin = new Vector2(0, 0.2f);
+            gridRect.anchorMax = new Vector2(1, 0.85f);
+            gridRect.offsetMin = new Vector2(15, 0);
+            gridRect.offsetMax = new Vector2(-15, 0);
 
-            gridLayout = gridObj.AddComponent<GridLayoutGroup>();
-            gridLayout.cellSize = buttonSize;
-            gridLayout.spacing = spacing;
+            // 添加网格布局
+            GridLayoutGroup gridLayout = gridObj.AddComponent<GridLayoutGroup>();
+            gridLayout.cellSize = chipSize;
+            gridLayout.spacing = chipSpacing;
             gridLayout.startCorner = GridLayoutGroup.Corner.UpperLeft;
             gridLayout.startAxis = GridLayoutGroup.Axis.Horizontal;
             gridLayout.childAlignment = TextAnchor.UpperCenter;
             gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             gridLayout.constraintCount = columnsPerRow;
-            gridLayout.padding = new RectOffset((int)sidePadding, (int)sidePadding, (int)topPadding, 0);
+            gridLayout.padding = new RectOffset(10, 10, 10, 10);
 
-            ContentSizeFitter contentSizeFitter = gridObj.AddComponent<ContentSizeFitter>();
-            contentSizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-
-            scrollView.content = gridRect;
             chipContainer = gridObj.transform;
+            
+            // 创建所有筹码按钮
+            CreateChipButtons();
         }
 
-        private void CreateBottomPanel()
+        /// <summary>
+        /// 创建面板底部
+        /// </summary>
+        private void CreatePanelFooter()
         {
-            GameObject bottomObj = new GameObject("BottomPanel");
-            bottomObj.transform.SetParent(mainPanel.transform, false);
+            GameObject footerObj = new GameObject("Footer");
+            footerObj.transform.SetParent(chipPanel.transform);
 
-            RectTransform bottomRect = bottomObj.AddComponent<RectTransform>();
-            bottomRect.anchorMin = new Vector2(0, 0);
-            bottomRect.anchorMax = new Vector2(1, 0);
-            bottomRect.sizeDelta = new Vector2(0, 80);
-            bottomRect.anchoredPosition = new Vector2(0, 40);
+            RectTransform footerRect = footerObj.AddComponent<RectTransform>();
+            footerRect.anchorMin = new Vector2(0, 0);
+            footerRect.anchorMax = new Vector2(1, 0.2f);
+            footerRect.offsetMin = Vector2.zero;
+            footerRect.offsetMax = Vector2.zero;
 
-            Image bottomImage = bottomObj.AddComponent<Image>();
-            bottomImage.color = headerColor;
+            Image footerBg = footerObj.AddComponent<Image>();
+            footerBg.color = headerColor;
+            footerBg.sprite = CreateSimpleSprite();
 
-            CreateStatusText(bottomObj);
-            CreateActionButtons(bottomObj);
+            // 状态文字
+            CreateStatusText(footerObj);
+            
+            // 操作按钮
+            CreateActionButtons(footerObj);
         }
 
+        /// <summary>
+        /// 创建状态文字
+        /// </summary>
         private void CreateStatusText(GameObject parent)
         {
             GameObject statusObj = new GameObject("StatusText");
-            statusObj.transform.SetParent(parent.transform, false);
+            statusObj.transform.SetParent(parent.transform);
 
             RectTransform statusRect = statusObj.AddComponent<RectTransform>();
             statusRect.anchorMin = new Vector2(0, 0);
-            statusRect.anchorMax = new Vector2(0.5f, 1);
-            statusRect.sizeDelta = Vector2.zero;
-            statusRect.anchoredPosition = Vector2.zero;
-            statusRect.offsetMin = new Vector2(25, 0);
+            statusRect.anchorMax = new Vector2(0.5f, 1f);
+            statusRect.offsetMin = new Vector2(15, 0);
+            statusRect.offsetMax = Vector2.zero;
 
             statusText = statusObj.AddComponent<Text>();
-            statusText.font = GetDefaultFont();
-            statusText.fontSize = statusFontSize;
-            statusText.color = textColor;
+            statusText.text = $"已选择: 0/{maxSelection}";
+            statusText.color = Color.white;
             statusText.alignment = TextAnchor.MiddleLeft;
+            statusText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            statusText.fontSize = fontSize;
         }
 
+        /// <summary>
+        /// 创建操作按钮
+        /// </summary>
         private void CreateActionButtons(GameObject parent)
         {
             // 重置按钮
             GameObject resetObj = new GameObject("ResetButton");
-            resetObj.transform.SetParent(parent.transform, false);
+            resetObj.transform.SetParent(parent.transform);
 
             RectTransform resetRect = resetObj.AddComponent<RectTransform>();
-            resetRect.anchorMin = new Vector2(0.5f, 0.5f);
-            resetRect.anchorMax = new Vector2(0.5f, 0.5f);
-            resetRect.sizeDelta = new Vector2(100, 50);
-            resetRect.anchoredPosition = new Vector2(-60, 0);
-
-            Image resetImage = resetObj.AddComponent<Image>();
-            resetImage.color = new Color(0.4f, 0.4f, 0.4f, 1f);
+            resetRect.anchorMin = new Vector2(0.55f, 0.2f);
+            resetRect.anchorMax = new Vector2(0.75f, 0.8f);
+            resetRect.offsetMin = Vector2.zero;
+            resetRect.offsetMax = Vector2.zero;
 
             resetButton = resetObj.AddComponent<Button>();
+            
+            Image resetImage = resetObj.AddComponent<Image>();
+            resetImage.color = new Color(0.6f, 0.6f, 0.6f, 1f);
+            resetImage.sprite = CreateSimpleSprite();
+
             resetButton.onClick.AddListener(ResetSelection);
 
-            CreateButtonText(resetObj, "重置", buttonFontSize, Color.white);
+            CreateButtonText(resetObj, "重置");
 
             // 确认按钮
             GameObject confirmObj = new GameObject("ConfirmButton");
-            confirmObj.transform.SetParent(parent.transform, false);
+            confirmObj.transform.SetParent(parent.transform);
 
             RectTransform confirmRect = confirmObj.AddComponent<RectTransform>();
-            confirmRect.anchorMin = new Vector2(0.5f, 0.5f);
-            confirmRect.anchorMax = new Vector2(0.5f, 0.5f);
-            confirmRect.sizeDelta = new Vector2(100, 50);
-            confirmRect.anchoredPosition = new Vector2(60, 0);
-
-            Image confirmImage = confirmObj.AddComponent<Image>();
-            confirmImage.color = new Color(1f, 0.7f, 0f, 1f); // 金色
+            confirmRect.anchorMin = new Vector2(0.78f, 0.2f);
+            confirmRect.anchorMax = new Vector2(0.98f, 0.8f);
+            confirmRect.offsetMin = Vector2.zero;
+            confirmRect.offsetMax = Vector2.zero;
 
             confirmButton = confirmObj.AddComponent<Button>();
+            
+            Image confirmImage = confirmObj.AddComponent<Image>();
+            confirmImage.color = new Color(0.2f, 0.8f, 0.2f, 1f);
+            confirmImage.sprite = CreateSimpleSprite();
+
             confirmButton.onClick.AddListener(ConfirmSelection);
 
-            CreateButtonText(confirmObj, "确认", buttonFontSize, Color.white);
+            CreateButtonText(confirmObj, "确认");
         }
 
-        private void CreateButtonText(GameObject parent, string text, int fontSize, Color color)
+        /// <summary>
+        /// 创建按钮文字
+        /// </summary>
+        private void CreateButtonText(GameObject parent, string text)
         {
             GameObject textObj = new GameObject("Text");
-            textObj.transform.SetParent(parent.transform, false);
+            textObj.transform.SetParent(parent.transform);
 
             RectTransform textRect = textObj.AddComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
-            textRect.sizeDelta = Vector2.zero;
-            textRect.anchoredPosition = Vector2.zero;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
 
             Text buttonText = textObj.AddComponent<Text>();
             buttonText.text = text;
-            buttonText.font = GetDefaultFont();
-            buttonText.fontSize = fontSize;
-            buttonText.color = color;
+            buttonText.color = Color.white;
             buttonText.alignment = TextAnchor.MiddleCenter;
+            buttonText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            buttonText.fontSize = fontSize;
             buttonText.fontStyle = FontStyle.Bold;
+        }
+
+        /// <summary>
+        /// 创建简单背景
+        /// </summary>
+        private Sprite CreateSimpleSprite()
+        {
+            Texture2D texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply();
+            
+            return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
         }
 
         #endregion
 
-        #region 筹码按钮生成
+        #region 筹码按钮创建
 
-        private void GenerateChipButtons()
+        /// <summary>
+        /// 创建所有筹码按钮
+        /// </summary>
+        private void CreateChipButtons()
         {
-            if (chipContainer == null || allAvailableChips == null) return;
-
-            ClearAllChipButtons();
-
-            int successCount = 0;
-            foreach (int chipValue in allAvailableChips)
+            foreach (int chipValue in allChips)
             {
-                if (CreateChipButton(chipValue))
-                {
-                    successCount++;
-                }
+                CreateSingleChipButton(chipValue);
             }
-
-            if (enableDebugMode)
-                Debug.Log($"[MoreChipPanel] 成功创建 {successCount}/{allAvailableChips.Length} 个筹码按钮");
-
+            
             UpdateAllSelectionStates();
             UpdateStatusText();
         }
 
-        private bool CreateChipButton(int chipValue)
+        /// <summary>
+        /// 创建单个筹码按钮
+        /// </summary>
+        private void CreateSingleChipButton(int chipValue)
         {
-            // 新增：防止重复创建相同筹码按钮
-            if (chipButtonDataMap.ContainsKey(chipValue))
-            {
-                if (enableDebugMode)
-                    Debug.LogWarning($"[MoreChipPanel] 筹码 {chipValue} 按钮已存在，跳过创建");
-                return false;
-            }
+            GameObject chipObj = new GameObject($"Chip_{chipValue}");
+            chipObj.transform.SetParent(chipContainer);
 
-            // 1. 创建按钮对象
-            GameObject buttonObj = new GameObject($"ChipButton_{chipValue}");
-            buttonObj.transform.SetParent(chipContainer, false);
+            RectTransform chipRect = chipObj.AddComponent<RectTransform>();
+            chipRect.sizeDelta = chipSize;
 
-            RectTransform buttonRect = buttonObj.AddComponent<RectTransform>();
-            buttonRect.sizeDelta = buttonSize;
-
-            // 2. 加载筹码图片
-            string imageName = GetChipImageName(chipValue);
-            Sprite chipSprite = LoadChipSprite(imageName);
-
-            // 3. 创建筹码图片
-            Image chipImage = buttonObj.AddComponent<Image>();
+            // 筹码图片
+            Image chipImage = chipObj.AddComponent<Image>();
+            
+            // 尝试加载筹码图片
+            Sprite chipSprite = LoadChipSprite(chipValue);
             if (chipSprite != null)
             {
                 chipImage.sprite = chipSprite;
-                chipImage.color = chipNormalColor;
+                chipImage.color = Color.white; // 使用原图颜色
                 chipImage.preserveAspect = true;
             }
             else
             {
-                // 使用备用纯色
-                chipImage.color = GetFallbackColor(chipValue);
-                chipImage.sprite = CreateSolidSprite();
-                
+                // 如果没有图片，使用纯色背景
+                chipImage.color = GetChipColor(chipValue);
+                chipImage.sprite = CreateSimpleSprite();
                 // 添加数值文字
-                CreateChipValueText(buttonObj, chipValue);
+                CreateChipValueText(chipObj, chipValue);
             }
 
-            // 4. 添加Button组件
-            Button button = buttonObj.AddComponent<Button>();
-            button.targetGraphic = chipImage;
-            
-            ColorBlock colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = Color.white;
-            colors.pressedColor = new Color(0.9f, 0.9f, 0.9f, 1f);
-            colors.disabledColor = Color.gray;
-            button.colors = colors;
+            // 按钮组件
+            Button chipButton = chipObj.AddComponent<Button>();
+            chipButton.targetGraphic = chipImage;
+            chipButton.onClick.AddListener(() => ToggleChipSelection(chipValue));
 
-            // 5. 设置点击事件 (移除悬停效果)
-            button.onClick.AddListener(() => ToggleChipSelection(chipValue));
-
-            // 6. 保存数据
-            ChipButtonData buttonData = new ChipButtonData
+            // 保存数据
+            ChipData chipData = new ChipData
             {
-                buttonObject = buttonObj,
-                button = button,
+                chipObject = chipObj,
+                button = chipButton,
                 chipImage = chipImage,
-                outline = null,  // 初始没有outline
-                rectTransform = buttonRect,
-                chipValue = chipValue,
+                outline = null,
+                value = chipValue,
                 isSelected = false
             };
 
-            chipButtonDataMap[chipValue] = buttonData;
-
-            if (enableDebugMode)
-            {
-                string resourceType = chipSprite != null ? "图片" : "纯色";
-                Debug.Log($"[MoreChipPanel] ✅ 创建筹码: {chipValue} ({resourceType})");
-            }
-
-            return true;
+            chipDataMap[chipValue] = chipData;
         }
 
         /// <summary>
-        /// 获取筹码图片名称 - 完全匹配您的文件命名
+        /// 格式化筹码数值
+        /// </summary>
+        private string FormatChipValue(int value)
+        {
+            if (value >= 1000000) return $"{value / 1000000}M";
+            if (value >= 1000) return $"{value / 1000}K";
+            return value.ToString();
+        }
+
+        /// <summary>
+        /// 创建筹码数值文字 (仅在没有图片时使用)
+        /// </summary>
+        private void CreateChipValueText(GameObject parent, int chipValue)
+        {
+            GameObject textObj = new GameObject("ValueText");
+            textObj.transform.SetParent(parent.transform);
+
+            RectTransform textRect = textObj.AddComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            Text valueText = textObj.AddComponent<Text>();
+            valueText.text = FormatChipValue(chipValue);
+            valueText.color = Color.white;
+            valueText.alignment = TextAnchor.MiddleCenter;
+            valueText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            valueText.fontSize = fontSize - 2;
+            valueText.fontStyle = FontStyle.Bold;
+
+            // 添加阴影
+            Shadow textShadow = textObj.AddComponent<Shadow>();
+            textShadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            textShadow.effectDistance = new Vector2(1, -1);
+        }
+
+        /// <summary>
+        /// 加载筹码图片
+        /// </summary>
+        private Sprite LoadChipSprite(int chipValue)
+        {
+            try
+            {
+                // 根据筹码数值获取对应的图片名称
+                string imageName = GetChipImageName(chipValue);
+                
+                // 尝试从Resources/Images/chips/路径加载
+                string resourcePath = $"Images/chips/{imageName}";
+                Sprite sprite = Resources.Load<Sprite>(resourcePath);
+                
+                if (sprite != null)
+                {
+                    Debug.Log($"[MoreChipPanel] ✅ 成功加载筹码图片: {resourcePath}");
+                    return sprite;
+                }
+                else
+                {
+                    Debug.Log($"[MoreChipPanel] ⚠️ 筹码图片未找到: {resourcePath}，使用纯色代替");
+                    return null;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"[MoreChipPanel] ❌ 加载筹码图片失败: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 获取筹码图片名称 - 匹配你的文件命名
         /// </summary>
         private string GetChipImageName(int chipValue)
         {
@@ -699,7 +601,9 @@ namespace BaccaratGame.UI.Components
                 case 50000: return "B_50K";
                 case 100000: return "B_100K";
                 case 200000: return "B_200K";
+                case 500000: return "B_500K";
                 case 1000000: return "B_1M";
+                case 5000000: return "B_5M";
                 case 10000000: return "B_10M";
                 case 20000000: return "B_20M";
                 case 50000000: return "B_50M";
@@ -711,45 +615,11 @@ namespace BaccaratGame.UI.Components
             }
         }
 
-        private Sprite LoadChipSprite(string imageName)
+        /// <summary>
+        /// 获取筹码颜色 (当没有图片时使用)
+        /// </summary>
+        private Color GetChipColor(int chipValue)
         {
-            try
-            {
-                string[] paths = { "Images/chips/", "Images/" };
-                string[] extensions = { ".png", "", ".jpg", ".jpeg" };
-                
-                foreach (string path in paths)
-                {
-                    foreach (string ext in extensions)
-                    {
-                        string fullPath = path + imageName + ext;
-                        Sprite sprite = Resources.Load<Sprite>(fullPath);
-                        
-                        if (sprite != null)
-                        {
-                            if (enableDebugMode)
-                                Debug.Log($"[MoreChipPanel] ✅ 成功加载: {fullPath}");
-                            return sprite;
-                        }
-                    }
-                }
-                
-                if (enableDebugMode)
-                    Debug.Log($"[MoreChipPanel] ⚠️ 图片未找到，使用纯色: {imageName}");
-                
-                return null;
-            }
-            catch (Exception ex)
-            {
-                if (enableDebugMode)
-                    Debug.LogError($"[MoreChipPanel] ❌ 加载异常: {imageName} - {ex.Message}");
-                return null;
-            }
-        }
-
-        private Color GetFallbackColor(int chipValue)
-        {
-            // 根据筹码数值生成颜色
             Color[] colors = {
                 new Color(0.9f, 0.1f, 0.1f, 1f), // 红
                 new Color(0.2f, 0.8f, 0.2f, 1f), // 绿
@@ -758,108 +628,54 @@ namespace BaccaratGame.UI.Components
                 new Color(0.7f, 0.2f, 0.8f, 1f), // 紫
                 new Color(0.9f, 0.9f, 0.1f, 1f), // 黄
                 new Color(0.1f, 0.8f, 0.8f, 1f), // 青
-                new Color(0.8f, 0.3f, 0.5f, 1f)  // 粉
+                new Color(0.8f, 0.3f, 0.5f, 1f), // 粉
+                new Color(0.5f, 0.9f, 0.3f, 1f), // 浅绿
+                new Color(0.9f, 0.3f, 0.9f, 1f)  // 粉紫
             };
             
-            int index = Array.IndexOf(allAvailableChips, chipValue) % colors.Length;
+            int index = System.Array.IndexOf(allChips, chipValue) % colors.Length;
             return index >= 0 ? colors[index] : colors[0];
-        }
-
-        private Sprite CreateSolidSprite()
-        {
-            Texture2D texture = new Texture2D(1, 1);
-            texture.SetPixel(0, 0, Color.white);
-            texture.Apply();
-            return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
-        }
-
-        private void CreateChipValueText(GameObject parent, int chipValue)
-        {
-            GameObject textObj = new GameObject("ValueText");
-            textObj.transform.SetParent(parent.transform, false);
-
-            RectTransform textRect = textObj.AddComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.sizeDelta = Vector2.zero;
-            textRect.anchoredPosition = Vector2.zero;
-
-            Text valueText = textObj.AddComponent<Text>();
-            valueText.text = FormatChipValue(chipValue);
-            valueText.font = GetDefaultFont();
-            valueText.fontSize = buttonFontSize;
-            valueText.color = Color.white;
-            valueText.alignment = TextAnchor.MiddleCenter;
-            valueText.fontStyle = FontStyle.Bold;
-
-            // 添加阴影
-            Shadow textShadow = textObj.AddComponent<Shadow>();
-            textShadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
-            textShadow.effectDistance = new Vector2(1, -1);
-        }
-
-        private string FormatChipValue(int value)
-        {
-            if (value >= 1000000000) return $"{value / 1000000000}B";
-            if (value >= 1000000) return $"{value / 1000000}M";
-            if (value >= 1000) return $"{value / 1000}K";
-            return value.ToString();
-        }
-
-        private void ClearAllChipButtons()
-        {
-            try
-            {
-                foreach (var pair in chipButtonDataMap)
-                {
-                    if (pair.Value.buttonObject != null)
-                    {
-                        if (Application.isPlaying)
-                            Destroy(pair.Value.buttonObject);
-                        else
-                            DestroyImmediate(pair.Value.buttonObject);
-                    }
-                }
-                chipButtonDataMap.Clear();
-                
-                if (enableDebugMode)
-                    Debug.Log("[MoreChipPanel] 筹码按钮清理完成");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[MoreChipPanel] 清理筹码按钮失败: {ex.Message}");
-            }
-        }
-
-        private Font GetDefaultFont()
-        {
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         }
 
         #endregion
 
         #region 选择逻辑
 
+        /// <summary>
+        /// 初始化选择
+        /// </summary>
+        private void InitializeSelection()
+        {
+            selectedChips.Clear();
+            foreach (int chip in defaultSelected)
+            {
+                if (selectedChips.Count < maxSelection)
+                {
+                    selectedChips.Add(chip);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 切换筹码选择
+        /// </summary>
         private void ToggleChipSelection(int chipValue)
         {
-            if (currentSelectedChips.Contains(chipValue))
+            if (selectedChips.Contains(chipValue))
             {
-                currentSelectedChips.Remove(chipValue);
-                if (enableDebugMode)
-                    Debug.Log($"[MoreChipPanel] 取消选择: {chipValue}");
+                selectedChips.Remove(chipValue);
+                Debug.Log($"[MoreChipPanel] 取消选择筹码: {chipValue}");
             }
             else
             {
-                if (currentSelectedChips.Count < maxSelectionCount)
+                if (selectedChips.Count < maxSelection)
                 {
-                    currentSelectedChips.Add(chipValue);
-                    if (enableDebugMode)
-                        Debug.Log($"[MoreChipPanel] 选择: {chipValue}");
+                    selectedChips.Add(chipValue);
+                    Debug.Log($"[MoreChipPanel] 选择筹码: {chipValue}");
                 }
                 else
                 {
-                    if (enableDebugMode)
-                        Debug.Log($"[MoreChipPanel] 已达到最大选择数量: {maxSelectionCount}");
+                    Debug.Log($"[MoreChipPanel] 已达到最大选择数量: {maxSelection}");
                     return;
                 }
             }
@@ -868,28 +684,29 @@ namespace BaccaratGame.UI.Components
             UpdateStatusText();
         }
 
+        /// <summary>
+        /// 更新筹码选择状态
+        /// </summary>
         private void UpdateChipSelectionState(int chipValue)
         {
-            if (!chipButtonDataMap.ContainsKey(chipValue)) return;
+            if (!chipDataMap.ContainsKey(chipValue)) return;
 
-            ChipButtonData data = chipButtonDataMap[chipValue];
-            bool isSelected = currentSelectedChips.Contains(chipValue);
+            ChipData data = chipDataMap[chipValue];
+            bool isSelected = selectedChips.Contains(chipValue);
             data.isSelected = isSelected;
 
-            // 使用Outline替代边框，避免覆盖图片
+            // 使用Outline显示选中状态
             if (isSelected)
             {
-                // 添加outline
                 if (data.outline == null)
                 {
-                    data.outline = data.buttonObject.AddComponent<Outline>();
+                    data.outline = data.chipObject.AddComponent<Outline>();
                     data.outline.effectColor = selectedBorderColor;
                     data.outline.effectDistance = new Vector2(borderWidth, -borderWidth);
                 }
             }
             else
             {
-                // 移除outline
                 if (data.outline != null)
                 {
                     if (Application.isPlaying)
@@ -899,75 +716,78 @@ namespace BaccaratGame.UI.Components
                     data.outline = null;
                 }
             }
-            
-            // 缩放效果
-            float targetScale = isSelected ? selectedScale : 1f;
-            if (enableAnimation)
-            {
-                StartCoroutine(AnimateScale(data.rectTransform, targetScale));
-            }
-            else
-            {
-                data.rectTransform.localScale = Vector3.one * targetScale;
-            }
 
-            // 颜色调整
-            data.chipImage.color = isSelected ? chipSelectedColor : chipNormalColor;
+            // 缩放效果
+            float targetScale = isSelected ? 1.1f : 1f;
+            data.chipObject.transform.localScale = Vector3.one * targetScale;
         }
 
+        /// <summary>
+        /// 更新所有选择状态
+        /// </summary>
         private void UpdateAllSelectionStates()
         {
-            foreach (var pair in chipButtonDataMap)
+            foreach (var pair in chipDataMap)
             {
                 UpdateChipSelectionState(pair.Key);
             }
         }
 
+        /// <summary>
+        /// 重置选择
+        /// </summary>
         private void ResetSelection()
         {
-            currentSelectedChips.Clear();
-            foreach (int chip in defaultSelectedChips)
+            selectedChips.Clear();
+            foreach (int chip in defaultSelected)
             {
-                if (currentSelectedChips.Count < maxSelectionCount)
+                if (selectedChips.Count < maxSelection)
                 {
-                    currentSelectedChips.Add(chip);
+                    selectedChips.Add(chip);
                 }
             }
             
             UpdateAllSelectionStates();
             UpdateStatusText();
-
-            if (enableDebugMode)
-                Debug.Log($"[MoreChipPanel] 重置选择: [{string.Join(", ", currentSelectedChips)}]");
+            Debug.Log("[MoreChipPanel] 重置为默认选择");
         }
 
+        /// <summary>
+        /// 确认选择
+        /// </summary>
         private void ConfirmSelection()
         {
-            if (currentSelectedChips.Count == 0)
+            if (selectedChips.Count == 0)
             {
-                if (enableDebugMode)
-                    Debug.Log("[MoreChipPanel] 没有选择筹码");
+                Debug.Log("[MoreChipPanel] 没有选择任何筹码");
                 return;
             }
 
-            var sortedChips = currentSelectedChips.OrderBy(x => x).ToArray();
-            OnChipsSelected?.Invoke(sortedChips);
-            Hide();
-
-            if (enableDebugMode)
-                Debug.Log($"[MoreChipPanel] 确认选择: [{string.Join(", ", sortedChips)}]");
+            var sortedChips = selectedChips.ToArray();
+            System.Array.Sort(sortedChips);
+            
+            Debug.Log($"[MoreChipPanel] 确认选择筹码: [{string.Join(", ", sortedChips)}]");
+            HidePanel();
         }
 
+        /// <summary>
+        /// 更新状态文字
+        /// </summary>
         private void UpdateStatusText()
         {
             if (statusText != null)
             {
-                statusText.text = $"已选择: {currentSelectedChips.Count}/{maxSelectionCount}";
+                statusText.text = $"已选择: {selectedChips.Count}/{maxSelection}";
                 
-                if (currentSelectedChips.Count > 0)
+                if (selectedChips.Count > 0)
                 {
-                    var sortedChips = currentSelectedChips.OrderBy(x => x).ToArray();
-                    var formattedChips = sortedChips.Select(FormatChipValue);
+                    var sortedChips = selectedChips.ToArray();
+                    System.Array.Sort(sortedChips);
+                    var formattedChips = new string[sortedChips.Length];
+                    for (int i = 0; i < sortedChips.Length; i++)
+                    {
+                        formattedChips[i] = FormatChipValue(sortedChips[i]);
+                    }
                     statusText.text += $"\n[{string.Join(", ", formattedChips)}]";
                 }
             }
@@ -975,255 +795,109 @@ namespace BaccaratGame.UI.Components
 
         #endregion
 
-        #region 动画效果
+        #region 事件处理
 
-        private IEnumerator AnimateScale(RectTransform target, float targetScale)
+        /// <summary>
+        /// 隐藏面板
+        /// </summary>
+        public void HidePanel()
         {
-            Vector3 startScale = target.localScale;
-            Vector3 endScale = Vector3.one * targetScale;
-            float elapsed = 0f;
-
-            while (elapsed < scaleAnimationDuration)
-            {
-                elapsed += Time.deltaTime;
-                float t = elapsed / scaleAnimationDuration;
-                target.localScale = Vector3.Lerp(startScale, endScale, t);
-                yield return null;
-            }
-
-            target.localScale = endScale;
+            if (maskLayer != null) maskLayer.SetActive(false);
+            if (chipPanel != null) chipPanel.SetActive(false);
+            Debug.Log("[MoreChipPanel] 面板已隐藏");
         }
 
-        private IEnumerator ShowAnimationCoroutine()
+        /// <summary>
+        /// 显示面板
+        /// </summary>
+        public void ShowPanel()
         {
-            mainPanel.transform.localScale = Vector3.zero;
-            float elapsed = 0f;
-
-            while (elapsed < animationDuration)
-            {
-                elapsed += Time.deltaTime;
-                float t = elapsed / animationDuration;
-                float scale = Mathf.Lerp(0f, 1f, t);
-                mainPanel.transform.localScale = Vector3.one * scale;
-                yield return null;
-            }
-
-            mainPanel.transform.localScale = Vector3.one;
-            animationCoroutine = null;
-        }
-
-        private IEnumerator HideAnimationCoroutine()
-        {
-            mainPanel.transform.localScale = Vector3.one;
-            float elapsed = 0f;
-
-            while (elapsed < animationDuration)
-            {
-                elapsed += Time.deltaTime;
-                float t = elapsed / animationDuration;
-                float scale = Mathf.Lerp(1f, 0f, t);
-                mainPanel.transform.localScale = Vector3.one * scale;
-                yield return null;
-            }
-
-            if (panelRoot != null)
-                panelRoot.SetActive(false);
-            animationCoroutine = null;
-        }
-
-        #endregion
-
-        #region 显示隐藏
-
-        public void Show()
-        {
-            // 新增：防止在销毁过程中显示
-            if (isDestroying)
-            {
-                if (enableDebugMode)
-                    Debug.LogWarning("[MoreChipPanel] 组件正在销毁，无法显示");
-                return;
-            }
-
-            if (!panelUICreated)
-            {
-                CreatePanelUI();
-                
-                // 新增：检查创建是否成功
-                if (!panelUICreated)
-                {
-                    Debug.LogError("[MoreChipPanel] UI创建失败，无法显示面板");
-                    return;
-                }
-            }
-
-            // 新增：检查是否已经可见
-            if (isVisible)
-            {
-                if (enableDebugMode)
-                    Debug.LogWarning("[MoreChipPanel] 面板已经可见");
-                return;
-            }
-
-            if (panelRoot != null)
-            {
-                panelRoot.SetActive(true);
-                isVisible = true;
-
-                UpdateAllSelectionStates();
-                UpdateStatusText();
-
-                if (enableAnimation)
-                {
-                    if (animationCoroutine != null)
-                        StopCoroutine(animationCoroutine);
-                    animationCoroutine = StartCoroutine(ShowAnimationCoroutine());
-                }
-
-                if (enableDebugMode)
-                    Debug.Log("[MoreChipPanel] 面板显示");
-            }
-        }
-
-        public void Hide()
-        {
-            if (!isVisible) return;
-
-            isVisible = false;
-
-            if (enableAnimation)
-            {
-                if (animationCoroutine != null)
-                    StopCoroutine(animationCoroutine);
-                animationCoroutine = StartCoroutine(HideAnimationCoroutine());
-            }
-            else
-            {
-                if (panelRoot != null)
-                    panelRoot.SetActive(false);
-            }
-
-            OnPanelClosed?.Invoke();
-
-            if (enableDebugMode)
-                Debug.Log("[MoreChipPanel] 面板隐藏");
-        }
-
-        #endregion
-
-        #region 新增：清理方法
-
-        private void CleanupUI()
-        {
-            try
-            {
-                // 清理协程
-                if (animationCoroutine != null)
-                {
-                    StopCoroutine(animationCoroutine);
-                    animationCoroutine = null;
-                }
-
-                // 清理筹码按钮
-                ClearAllChipButtons();
-
-                // 清理UI组件引用
-                statusText = null;
-                confirmButton = null;
-                resetButton = null;
-                scrollView = null;
-                gridLayout = null;
-                chipContainer = null;
-
-                // 销毁根面板
-                if (panelRoot != null)
-                {
-                    if (Application.isPlaying)
-                        Destroy(panelRoot);
-                    else
-                        DestroyImmediate(panelRoot);
-                    panelRoot = null;
-                }
-
-                // 重置状态
-                panelUICreated = false;
-                isVisible = false;
-                isCreatingUI = false;
-
-                if (enableDebugMode)
-                    Debug.Log("[MoreChipPanel] UI清理完成");
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[MoreChipPanel] UI清理失败: {ex.Message}");
-            }
+            if (maskLayer != null) maskLayer.SetActive(true);
+            if (chipPanel != null) chipPanel.SetActive(true);
+            UpdateAllSelectionStates();
+            UpdateStatusText();
+            Debug.Log("[MoreChipPanel] 面板已显示");
         }
 
         #endregion
 
         #region 公共接口
 
+        /// <summary>
+        /// 切换面板显示状态
+        /// </summary>
+        public void TogglePanel()
+        {
+            if (maskLayer != null && maskLayer.activeInHierarchy)
+                HidePanel();
+            else
+                ShowPanel();
+        }
+
+        /// <summary>
+        /// 设置选择的筹码
+        /// </summary>
         public void SetSelectedChips(int[] chips)
         {
-            currentSelectedChips.Clear();
+            selectedChips.Clear();
             if (chips != null)
             {
                 foreach (int chip in chips)
                 {
-                    if (currentSelectedChips.Count < maxSelectionCount)
-                        currentSelectedChips.Add(chip);
+                    if (selectedChips.Count < maxSelection)
+                        selectedChips.Add(chip);
                 }
             }
             
-            if (panelUICreated)
-            {
-                UpdateAllSelectionStates();
-                UpdateStatusText();
-            }
+            UpdateAllSelectionStates();
+            UpdateStatusText();
         }
 
+        /// <summary>
+        /// 获取选择的筹码
+        /// </summary>
         public int[] GetSelectedChips()
         {
-            return currentSelectedChips.OrderBy(x => x).ToArray();
-        }
-
-        public bool IsVisible()
-        {
-            return isVisible;
+            var sortedChips = selectedChips.ToArray();
+            System.Array.Sort(sortedChips);
+            return sortedChips;
         }
 
         #endregion
 
-        #region 调试方法
+        #region 编辑器辅助
 
-        [ContextMenu("显示状态")]
-        public void ShowStatus()
+        /// <summary>
+        /// 重新创建UI
+        /// </summary>
+        [ContextMenu("重新创建UI")]
+        public void RecreateUI()
         {
-            Debug.Log("=== MoreChipPanel 状态 ===");
-            Debug.Log($"面板已创建: {panelUICreated}");
-            Debug.Log($"是否可见: {isVisible}");
-            Debug.Log($"正在创建UI: {isCreatingUI}");
-            Debug.Log($"正在销毁: {isDestroying}");
-            Debug.Log($"筹码按钮数量: {chipButtonDataMap.Count}");
-            Debug.Log($"当前选择: [{string.Join(", ", currentSelectedChips)}]");
-            
-            int imageCount = 0;
-            int colorCount = 0;
-            foreach (var data in chipButtonDataMap.Values)
+            for (int i = transform.childCount - 1; i >= 0; i--)
             {
-                if (data.chipImage.sprite != null && data.chipImage.sprite.name != "")
-                    imageCount++;
+                if (Application.isPlaying)
+                    Destroy(transform.GetChild(i).gameObject);
                 else
-                    colorCount++;
+                    DestroyImmediate(transform.GetChild(i).gameObject);
             }
-            Debug.Log($"图片筹码: {imageCount}, 纯色筹码: {colorCount}");
+
+            chipDataMap.Clear();
+            uiCreated = false;
+            CreateUI();
+            InitializeSelection();
         }
 
-        [ContextMenu("清除UI")]
-        public void ClearUI()
+        /// <summary>
+        /// 显示组件状态
+        /// </summary>
+        [ContextMenu("显示组件状态")]
+        public void ShowStatus()
         {
-            CleanupUI();
-            Debug.Log("[MoreChipPanel] UI已手动清除");
+            Debug.Log($"[MoreChipPanel] UI已创建: {uiCreated}");
+            Debug.Log($"[MoreChipPanel] 遮罩层: {(maskLayer != null ? "✓" : "✗")}");
+            Debug.Log($"[MoreChipPanel] 筹码面板: {(chipPanel != null ? "✓" : "✗")}");
+            Debug.Log($"[MoreChipPanel] 筹码数量: {chipDataMap.Count}");
+            Debug.Log($"[MoreChipPanel] 已选择: [{string.Join(", ", selectedChips)}]");
         }
 
         #endregion
