@@ -4,8 +4,8 @@
     "description": "正式生产环境",
     "http": {
       "baseUrl": "https://bjlapi.wuming888.com",
-      "userUrl": "https://bjlapi.wuming888.com",
-      "lzUrl": "https://bjlapi.wuming888.com",
+      "userUrl": "https://userapi.wuming888.com",
+      "lzUrl": "https://h5lzv3.wuming888.com/zh/bjl_xc_big_678.html",
       "timeout": 15000,
       "retryAttempts": 2,
       "retryDelay": 2000
