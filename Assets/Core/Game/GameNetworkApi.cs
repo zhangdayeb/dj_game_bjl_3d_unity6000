@@ -223,7 +223,7 @@ namespace BaccaratGame.Network
             }
 
             var tableId = GameParams.Instance.table_id;
-            var url = $"{baseVideoUrl}?tableId={tableId}";
+            var url = $"{baseVideoUrl}{tableId}";
             
             Debug.Log($"[GameNetworkApi] 视频iframe地址: {url}");
             return url;

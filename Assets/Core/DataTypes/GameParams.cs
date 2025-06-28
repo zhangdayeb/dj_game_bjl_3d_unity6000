@@ -29,8 +29,8 @@ namespace BaccaratGame.Data
         public class HttpConfig
         {
             public string baseUrl;
-            public string lzUrl;      // 新增：路单地址
-            public string userUrl;      // 新增：路单地址
+            public string lzUrl;      
+            public string userUrl;      
             public int timeout;
         }
         
