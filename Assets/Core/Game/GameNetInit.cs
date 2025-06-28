@@ -6,8 +6,6 @@ using System;
 using System.Threading.Tasks;
 using UnityEngine;
 using BaccaratGame.Data;
-using BaccaratGame.Network;
-using Core.Network;
 
 namespace BaccaratGame.Core
 {

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.Networking;
 
-namespace Core.Network
+namespace BaccaratGame.Core
 {
     /// <summary>
     /// HTTP客户端 - 简化版，只提供GET和POST功能

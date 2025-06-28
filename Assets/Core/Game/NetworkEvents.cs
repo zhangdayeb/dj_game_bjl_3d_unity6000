@@ -3,7 +3,7 @@
 using System;
 using UnityEngine;
 
-namespace BaccaratGame.Core.Game
+namespace BaccaratGame.Core
 {
     /// <summary>
     /// 简化版网络事件定义

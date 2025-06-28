@@ -5,10 +5,9 @@
 using System;
 using System.Threading.Tasks;
 using UnityEngine;
-using Core.Network;
 using BaccaratGame.Data;
 
-namespace BaccaratGame.Network
+namespace BaccaratGame.Core
 {
     /// <summary>
     /// 游戏网络API集合

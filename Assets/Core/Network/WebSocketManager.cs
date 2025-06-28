@@ -6,10 +6,10 @@ using System;
 using System.Collections;
 using UnityEngine;
 using NativeWebSocket;
-using BaccaratGame.Core.Game;
+using BaccaratGame.Core;
 using System.Text;
 
-namespace Core.Network
+namespace BaccaratGame.Core
 {
     /// <summary>
     /// WebSocket管理器 - 简化版
