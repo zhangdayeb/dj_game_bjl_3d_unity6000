@@ -1,36 +1,41 @@
 // Assets/Core/Network/WebSocketManager.cs
-// WebSocket管理器 - NativeWebSocket版本
-// 使用NativeWebSocket库实现跨平台WebSocket功能
+// WebSocket管理器 - 简化版库文件
+// 传统单例模式，无需手动挂载，直接代码调用
 
 using System;
 using System.Collections;
-using System.Threading.Tasks;
 using UnityEngine;
 using NativeWebSocket;
-using BaccaratGame.Core.Architecture;
+using BaccaratGame.Core.Events;
 using System.Text;
 
 namespace Core.Network
 {
     /// <summary>
-    /// WebSocket管理器 - NativeWebSocket版本
-    /// 使用NativeWebSocket库实现高性能跨平台WebSocket功能
+    /// WebSocket管理器 - 简化版
+    /// 作为库文件使用，支持自动连接、重连、心跳和消息处理
     /// </summary>
     public class WebSocketManager : MonoBehaviour
     {
         #region 单例模式
 
         private static WebSocketManager _instance;
+        
+        /// <summary>
+        /// 获取WebSocketManager单例实例
+        /// 第一次访问时自动创建GameObject和组件
+        /// </summary>
         public static WebSocketManager Instance
         {
             get
             {
                 if (_instance == null)
                 {
-                    var go = new GameObject("WebSocketManager");
+                    // 自动创建GameObject和组件
+                    GameObject go = new GameObject("WebSocketManager");
                     _instance = go.AddComponent<WebSocketManager>();
                     DontDestroyOnLoad(go);
-                    Debug.Log("[WebSocketManager] 单例实例已创建");
+                    Debug.Log("[WebSocketManager] 库实例已自动创建");
                 }
                 return _instance;
             }
@@ -38,80 +43,63 @@ namespace Core.Network
 
         #endregion
 
-        #region 配置
+        #region 配置参数
 
-        [Header("WebSocket配置")]
-        [SerializeField] private int _heartbeatInterval = 30; // 心跳间隔（秒）
-        [SerializeField] private int _reconnectMaxAttempts = 5; // 最大重连次数
-        [SerializeField] private int _reconnectDelay = 3; // 重连延迟（秒）
-        [SerializeField] private int _connectionTimeout = 10; // 连接超时（秒）
-
-        #endregion
-
-        #region 私有字段
-
-        // NativeWebSocket实例
+        // WebSocket连接
         private WebSocket _websocket;
+        private string _currentUrl = "";
         
-        // 连接信息
-        private string _currentUrl;
-
         // 连接状态
         private bool _isConnected = false;
-        private bool _isConnecting = false;
         private bool _shouldReconnect = true;
-
-        // 重连管理
+        
+        // 重连配置 (5秒间隔，5次重连)
+        private const int MAX_RECONNECT_ATTEMPTS = 5;
+        private const float RECONNECT_DELAY = 5f;
         private int _reconnectAttempts = 0;
         private Coroutine _reconnectCoroutine;
-
-        // 心跳检测
+        
+        // 心跳配置 (30秒间隔)
+        private const float HEARTBEAT_INTERVAL = 30f;
         private Coroutine _heartbeatCoroutine;
-        private DateTime _lastPongReceived;
 
         #endregion
 
-        #region 属性
+        #region 公共属性
 
         /// <summary>
-        /// 是否已连接
+        /// 是否已连接到WebSocket服务器
         /// </summary>
         public bool IsConnected => _isConnected && _websocket?.State == WebSocketState.Open;
 
         /// <summary>
-        /// 当前连接URL
+        /// 当前连接的URL
         /// </summary>
         public string CurrentUrl => _currentUrl;
 
         /// <summary>
-        /// WebSocket连接状态
+        /// 当前重连尝试次数
         /// </summary>
-        public WebSocketState ConnectionState => _websocket?.State ?? WebSocketState.Closed;
+        public int ReconnectAttempts => _reconnectAttempts;
 
         #endregion
 
-        #region 初始化
+        #region Unity生命周期
 
         private void Awake()
         {
-            // 单例检查
+            // 确保单例唯一性
             if (_instance == null)
             {
                 _instance = this;
                 DontDestroyOnLoad(gameObject);
-                Initialize();
+                Debug.Log("[WebSocketManager] 单例初始化完成");
             }
             else if (_instance != this)
             {
+                Debug.LogWarning("[WebSocketManager] 检测到重复实例，已销毁");
                 Destroy(gameObject);
-                return;
             }
-        }
-
-        private void Initialize()
-        {
-            Debug.Log("[WebSocketManager] NativeWebSocket管理器已初始化");
-            _lastPongReceived = DateTime.UtcNow;
         }
 
         private void Update()
@@ -122,9 +110,27 @@ namespace Core.Network
             #endif
         }
 
+        private void OnApplicationPause(bool pauseStatus)
+        {
+            // 应用暂停时处理连接
+            if (pauseStatus && IsConnected)
+            {
+                Debug.Log("[WebSocketManager] 应用暂停，保持连接");
+            }
+        }
+
         private void OnDestroy()
         {
-            Cleanup();
+            StopAllCoroutines();
+            _shouldReconnect = false;
+            
+            if (_websocket != null)
+            {
+                _websocket.Close();
+                _websocket = null;
+            }
+            
+            Debug.Log("[WebSocketManager] 实例已销毁");
         }
 
         #endregion
@@ -132,119 +138,95 @@ namespace Core.Network
         #region 连接管理
 
         /// <summary>
-        /// 连接WebSocket服务器
+        /// 连接到WebSocket服务器
         /// </summary>
         /// <param name="url">WebSocket服务器地址</param>
-        /// <returns>连接是否成功</returns>
-        public async Task<bool> ConnectAsync(string url)
+        public async void Connect(string url)
         {
-            if (_isConnecting)
+            if (string.IsNullOrEmpty(url))
             {
-                Debug.LogWarning("[WebSocketManager] 正在连接中，请勿重复调用");
-                return false;
+                Debug.LogError("[WebSocketManager] URL不能为空");
+                return;
             }
 
-            if (_isConnected && _currentUrl == url && _websocket?.State == WebSocketState.Open)
+            if (_isConnected && _currentUrl == url)
             {
                 Debug.Log("[WebSocketManager] 已连接到相同地址，无需重复连接");
-                return true;
+                return;
             }
 
-            try
-            {
-                _isConnecting = true;
-                _currentUrl = url;
-                _shouldReconnect = true;
+            _currentUrl = url;
+            _shouldReconnect = true;
+            _reconnectAttempts = 0;
 
-                Debug.Log($"[WebSocketManager] ==== 开始连接WebSocket ====");
-                Debug.Log($"[WebSocketManager] 连接地址: {url}");
-                Debug.Log($"[WebSocketManager] 使用NativeWebSocket库");
-
-                // 清理之前的连接
-                await DisconnectInternal();
-
-                // 创建新的WebSocket连接
-                _websocket = new WebSocket(url);
-
-                // 设置事件处理器
-                SetupWebSocketEvents();
-
-                // 开始连接
-                await _websocket.Connect();
-
-                // 等待连接结果
-                var startTime = DateTime.UtcNow;
-                while (_websocket.State == WebSocketState.Connecting && 
-                       DateTime.UtcNow - startTime < TimeSpan.FromSeconds(_connectionTimeout))
-                {
-                    await Task.Delay(100);
-                }
-
-                if (_websocket.State == WebSocketState.Open)
-                {
-                    _isConnected = true;
-                    _reconnectAttempts = 0;
-                    _lastPongReceived = DateTime.UtcNow;
-                    StartHeartbeat();
-                    Debug.Log("[WebSocketManager] ==== WebSocket连接成功 ====");
-                    return true;
-                }
-                else
-                {
-                    throw new Exception($"连接失败，当前状态: {_websocket.State}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[WebSocketManager] 连接失败: {ex.Message}");
-                _isConnected = false;
-                return false;
-            }
-            finally
-            {
-                _isConnecting = false;
-            }
+            await ConnectInternal();
         }
 
         /// <summary>
         /// 断开WebSocket连接
         /// </summary>
-        public async Task DisconnectAsync()
+        public async void Disconnect()
         {
             _shouldReconnect = false;
-            await DisconnectInternal();
-            Debug.Log("[WebSocketManager] 主动断开连接");
-        }
-
-        /// <summary>
-        /// 内部断开连接方法
-        /// </summary>
-        private async Task DisconnectInternal()
-        {
-            _isConnected = false;
-            _isConnecting = false;
-
-            // 停止心跳和重连
+            
             StopHeartbeat();
             StopReconnect();
-
-            // 关闭WebSocket连接
+            
             if (_websocket != null)
             {
                 try
                 {
-                    if (_websocket.State == WebSocketState.Open || _websocket.State == WebSocketState.Connecting)
-                    {
-                        await _websocket.Close();
-                    }
+                    await _websocket.Close();
+                    Debug.Log("[WebSocketManager] 主动断开连接");
                 }
                 catch (Exception ex)
                 {
-                    Debug.LogWarning($"[WebSocketManager] 关闭连接时出现异常: {ex.Message}");
+                    Debug.LogWarning($"[WebSocketManager] 断开连接时异常: {ex.Message}");
                 }
                 finally
                 {
                     _websocket = null;
+                    _isConnected = false;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 内部连接方法
+        /// </summary>
+        private async System.Threading.Tasks.Task ConnectInternal()
+        {
+            try
+            {
+                Debug.Log($"[WebSocketManager] 正在连接: {_currentUrl}");
+
+                // 清理旧连接
+                if (_websocket != null)
+                {
+                    await _websocket.Close();
+                    _websocket = null;
+                }
+
+                // 创建新连接
+                _websocket = new WebSocket(_currentUrl);
+                
+                // 设置事件处理
+                _websocket.OnOpen += OnConnected;
+                _websocket.OnMessage += OnMessageReceived;
+                _websocket.OnError += OnError;
+                _websocket.OnClose += OnDisconnected;
+
+                // 开始连接
+                await _websocket.Connect();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[WebSocketManager] 连接失败: {ex.Message}");
+                _isConnected = false;
+                
+                if (_shouldReconnect)
+                {
+                    StartReconnect();
                 }
             }
         }
@@ -254,74 +236,46 @@ namespace Core.Network
         #region WebSocket事件处理
 
         /// <summary>
-        /// 设置WebSocket事件处理器
+        /// WebSocket连接成功
         /// </summary>
-        private void SetupWebSocketEvents()
-        {
-            if (_websocket == null) return;
-
-            // 连接打开事件
-            _websocket.OnOpen += OnWebSocketOpen;
-
-            // 消息接收事件
-            _websocket.OnMessage += OnWebSocketMessage;
-
-            // 错误事件
-            _websocket.OnError += OnWebSocketError;
-
-            // 连接关闭事件
-            _websocket.OnClose += OnWebSocketClose;
-        }
-
-        /// <summary>
-        /// WebSocket连接打开
-        /// </summary>
-        private void OnWebSocketOpen()
+        private void OnConnected()
         {
             _isConnected = true;
-            _isConnecting = false;
-            Debug.Log("[WebSocketManager] WebSocket连接已建立");
+            _reconnectAttempts = 0;
+            
+            Debug.Log("[WebSocketManager] ✅ 连接成功");
+            
+            // 开始心跳
+            StartHeartbeat();
         }
 
         /// <summary>
-        /// WebSocket收到消息
+        /// 收到WebSocket消息
         /// </summary>
-        /// <param name="data">收到的消息数据</param>
-        private void OnWebSocketMessage(byte[] data)
+        private void OnMessageReceived(byte[] data)
         {
             try
             {
-                var message = Encoding.UTF8.GetString(data);
-                Debug.Log($"[WebSocketManager] ==== 收到消息 ====");
-                Debug.Log($"[WebSocketManager] 接收数据: {message}");
+                string message = Encoding.UTF8.GetString(data);
+                Debug.Log($"[WebSocketManager] 📨 收到消息: {message}");
 
-                // 检查心跳响应
-                if (message.Contains("\"type\":\"pong\"") || message.Contains("\"type\": \"pong\""))
-                {
-                    _lastPongReceived = DateTime.UtcNow;
-                    Debug.Log("[WebSocketManager] 收到心跳响应");
-                    return;
-                }
-
-                // 直接将原始消息传递给事件总线处理
-                GameEventBus.ProcessRawMessage(message);
+                // 解析并分发消息
+                ProcessMessage(message);
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[WebSocketManager] 处理收到的消息时出错: {ex.Message}");
+                Debug.LogError($"[WebSocketManager] 处理消息异常: {ex.Message}");
             }
         }
 
         /// <summary>
         /// WebSocket连接错误
         /// </summary>
-        /// <param name="error">错误信息</param>
-        private void OnWebSocketError(string error)
+        private void OnError(string error)
         {
-            Debug.LogError($"[WebSocketManager] WebSocket错误: {error}");
+            Debug.LogError($"[WebSocketManager] ❌ 连接错误: {error}");
             _isConnected = false;
-
-            // 如果需要重连，启动重连
+            
             if (_shouldReconnect)
             {
                 StartReconnect();
@@ -329,18 +283,17 @@ namespace Core.Network
         }
 
         /// <summary>
-        /// WebSocket连接关闭
+        /// WebSocket连接断开
         /// </summary>
-        /// <param name="closeCode">关闭代码</param>
-        private void OnWebSocketClose(WebSocketCloseCode closeCode)
+        private void OnDisconnected(WebSocketCloseCode closeCode)
         {
             _isConnected = false;
-            Debug.LogWarning($"[WebSocketManager] WebSocket连接已断开: {closeCode}");
-
-            // 停止心跳
+            
+            Debug.LogWarning($"[WebSocketManager] 🔌 连接断开: {closeCode}");
+            
             StopHeartbeat();
-
-            // 如果需要重连且不是正常关闭，启动重连
+            
+            // 非正常断开时启动重连
             if (_shouldReconnect && closeCode != WebSocketCloseCode.Normal)
             {
                 StartReconnect();
@@ -352,64 +305,116 @@ namespace Core.Network
         #region 消息处理
 
         /// <summary>
-        /// 发送消息
+        /// 处理收到的消息并分发到对应事件
         /// </summary>
-        /// <param name="data">要发送的数据对象</param>
-        public async Task<bool> SendMessageAsync(object data)
+        private void ProcessMessage(string message)
         {
-            if (!IsConnected)
-            {
-                Debug.LogWarning("[WebSocketManager] 未连接，无法发送消息");
-                return false;
-            }
-
             try
             {
-                var jsonMessage = JsonUtility.ToJson(data);
-                Debug.Log($"[WebSocketManager] ==== 发送消息 ====");
-                Debug.Log($"[WebSocketManager] 发送数据: {jsonMessage}");
+                // 简单的JSON解析，提取type字段
+                string messageType = ExtractMessageType(message);
+                
+                if (string.IsNullOrEmpty(messageType))
+                {
+                    Debug.LogWarning($"[WebSocketManager] 无法解析消息类型: {message}");
+                    return;
+                }
 
-                await _websocket.SendText(jsonMessage);
+                // 忽略心跳响应
+                if (messageType == "pong")
+                {
+                    return;
+                }
 
-                Debug.Log("[WebSocketManager] 消息发送成功");
-                return true;
+                // 分发到对应的NetworkEvents
+                switch (messageType.ToLower())
+                {
+                    case "countdown":
+                        NetworkEvents.TriggerCountdownReceived(message);
+                        break;
+                        
+                    case "deal_cards":
+                    case "deal":
+                        NetworkEvents.TriggerDealCardsReceived(message);
+                        break;
+                        
+                    case "game_result":
+                    case "result":
+                        NetworkEvents.TriggerGameResultReceived(message);
+                        break;
+                        
+                    default:
+                        Debug.Log($"[WebSocketManager] 未处理的消息类型: {messageType}");
+                        break;
+                }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[WebSocketManager] 发送消息失败: {ex.Message}");
-                return false;
+                Debug.LogError($"[WebSocketManager] 消息处理异常: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// 发送二进制消息
+        /// 从JSON消息中提取type字段
         /// </summary>
-        /// <param name="data">要发送的二进制数据</param>
-        public async Task<bool> SendBinaryAsync(byte[] data)
+        private string ExtractMessageType(string jsonMessage)
+        {
+            try
+            {
+                // 简单的字符串匹配提取type字段
+                int typeIndex = jsonMessage.IndexOf("\"type\"");
+                if (typeIndex == -1) return null;
+
+                int colonIndex = jsonMessage.IndexOf(":", typeIndex);
+                if (colonIndex == -1) return null;
+
+                int valueStart = colonIndex + 1;
+                while (valueStart < jsonMessage.Length && 
+                       (jsonMessage[valueStart] == ' ' || jsonMessage[valueStart] == '"'))
+                    valueStart++;
+
+                int valueEnd = valueStart;
+                while (valueEnd < jsonMessage.Length && 
+                       jsonMessage[valueEnd] != '"' && 
+                       jsonMessage[valueEnd] != ',' && 
+                       jsonMessage[valueEnd] != '}')
+                    valueEnd++;
+
+                return jsonMessage.Substring(valueStart, valueEnd - valueStart).Trim();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 发送消息到WebSocket服务器
+        /// </summary>
+        public async void SendMessage(object data)
         {
             if (!IsConnected)
             {
-                Debug.LogWarning("[WebSocketManager] 未连接，无法发送二进制消息");
-                return false;
+                Debug.LogWarning("[WebSocketManager] 未连接，无法发送消息");
+                return;
             }
 
             try
             {
-                Debug.Log($"[WebSocketManager] 发送二进制数据，长度: {data.Length}");
-                await _websocket.Send(data);
-                Debug.Log("[WebSocketManager] 二进制消息发送成功");
-                return true;
+                string jsonMessage = JsonUtility.ToJson(data);
+                Debug.Log($"[WebSocketManager] 📤 发送消息: {jsonMessage}");
+                
+                await _websocket.SendText(jsonMessage);
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[WebSocketManager] 发送二进制消息失败: {ex.Message}");
-                return false;
+                Debug.LogError($"[WebSocketManager] 发送消息失败: {ex.Message}");
             }
         }
 
         #endregion
 
-        #region 心跳检测
+        #region 心跳机制
 
         /// <summary>
         /// 开始心跳检测
@@ -418,7 +423,7 @@ namespace Core.Network
         {
             StopHeartbeat();
             _heartbeatCoroutine = StartCoroutine(HeartbeatLoop());
-            Debug.Log($"[WebSocketManager] 开始心跳检测，间隔: {_heartbeatInterval}秒");
+            Debug.Log("[WebSocketManager] 💓 开始心跳检测");
         }
 
         /// <summary>
@@ -430,48 +435,30 @@ namespace Core.Network
             {
                 StopCoroutine(_heartbeatCoroutine);
                 _heartbeatCoroutine = null;
-                Debug.Log("[WebSocketManager] 停止心跳检测");
             }
         }
 
         /// <summary>
-        /// 心跳循环
+        /// 心跳循环协程
         /// </summary>
         private IEnumerator HeartbeatLoop()
         {
             while (IsConnected)
             {
-                yield return new WaitForSeconds(_heartbeatInterval);
+                yield return new WaitForSeconds(HEARTBEAT_INTERVAL);
 
                 if (IsConnected)
                 {
-                    // 检查是否收到心跳响应
-                    var timeSinceLastPong = DateTime.UtcNow - _lastPongReceived;
-                    if (timeSinceLastPong.TotalSeconds > _heartbeatInterval * 2)
-                    {
-                        Debug.LogWarning("[WebSocketManager] 心跳超时，可能连接已断开");
-                        _isConnected = false;
-                        
-                        if (_shouldReconnect)
-                        {
-                            StartReconnect();
-                        }
-                        yield break;
-                    }
-
-                    // 发送心跳
-                    var pingData = new { type = "ping", timestamp = DateTime.UtcNow.Ticks };
-                    var task = SendMessageAsync(pingData);
-                    yield return new WaitUntil(() => task.IsCompleted);
-
-                    Debug.Log("[WebSocketManager] 发送心跳ping");
+                    // 发送心跳ping
+                    var pingData = new { type = "ping", timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() };
+                    SendMessage(pingData);
                 }
             }
         }
 
         #endregion
 
-        #region 自动重连
+        #region 重连机制
 
         /// <summary>
         /// 开始重连
@@ -479,7 +466,7 @@ namespace Core.Network
         private void StartReconnect()
         {
             if (_reconnectCoroutine != null) return;
-
+            
             _reconnectCoroutine = StartCoroutine(ReconnectLoop());
         }
 
@@ -492,41 +479,37 @@ namespace Core.Network
             {
                 StopCoroutine(_reconnectCoroutine);
                 _reconnectCoroutine = null;
-                Debug.Log("[WebSocketManager] 停止自动重连");
             }
         }
 
         /// <summary>
-        /// 重连循环
+        /// 重连循环协程
         /// </summary>
         private IEnumerator ReconnectLoop()
         {
-            while (_reconnectAttempts < _reconnectMaxAttempts && _shouldReconnect && !IsConnected)
+            while (_reconnectAttempts < MAX_RECONNECT_ATTEMPTS && _shouldReconnect && !IsConnected)
             {
                 _reconnectAttempts++;
-
-                Debug.Log($"[WebSocketManager] 开始第{_reconnectAttempts}次重连尝试 (最大{_reconnectMaxAttempts}次)");
-
-                // 使用指数退避算法计算延迟
-                var delay = Mathf.Min(_reconnectDelay * Mathf.Pow(2, _reconnectAttempts - 1), 30f);
-                yield return new WaitForSeconds(delay);
-
+                
+                Debug.Log($"[WebSocketManager] 🔄 第{_reconnectAttempts}/{MAX_RECONNECT_ATTEMPTS}次重连...");
+                
+                yield return new WaitForSeconds(RECONNECT_DELAY);
+                
                 if (!_shouldReconnect) break;
-
-                var task = ConnectAsync(_currentUrl);
-                yield return new WaitUntil(() => task.IsCompleted);
-
-                if (task.Result)
+                
+                var connectTask = ConnectInternal();
+                yield return new WaitUntil(() => connectTask.IsCompleted);
+                
+                if (IsConnected)
                 {
-                    Debug.Log("[WebSocketManager] 重连成功");
-                    _reconnectCoroutine = null;
-                    yield break;
+                    Debug.Log("[WebSocketManager] ✅ 重连成功");
+                    break;
                 }
             }
 
-            if (_reconnectAttempts >= _reconnectMaxAttempts)
+            if (_reconnectAttempts >= MAX_RECONNECT_ATTEMPTS)
             {
-                Debug.LogError("[WebSocketManager] 重连失败，已达到最大重试次数");
+                Debug.LogError("[WebSocketManager] ❌ 重连失败，已达到最大重试次数");
             }
 
             _reconnectCoroutine = null;
@@ -534,62 +517,26 @@ namespace Core.Network
 
         #endregion
 
-        #region 公共接口扩展
+        #region 公共接口
 
         /// <summary>
         /// 手动触发重连
         /// </summary>
-        public async Task<bool> ReconnectAsync()
+        public void Reconnect()
         {
-            _reconnectAttempts = 0;
-            return await ConnectAsync(_currentUrl);
+            if (!string.IsNullOrEmpty(_currentUrl))
+            {
+                _reconnectAttempts = 0;
+                Connect(_currentUrl);
+            }
         }
 
         /// <summary>
         /// 获取连接状态信息
         /// </summary>
-        public string GetConnectionInfo()
+        public string GetStatusInfo()
         {
-            return $"URL: {_currentUrl}, State: {ConnectionState}, Connected: {IsConnected}, Attempts: {_reconnectAttempts}";
-        }
-
-        /// <summary>
-        /// 设置心跳间隔
-        /// </summary>
-        public void SetHeartbeatInterval(int seconds)
-        {
-            _heartbeatInterval = seconds;
-            if (IsConnected)
-            {
-                StartHeartbeat(); // 重启心跳以应用新间隔
-            }
-        }
-
-        /// <summary>
-        /// 检查连接健康状态
-        /// </summary>
-        public bool IsConnectionHealthy()
-        {
-            if (!IsConnected) return false;
-            
-            var timeSinceLastPong = DateTime.UtcNow - _lastPongReceived;
-            return timeSinceLastPong.TotalSeconds < _heartbeatInterval * 2;
-        }
-
-        #endregion
-
-        #region 清理
-
-        private void Cleanup()
-        {
-            _shouldReconnect = false;
-
-            StopHeartbeat();
-            StopReconnect();
-
-            var task = DisconnectInternal();
-
-            Debug.Log("[WebSocketManager] 资源清理完成");
+            return $"URL: {_currentUrl} | 连接: {IsConnected} | 重连次数: {_reconnectAttempts}/{MAX_RECONNECT_ATTEMPTS}";
         }
 
         #endregion
