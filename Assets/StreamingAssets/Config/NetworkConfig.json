@@ -4,6 +4,7 @@
     "description": "正式生产环境",
     "http": {
       "baseUrl": "https://bjlapi.wuming888.com",
+      "userUrl": "https://bjlapi.wuming888.com",
       "lzUrl": "https://bjlapi.wuming888.com",
       "timeout": 15000,
       "retryAttempts": 2,

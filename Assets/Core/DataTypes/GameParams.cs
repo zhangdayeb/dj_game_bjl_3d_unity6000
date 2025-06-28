@@ -29,6 +29,8 @@ namespace BaccaratGame.Data
         public class HttpConfig
         {
             public string baseUrl;
+            public string lzUrl;      // 新增：路单地址
+            public string userUrl;      // 新增：路单地址
             public int timeout;
         }
         
@@ -88,6 +90,8 @@ namespace BaccaratGame.Data
         public string currency;
 
         public string httpBaseUrl;
+        public string lzUrl;      // 新增：存储路单地址
+        public string userUrl;      // 新增：存储路单地址
         public string websocketUrl;
         public int httpTimeout;
         public int websocketReconnectAttempts;
