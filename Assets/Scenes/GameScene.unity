@@ -8303,6 +8303,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1255259543}
+  - component: {fileID: 1255259544}
   m_Layer: 5
   m_Name: VideoNearPanel
   m_TagString: Untagged
@@ -8317,18 +8318,34 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1255259542}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 2029984350}
+  m_Father: {fileID: 1340392491}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: -325}
+  m_SizeDelta: {x: 128, y: 650}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &1255259544
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1255259542}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 29af15c3b5f90ac46bf8e6859fe9866a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  videoUrl: https://www.google.com
+  tableId: 1
+  userId: 824
+  iframeContainerId: video-near-container
 --- !u!1 &1256887868
 GameObject:
   m_ObjectHideFlags: 0
@@ -9096,6 +9113,8 @@ RectTransform:
   - {fileID: 1611184}
   - {fileID: 2108648579}
   - {fileID: 2055925700}
+  - {fileID: 2058034506}
+  - {fileID: 1255259543}
   m_Father: {fileID: 747988146}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
@@ -9403,7 +9422,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1378498793}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 74721281d9bcfa74bbc15127b62ed74f, type: 3}
   m_Name: 
@@ -9411,13 +9430,7 @@ MonoBehaviour:
   roadmapUrl: https://h5lzv3.wuming888.com/zh/bjl_xc_big_678.html
   tableId: 1
   userId: 824
-  autoAddTimestamp: 1
   iframeContainerId: roadmap-container
-  iframeWidth: 100%
-  iframeHeight: 300
-  autoLoadOnStart: 1
-  loadDelay: 0.5
-  enableDebugMode: 1
 --- !u!1 &1392343949
 GameObject:
   m_ObjectHideFlags: 0
@@ -13127,8 +13140,6 @@ RectTransform:
   m_Children:
   - {fileID: 966481160}
   - {fileID: 1661259826}
-  - {fileID: 2058034506}
-  - {fileID: 1255259543}
   - {fileID: 252072823}
   - {fileID: 2137283817}
   - {fileID: 113015640}
@@ -13270,6 +13281,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2058034506}
+  - component: {fileID: 2058034507}
   m_Layer: 5
   m_Name: VideoFarPanel
   m_TagString: Untagged
@@ -13284,18 +13296,34 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2058034505}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
-  m_Father: {fileID: 2029984350}
+  m_Father: {fileID: 1340392491}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 0}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: -325}
+  m_SizeDelta: {x: 128, y: 650}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &2058034507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2058034505}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3b860fe6116dd4443babcd5ebff901b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  videoUrl: https://www.google.com
+  tableId: 1
+  userId: 824
+  iframeContainerId: video-far-container
 --- !u!1 &2073963789
 GameObject:
   m_ObjectHideFlags: 0

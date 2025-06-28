@@ -4,14 +4,14 @@ using UnityEngine;
 namespace BaccaratGame.UI.Components
 {
     /// <summary>
-    /// 路单面板 - 极简版
+    /// 远景视频面板 - 极简版
     /// 只负责生成 iframe
     /// </summary>
-    public class RoadmapPanel : MonoBehaviour
+    public class VideoFar : MonoBehaviour
     {
         [Header("🔗 基础配置")]
-        [Tooltip("路单URL")]
-        public string roadmapUrl = "https://h5lzv3.wuming888.com/zh/bjl_xc_big_678.html";
+        [Tooltip("视频URL")]
+        public string videoUrl = "https://www.google.com";
         
         [Tooltip("桌台ID")]
         public int tableId = 1;
@@ -20,12 +20,12 @@ namespace BaccaratGame.UI.Components
         public int userId = 824;
         
         [Tooltip("iframe容器ID")]
-        public string iframeContainerId = "roadmap-container";
+        public string iframeContainerId = "video-far-container";
 
         /// <summary>
-        /// 生成并加载路单 iframe
+        /// 生成并加载远景视频 iframe
         /// </summary>
-        public void LoadRoadmapIframe()
+        public void LoadVideoIframe()
         {
             string fullUrl = BuildUrl();
             CallWebGLFunction("loadIframe", $"{iframeContainerId},{fullUrl}");
@@ -36,9 +36,9 @@ namespace BaccaratGame.UI.Components
         /// </summary>
         private string BuildUrl()
         {
-            if (string.IsNullOrEmpty(roadmapUrl)) return "";
+            if (string.IsNullOrEmpty(videoUrl)) return "";
             
-            string baseUrl = roadmapUrl.Split('?')[0];
+            string baseUrl = videoUrl.Split('?')[0];
             long timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
             
             return $"{baseUrl}?tableId={tableId}&user_id={userId}&t={timestamp}";
