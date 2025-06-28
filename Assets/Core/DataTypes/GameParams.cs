@@ -17,6 +17,7 @@ namespace BaccaratGame.Data
     {
         public ProductionConfig production;
         public DefaultParams defaultParams;
+        public HttpClientConfig httpClient;
         
         [Serializable]
         public class ProductionConfig
@@ -29,9 +30,11 @@ namespace BaccaratGame.Data
         public class HttpConfig
         {
             public string baseUrl;
-            public string lzUrl;      
             public string userUrl;      
+            public string lzUrl;        // 对应 JSON 中的 "lzUrl"
             public int timeout;
+            public int retryAttempts;
+            public int retryDelay;
         }
         
         [Serializable]
@@ -39,17 +42,49 @@ namespace BaccaratGame.Data
         {
             public string url;
             public int reconnectAttempts;
+            public int reconnectDelay;
+            public int heartbeatInterval;
+            public int connectionTimeout;
         }
         
         [Serializable]
         public class DefaultParams
         {
-            public string table_id;
-            public string game_type;
-            public string user_id;
+            public int table_id;        // JSON 中是数字类型
+            public int game_type;       // JSON 中是数字类型
+            public int user_id;         // JSON 中是数字类型
             public string token;
-            public string language;
-            public string currency;
+        }
+
+        [Serializable]
+        public class HttpClientConfig
+        {
+            public DefaultHeaders defaultHeaders;
+            public SecurityConfig security;
+            public CompressionConfig compression;
+        }
+
+        [Serializable]
+        public class DefaultHeaders
+        {
+            [SerializeField] public string Content_Type;     
+            [SerializeField] public string Accept;
+            [SerializeField] public string User_Agent;       
+            [SerializeField] public string X_Client_Version; 
+            [SerializeField] public string X_Platform;       
+        }
+
+        [Serializable]
+        public class SecurityConfig
+        {
+            public bool enableSSL;
+            public bool validateCertificates;
+        }
+
+        [Serializable]
+        public class CompressionConfig
+        {
+            public bool enabled;
         }
     }
 
@@ -90,8 +125,8 @@ namespace BaccaratGame.Data
         public string currency;
 
         public string httpBaseUrl;
-        public string lzUrl;      // 新增：存储路单地址
-        public string userUrl;      // 新增：存储路单地址
+        public string lzUrl;      // 路单地址
+        public string userUrl;    // 用户API地址
         public string websocketUrl;
         public int httpTimeout;
         public int websocketReconnectAttempts;
@@ -172,22 +207,27 @@ namespace BaccaratGame.Data
         {
             try
             {
-                var configAsset = Resources.Load<TextAsset>("NetworkConfig");
+                var configAsset = Resources.Load<TextAsset>("Config/NetworkConfig");
                 if (configAsset != null)
                 {
                     var config = JsonUtility.FromJson<NetworkConfig>(configAsset.text);
                     
                     // 加载网络配置
                     httpBaseUrl = config.production.http.baseUrl;
+                    userUrl = config.production.http.userUrl;
+                    lzUrl = config.production.http.lzUrl;
                     websocketUrl = config.production.websocket.url;
                     httpTimeout = config.production.http.timeout;
                     websocketReconnectAttempts = config.production.websocket.reconnectAttempts;
                     
                     Debug.Log("[GameParams] 网络配置加载成功");
+                    Debug.Log($"[GameParams] HTTP BaseURL: {httpBaseUrl}");
+                    Debug.Log($"[GameParams] WebSocket URL: {websocketUrl}");
+                    Debug.Log($"[GameParams] LZ URL: {lzUrl}");
                 }
                 else
                 {
-                    Debug.LogError("[GameParams] 未找到NetworkConfig.json");
+                    Debug.LogError("[GameParams] 未找到Config/NetworkConfig.json");
                 }
             }
             catch (Exception ex)
@@ -249,20 +289,22 @@ namespace BaccaratGame.Data
 
             try
             {
-                var configAsset = Resources.Load<TextAsset>("NetworkConfig");
+                var configAsset = Resources.Load<TextAsset>("Config/NetworkConfig");
                 if (configAsset != null)
                 {
                     var config = JsonUtility.FromJson<NetworkConfig>(configAsset.text);
                     var defaultParams = config.defaultParams;
                     
-                    table_id = defaultParams.table_id;
-                    game_type = defaultParams.game_type;
-                    user_id = defaultParams.user_id;
+                    // 类型转换：JSON 中是 int，代码中需要 string
+                    table_id = defaultParams.table_id.ToString();
+                    game_type = defaultParams.game_type.ToString();
+                    user_id = defaultParams.user_id.ToString();
                     token = defaultParams.token;
-                    language = defaultParams.language;
-                    currency = defaultParams.currency;
+                    language = "zh";    // 使用默认值
+                    currency = "CNY";   // 使用默认值
                     
                     Debug.Log("[GameParams] 配置参数加载成功");
+                    Debug.Log($"[GameParams] Table ID: {table_id}, User ID: {user_id}");
                 }
             }
             catch (Exception ex)
@@ -289,6 +331,22 @@ namespace BaccaratGame.Data
         public string GetHttpBaseUrl()
         {
             return httpBaseUrl;
+        }
+
+        /// <summary>
+        /// 获取路单URL
+        /// </summary>
+        public string GetLzUrl()
+        {
+            return lzUrl;
+        }
+
+        /// <summary>
+        /// 获取用户API URL
+        /// </summary>
+        public string GetUserUrl()
+        {
+            return userUrl;
         }
 
         /// <summary>
