@@ -1,387 +1,310 @@
-// Assets/UI/Components/Panels/HistoryPanel.cs
-// 历史记录面板组件 - 运行时自动生成UI版本
-// 完整的历史记录面板，包含标题栏、内容区域、滚动列表等
-// 创建时间: 2025/6/26
+// Assets/UI/Components/VideoOverlay/Set/HistoryPanel.cs
+// 简化版历史记录面板组件 - 仅用于UI生成
+// 挂载到节点上自动创建历史记录面板UI
+// 创建时间: 2025/6/28
 
 using UnityEngine;
 using UnityEngine.UI;
-using System.Collections;
 using System.Collections.Generic;
-using System;
 
-namespace BaccaratGame.UI.Components
+namespace BaccaratGame.UI.Components.VideoOverlay
 {
     /// <summary>
-    /// 历史记录面板组件 - 自动生成UI版本
-    /// 运行时自动创建完整的历史记录面板界面
+    /// 简化版历史记录面板组件
+    /// 挂载到节点上自动创建UI，包含标题、列表和滚动功能
     /// </summary>
     public class HistoryPanel : MonoBehaviour
     {
-        [Header("UI组件")]
-        [SerializeField] private GameObject panelRoot;
-        [SerializeField] private Image backgroundImage;
-        [SerializeField] private Text titleText;
-        [SerializeField] private Button closeButton;
-        [SerializeField] private Button refreshButton;
-        [SerializeField] private ScrollRect scrollView;
-        [SerializeField] private Transform contentParent;
-        [SerializeField] private Text emptyMessageText;
-        
+        #region 配置参数
+
         [Header("面板配置")]
-        [SerializeField] private Vector2 panelSize = new Vector2(400, 500);
-        [SerializeField] private Color backgroundColor = new Color(0, 0, 0, 0.9f);
-        [SerializeField] private Color titleColor = Color.white;
-        [SerializeField] private Color buttonColor = new Color(0.2f, 0.4f, 0.8f);
-        [SerializeField] private string panelTitle = "投注历史";
+        public Vector2 panelSize = new Vector2(400, 500);
+        public Color backgroundColor = new Color(0.1f, 0.1f, 0.1f, 0.9f);
+        public Color titleColor = Color.white;
+        public Color buttonColor = new Color(0.2f, 0.6f, 1f, 1f);
+        public int fontSize = 14;
         
-        [Header("历史记录配置")]
-        [SerializeField] private Color recordBackgroundColor = new Color(0.1f, 0.1f, 0.1f, 0.8f);
-        [SerializeField] private Color winRecordColor = Color.green;
-        [SerializeField] private Color loseRecordColor = Color.red;
-        [SerializeField] private Color tieRecordColor = Color.yellow;
-        [SerializeField] private int maxDisplayRecords = 50;
+        [Header("遮罩层设置")]
+        public Color maskColor = new Color(0, 0, 0, 0.3f);
         
-        [Header("动画配置")]
-        [SerializeField] private bool enableShowAnimation = true;
-        [SerializeField] private float animationDuration = 0.3f;
-        [SerializeField] private bool enableRecordAnimation = true;
-        [SerializeField] private float recordAnimationDelay = 0.1f;
+        [Header("历史记录样式")]
+        public Color recordBgColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+        public Color winColor = Color.green;
+        public Color loseColor = Color.red;
+        public Color tieColor = Color.yellow;
+
+        #endregion
+
+        #region 私有字段
+
+        private bool uiCreated = false;
+        private GameObject maskLayer;
+        private GameObject historyPanel;
+        private Canvas uiCanvas;
         
-        // 状态变量
-        private bool isPanelOpen = false;
-        private List<GameObject> historyItems = new List<GameObject>();
-        private List<HistoryRecord> mockHistoryData = new List<HistoryRecord>();
-        private bool isAnimating = false;
+        // UI组件引用
+        private ScrollRect scrollView;
+        private Transform contentParent;
+        private Text titleText;
+        private Button closeButton;
         
-        #region Unity生命周期
-        
+        // 模拟数据
+        private List<HistoryRecord> mockData = new List<HistoryRecord>();
+
+        #endregion
+
+        #region 生命周期
+
         private void Awake()
         {
-            CreateHistoryPanelUI();
+            CreateUI();
             InitializeMockData();
         }
-        
-        private void Start()
-        {
-            // 默认隐藏面板
-            HidePanel(false);
-            
-            // 开始演示
-            StartCoroutine(DemoCoroutine());
-        }
-        
+
         #endregion
-        
+
         #region UI创建
-        
+
         /// <summary>
-        /// 创建历史记录面板UI
+        /// 创建完整的UI系统
         /// </summary>
-        private void CreateHistoryPanelUI()
+        private void CreateUI()
         {
-            // 确保有RectTransform组件
+            if (uiCreated) return;
+
+            CreateCanvas();
+            CreateMaskLayer();
+            CreateHistoryPanel();
+            CreatePanelHeader();
+            CreateScrollArea();
+            
+            uiCreated = true;
+        }
+
+        /// <summary>
+        /// 创建Canvas
+        /// </summary>
+        private void CreateCanvas()
+        {
+            uiCanvas = GetComponentInParent<Canvas>();
+            if (uiCanvas == null)
+            {
+                GameObject canvasObj = new GameObject("HistoryPanelCanvas");
+                canvasObj.transform.SetParent(transform.parent);
+                
+                uiCanvas = canvasObj.AddComponent<Canvas>();
+                uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                uiCanvas.sortingOrder = 2000; // 确保在最上层
+                
+                CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                scaler.matchWidthOrHeight = 0.5f;
+                
+                canvasObj.AddComponent<GraphicRaycaster>();
+                
+                transform.SetParent(canvasObj.transform);
+            }
+
             RectTransform rectTransform = GetComponent<RectTransform>();
             if (rectTransform == null)
-            {
                 rectTransform = gameObject.AddComponent<RectTransform>();
-            }
-            
-            // 设置为全屏
+                
             rectTransform.anchorMin = Vector2.zero;
             rectTransform.anchorMax = Vector2.one;
             rectTransform.offsetMin = Vector2.zero;
             rectTransform.offsetMax = Vector2.zero;
-            
-            // 创建面板根对象
-            CreatePanelRoot();
-            
-            // 创建背景遮罩
-            CreateBackgroundMask();
-            
-            // 创建主面板
-            CreateMainPanel();
-            
-            // 创建标题栏
-            CreateTitleBar();
-            
-            // 创建内容区域
-            CreateContentArea();
-            
-            Debug.Log("[HistoryPanel] UI创建完成");
         }
-        
+
         /// <summary>
-        /// 创建面板根对象
+        /// 创建遮罩层
         /// </summary>
-        private void CreatePanelRoot()
+        private void CreateMaskLayer()
         {
-            if (panelRoot == null)
-            {
-                panelRoot = new GameObject("PanelRoot");
-                panelRoot.transform.SetParent(transform);
-                
-                RectTransform panelRect = panelRoot.AddComponent<RectTransform>();
-                panelRect.anchorMin = Vector2.zero;
-                panelRect.anchorMax = Vector2.one;
-                panelRect.offsetMin = Vector2.zero;
-                panelRect.offsetMax = Vector2.zero;
-            }
-        }
-        
-        /// <summary>
-        /// 创建背景遮罩
-        /// </summary>
-        private void CreateBackgroundMask()
-        {
-            GameObject maskObj = new GameObject("BackgroundMask");
-            maskObj.transform.SetParent(panelRoot.transform);
-            
-            RectTransform maskRect = maskObj.AddComponent<RectTransform>();
+            maskLayer = new GameObject("MaskLayer");
+            maskLayer.transform.SetParent(transform);
+
+            RectTransform maskRect = maskLayer.AddComponent<RectTransform>();
             maskRect.anchorMin = Vector2.zero;
             maskRect.anchorMax = Vector2.one;
             maskRect.offsetMin = Vector2.zero;
             maskRect.offsetMax = Vector2.zero;
+
+            Image maskImage = maskLayer.AddComponent<Image>();
+            maskImage.color = maskColor;
+            maskImage.sprite = CreateSimpleSprite();
+
+            Button maskButton = maskLayer.AddComponent<Button>();
+            maskButton.onClick.AddListener(HidePanel);
             
-            Image maskImage = maskObj.AddComponent<Image>();
-            maskImage.color = new Color(0, 0, 0, 0.5f);
-            
-            // 点击背景关闭面板
-            Button maskButton = maskObj.AddComponent<Button>();
-            maskButton.onClick.AddListener(() => HidePanel());
+            ColorBlock colors = maskButton.colors;
+            colors.normalColor = Color.clear;
+            colors.highlightedColor = Color.clear;
+            colors.pressedColor = Color.clear;
+            colors.disabledColor = Color.clear;
+            maskButton.colors = colors;
         }
-        
+
         /// <summary>
-        /// 创建主面板
+        /// 创建历史面板
         /// </summary>
-        private void CreateMainPanel()
+        private void CreateHistoryPanel()
         {
-            GameObject mainPanelObj = new GameObject("MainPanel");
-            mainPanelObj.transform.SetParent(panelRoot.transform);
-            
-            RectTransform mainRect = mainPanelObj.AddComponent<RectTransform>();
-            mainRect.anchorMin = new Vector2(0.5f, 0.5f);
-            mainRect.anchorMax = new Vector2(0.5f, 0.5f);
-            mainRect.sizeDelta = panelSize;
-            mainRect.anchoredPosition = Vector2.zero;
-            
-            backgroundImage = mainPanelObj.AddComponent<Image>();
-            backgroundImage.color = backgroundColor;
-            backgroundImage.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Background.psd");
-            backgroundImage.type = Image.Type.Sliced;
+            historyPanel = new GameObject("HistoryPanel");
+            historyPanel.transform.SetParent(transform);
+
+            RectTransform panelRect = historyPanel.AddComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f); // 居中
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = panelSize;
+            panelRect.anchoredPosition = Vector2.zero;
+
+            Image panelBg = historyPanel.AddComponent<Image>();
+            panelBg.color = backgroundColor;
+            panelBg.sprite = CreateSimpleSprite();
         }
-        
+
         /// <summary>
-        /// 创建标题栏
+        /// 创建面板头部
         /// </summary>
-        private void CreateTitleBar()
+        private void CreatePanelHeader()
         {
-            GameObject titleBarObj = new GameObject("TitleBar");
-            titleBarObj.transform.SetParent(backgroundImage.transform);
-            
-            RectTransform titleRect = titleBarObj.AddComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0, 0.9f);
-            titleRect.anchorMax = new Vector2(1, 1f);
-            titleRect.offsetMin = new Vector2(10, 0);
-            titleRect.offsetMax = new Vector2(-10, -5);
-            
-            // 创建标题文字
-            CreateTitleText(titleBarObj);
+            // 创建标题
+            CreateTitle();
             
             // 创建关闭按钮
-            CreateCloseButton(titleBarObj);
-            
-            // 创建刷新按钮
-            CreateRefreshButton(titleBarObj);
+            CreateCloseButton();
         }
-        
+
         /// <summary>
-        /// 创建标题文字
+        /// 创建标题
         /// </summary>
-        private void CreateTitleText(GameObject parent)
+        private void CreateTitle()
         {
-            GameObject titleObj = new GameObject("TitleText");
-            titleObj.transform.SetParent(parent.transform);
-            
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(historyPanel.transform);
+
             RectTransform titleRect = titleObj.AddComponent<RectTransform>();
-            titleRect.anchorMin = new Vector2(0, 0);
-            titleRect.anchorMax = new Vector2(0.7f, 1f);
-            titleRect.offsetMin = Vector2.zero;
-            titleRect.offsetMax = Vector2.zero;
-            
+            titleRect.anchorMin = new Vector2(0, 0.9f);
+            titleRect.anchorMax = new Vector2(0.8f, 1f);
+            titleRect.offsetMin = new Vector2(15, 0);
+            titleRect.offsetMax = new Vector2(0, -5);
+
             titleText = titleObj.AddComponent<Text>();
-            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            titleText.fontSize = 20;
+            titleText.text = "📋 投注历史";
             titleText.color = titleColor;
-            titleText.text = panelTitle;
             titleText.alignment = TextAnchor.MiddleLeft;
+            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleText.fontSize = fontSize + 6;
             titleText.fontStyle = FontStyle.Bold;
         }
-        
+
         /// <summary>
         /// 创建关闭按钮
         /// </summary>
-        private void CreateCloseButton(GameObject parent)
+        private void CreateCloseButton()
         {
             GameObject closeObj = new GameObject("CloseButton");
-            closeObj.transform.SetParent(parent.transform);
-            
+            closeObj.transform.SetParent(historyPanel.transform);
+
             RectTransform closeRect = closeObj.AddComponent<RectTransform>();
-            closeRect.anchorMin = new Vector2(0.85f, 0);
+            closeRect.anchorMin = new Vector2(0.85f, 0.9f);
             closeRect.anchorMax = new Vector2(1f, 1f);
-            closeRect.offsetMin = Vector2.zero;
-            closeRect.offsetMax = Vector2.zero;
-            
+            closeRect.offsetMin = new Vector2(0, 0);
+            closeRect.offsetMax = new Vector2(-10, -5);
+
             closeButton = closeObj.AddComponent<Button>();
+            
             Image closeImage = closeObj.AddComponent<Image>();
             closeImage.color = Color.red;
-            closeImage.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
-            
-            // 添加关闭文字
-            GameObject closeTextObj = new GameObject("CloseText");
+            closeImage.sprite = CreateSimpleSprite();
+
+            closeButton.onClick.AddListener(HidePanel);
+
+            // 关闭按钮文字
+            GameObject closeTextObj = new GameObject("Text");
             closeTextObj.transform.SetParent(closeObj.transform);
-            
+
             RectTransform closeTextRect = closeTextObj.AddComponent<RectTransform>();
             closeTextRect.anchorMin = Vector2.zero;
             closeTextRect.anchorMax = Vector2.one;
             closeTextRect.offsetMin = Vector2.zero;
             closeTextRect.offsetMax = Vector2.zero;
-            
+
             Text closeText = closeTextObj.AddComponent<Text>();
-            closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            closeText.fontSize = 16;
+            closeText.text = "✕";
             closeText.color = Color.white;
-            closeText.text = "×";
             closeText.alignment = TextAnchor.MiddleCenter;
+            closeText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            closeText.fontSize = fontSize + 2;
             closeText.fontStyle = FontStyle.Bold;
-            
-            closeButton.onClick.AddListener(() => HidePanel());
         }
-        
+
         /// <summary>
-        /// 创建刷新按钮
+        /// 创建滚动区域
         /// </summary>
-        private void CreateRefreshButton(GameObject parent)
-        {
-            GameObject refreshObj = new GameObject("RefreshButton");
-            refreshObj.transform.SetParent(parent.transform);
-            
-            RectTransform refreshRect = refreshObj.AddComponent<RectTransform>();
-            refreshRect.anchorMin = new Vector2(0.7f, 0);
-            refreshRect.anchorMax = new Vector2(0.85f, 1f);
-            refreshRect.offsetMin = Vector2.zero;
-            refreshRect.offsetMax = Vector2.zero;
-            
-            refreshButton = refreshObj.AddComponent<Button>();
-            Image refreshImage = refreshObj.AddComponent<Image>();
-            refreshImage.color = buttonColor;
-            refreshImage.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Knob.psd");
-            
-            // 添加刷新文字
-            GameObject refreshTextObj = new GameObject("RefreshText");
-            refreshTextObj.transform.SetParent(refreshObj.transform);
-            
-            RectTransform refreshTextRect = refreshTextObj.AddComponent<RectTransform>();
-            refreshTextRect.anchorMin = Vector2.zero;
-            refreshTextRect.anchorMax = Vector2.one;
-            refreshTextRect.offsetMin = Vector2.zero;
-            refreshTextRect.offsetMax = Vector2.zero;
-            
-            Text refreshText = refreshTextObj.AddComponent<Text>();
-            refreshText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            refreshText.fontSize = 12;
-            refreshText.color = Color.white;
-            refreshText.text = "刷新";
-            refreshText.alignment = TextAnchor.MiddleCenter;
-            refreshText.fontStyle = FontStyle.Bold;
-            
-            refreshButton.onClick.AddListener(() => RefreshData());
-        }
-        
-        /// <summary>
-        /// 创建内容区域
-        /// </summary>
-        private void CreateContentArea()
-        {
-            GameObject contentAreaObj = new GameObject("ContentArea");
-            contentAreaObj.transform.SetParent(backgroundImage.transform);
-            
-            RectTransform contentRect = contentAreaObj.AddComponent<RectTransform>();
-            contentRect.anchorMin = new Vector2(0, 0);
-            contentRect.anchorMax = new Vector2(1, 0.9f);
-            contentRect.offsetMin = new Vector2(10, 10);
-            contentRect.offsetMax = new Vector2(-10, -5);
-            
-            // 创建滚动视图
-            CreateScrollView(contentAreaObj);
-        }
-        
-        /// <summary>
-        /// 创建滚动视图
-        /// </summary>
-        private void CreateScrollView(GameObject parent)
+        private void CreateScrollArea()
         {
             GameObject scrollObj = new GameObject("ScrollView");
-            scrollObj.transform.SetParent(parent.transform);
-            
+            scrollObj.transform.SetParent(historyPanel.transform);
+
             RectTransform scrollRect = scrollObj.AddComponent<RectTransform>();
-            scrollRect.anchorMin = Vector2.zero;
-            scrollRect.anchorMax = Vector2.one;
-            scrollRect.offsetMin = Vector2.zero;
-            scrollRect.offsetMax = Vector2.zero;
-            
-            // 添加ScrollRect组件
+            scrollRect.anchorMin = new Vector2(0, 0);
+            scrollRect.anchorMax = new Vector2(1, 0.9f);
+            scrollRect.offsetMin = new Vector2(10, 10);
+            scrollRect.offsetMax = new Vector2(-10, -5);
+
             scrollView = scrollObj.AddComponent<ScrollRect>();
             scrollView.horizontal = false;
             scrollView.vertical = true;
-            
+
             // 创建Viewport
             CreateViewport(scrollObj);
             
             // 创建Content
             CreateContent();
         }
-        
+
         /// <summary>
-        /// 创建Viewport
+        /// 创建视口
         /// </summary>
         private void CreateViewport(GameObject parent)
         {
             GameObject viewportObj = new GameObject("Viewport");
             viewportObj.transform.SetParent(parent.transform);
-            
+
             RectTransform viewportRect = viewportObj.AddComponent<RectTransform>();
             viewportRect.anchorMin = Vector2.zero;
             viewportRect.anchorMax = Vector2.one;
             viewportRect.offsetMin = Vector2.zero;
             viewportRect.offsetMax = Vector2.zero;
-            
+
             Image viewportImage = viewportObj.AddComponent<Image>();
             viewportImage.color = new Color(0.05f, 0.05f, 0.05f, 1f);
-            viewportImage.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Background.psd");
-            viewportImage.type = Image.Type.Sliced;
-            
+            viewportImage.sprite = CreateSimpleSprite();
+
             Mask viewportMask = viewportObj.AddComponent<Mask>();
             viewportMask.showMaskGraphic = true;
-            
+
             scrollView.viewport = viewportRect;
         }
-        
+
         /// <summary>
-        /// 创建Content
+        /// 创建内容区域
         /// </summary>
         private void CreateContent()
         {
             GameObject contentObj = new GameObject("Content");
             contentObj.transform.SetParent(scrollView.viewport);
-            
+
             RectTransform contentRect = contentObj.AddComponent<RectTransform>();
             contentRect.anchorMin = new Vector2(0, 1);
             contentRect.anchorMax = new Vector2(1, 1);
             contentRect.pivot = new Vector2(0.5f, 1);
             contentRect.sizeDelta = new Vector2(0, 0);
             contentRect.anchoredPosition = Vector2.zero;
-            
-            // 添加布局组件
+
             VerticalLayoutGroup layoutGroup = contentObj.AddComponent<VerticalLayoutGroup>();
             layoutGroup.spacing = 5f;
             layoutGroup.padding = new RectOffset(5, 5, 5, 5);
@@ -389,84 +312,81 @@ namespace BaccaratGame.UI.Components
             layoutGroup.childControlWidth = true;
             layoutGroup.childForceExpandHeight = false;
             layoutGroup.childForceExpandWidth = true;
-            
-            // 添加内容适配器
+
             ContentSizeFitter sizeFitter = contentObj.AddComponent<ContentSizeFitter>();
             sizeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            
+
             scrollView.content = contentRect;
             contentParent = contentObj.transform;
         }
-        
+
+        /// <summary>
+        /// 创建简单背景
+        /// </summary>
+        private Sprite CreateSimpleSprite()
+        {
+            Texture2D texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply();
+            
+            return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
+        }
+
         #endregion
-        
-        #region 数据管理
-        
+
+        #region 数据处理
+
         /// <summary>
         /// 初始化模拟数据
         /// </summary>
         private void InitializeMockData()
         {
-            mockHistoryData.Clear();
+            mockData.Clear();
             
-            // 创建模拟历史记录
             string[] betTypes = { "庄", "闲", "和", "庄对", "闲对" };
             string[] results = { "胜", "负", "胜", "负", "胜", "负", "胜" };
-            decimal[] amounts = { 100m, 500m, 1000m, 200m, 300m, 800m, 1500m };
+            int[] amounts = { 100, 500, 1000, 200, 300, 800, 1500 };
             
-            for (int i = 0; i < 20; i++)
+            for (int i = 0; i < 15; i++)
             {
                 var record = new HistoryRecord
                 {
-                    gameNumber = $"T250626{(i + 1):D3}",
+                    gameNumber = $"T{System.DateTime.Now:yyMMdd}{(i + 1):D3}",
                     betType = betTypes[i % betTypes.Length],
                     betAmount = amounts[i % amounts.Length],
                     result = results[i % results.Length],
                     winAmount = results[i % results.Length] == "胜" ? amounts[i % amounts.Length] * 2 : 0,
-                    gameTime = DateTime.Now.AddMinutes(-i * 3)
+                    gameTime = System.DateTime.Now.AddMinutes(-i * 5).ToString("HH:mm:ss")
                 };
                 
-                mockHistoryData.Add(record);
+                mockData.Add(record);
             }
-        }
-        
-        /// <summary>
-        /// 刷新数据
-        /// </summary>
-        public void RefreshData()
-        {
-            ClearHistoryItems();
             
-            if (mockHistoryData.Count == 0)
-            {
-                ShowEmptyMessage();
-            }
-            else
-            {
-                StartCoroutine(LoadHistoryItemsWithAnimation());
-            }
+            // 自动加载数据到UI
+            LoadDataToUI();
         }
-        
+
         /// <summary>
-        /// 带动画加载历史项目
+        /// 加载数据到UI
         /// </summary>
-        private IEnumerator LoadHistoryItemsWithAnimation()
+        private void LoadDataToUI()
         {
-            for (int i = 0; i < mockHistoryData.Count && i < maxDisplayRecords; i++)
+            // 清除现有项目
+            for (int i = contentParent.childCount - 1; i >= 0; i--)
             {
-                CreateHistoryItem(mockHistoryData[i]);
-                
-                if (enableRecordAnimation)
-                {
-                    yield return new WaitForSeconds(recordAnimationDelay);
-                }
+                if (Application.isPlaying)
+                    Destroy(contentParent.GetChild(i).gameObject);
+                else
+                    DestroyImmediate(contentParent.GetChild(i).gameObject);
+            }
+
+            // 创建历史记录项
+            foreach (var record in mockData)
+            {
+                CreateHistoryItem(record);
             }
         }
-        
-        #endregion
-        
-        #region 历史记录项创建
-        
+
         /// <summary>
         /// 创建历史记录项
         /// </summary>
@@ -474,71 +394,57 @@ namespace BaccaratGame.UI.Components
         {
             GameObject itemObj = new GameObject("HistoryItem");
             itemObj.transform.SetParent(contentParent);
-            
+
             RectTransform itemRect = itemObj.AddComponent<RectTransform>();
             itemRect.sizeDelta = new Vector2(0, 60);
-            
+
             // 背景
             Image itemBg = itemObj.AddComponent<Image>();
-            itemBg.color = recordBackgroundColor;
-            itemBg.sprite = Resources.GetBuiltinResource<Sprite>("UI/Skin/Background.psd");
-            itemBg.type = Image.Type.Sliced;
-            
+            itemBg.color = recordBgColor;
+            itemBg.sprite = CreateSimpleSprite();
+
             // 创建文本信息
-            CreateRecordTexts(itemObj, record);
-            
-            historyItems.Add(itemObj);
+            CreateItemTexts(itemObj, record);
         }
-        
+
         /// <summary>
-        /// 创建记录文本
+        /// 创建记录项文本
         /// </summary>
-        private void CreateRecordTexts(GameObject parent, HistoryRecord record)
+        private void CreateItemTexts(GameObject parent, HistoryRecord record)
         {
-            // 局号
-            CreateRecordText(parent, "GameNumber", record.gameNumber, new Vector2(0, 0.7f), new Vector2(0.3f, 1f), 12);
+            // 第一行：局号 | 投注类型 | 结果
+            CreateItemText(parent, "Info1", 
+                $"局号: {record.gameNumber}  类型: {record.betType}  结果: {record.result}",
+                new Vector2(0, 0.5f), new Vector2(1, 1f), GetResultColor(record.result));
             
-            // 投注类型
-            CreateRecordText(parent, "BetType", record.betType, new Vector2(0.3f, 0.7f), new Vector2(0.5f, 1f), 12);
-            
-            // 投注金额
-            CreateRecordText(parent, "BetAmount", record.betAmount.ToString(), new Vector2(0.5f, 0.7f), new Vector2(0.7f, 1f), 12);
-            
-            // 结果
-            Color resultColor = GetResultColor(record.result);
-            CreateRecordText(parent, "Result", record.result, new Vector2(0.7f, 0.7f), new Vector2(1f, 1f), 12, resultColor);
-            
-            // 赢得金额
-            CreateRecordText(parent, "WinAmount", record.winAmount > 0 ? $"+{record.winAmount}" : "0", 
-                new Vector2(0, 0f), new Vector2(0.5f, 0.3f), 12, record.winAmount > 0 ? winRecordColor : Color.gray);
-            
-            // 时间
-            CreateRecordText(parent, "Time", record.gameTime.ToString("HH:mm:ss"), 
-                new Vector2(0.5f, 0f), new Vector2(1f, 0.3f), 10, Color.gray);
+            // 第二行：投注金额 | 赢得金额 | 时间
+            string amountInfo = $"投注: ¥{record.betAmount}  赢得: ¥{record.winAmount}  时间: {record.gameTime}";
+            CreateItemText(parent, "Info2", amountInfo,
+                new Vector2(0, 0f), new Vector2(1, 0.5f), Color.gray);
         }
-        
+
         /// <summary>
-        /// 创建记录文本
+        /// 创建记录项文本
         /// </summary>
-        private void CreateRecordText(GameObject parent, string name, string text, Vector2 anchorMin, Vector2 anchorMax, int fontSize, Color? color = null)
+        private void CreateItemText(GameObject parent, string name, string text, Vector2 anchorMin, Vector2 anchorMax, Color color)
         {
             GameObject textObj = new GameObject(name);
             textObj.transform.SetParent(parent.transform);
-            
+
             RectTransform textRect = textObj.AddComponent<RectTransform>();
             textRect.anchorMin = anchorMin;
             textRect.anchorMax = anchorMax;
-            textRect.offsetMin = new Vector2(5, 2);
-            textRect.offsetMax = new Vector2(-5, -2);
-            
+            textRect.offsetMin = new Vector2(10, 2);
+            textRect.offsetMax = new Vector2(-10, -2);
+
             Text recordText = textObj.AddComponent<Text>();
-            recordText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            recordText.fontSize = fontSize;
-            recordText.color = color ?? Color.white;
             recordText.text = text;
-            recordText.alignment = TextAnchor.MiddleCenter;
+            recordText.color = color;
+            recordText.alignment = TextAnchor.MiddleLeft;
+            recordText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            recordText.fontSize = fontSize - 2;
         }
-        
+
         /// <summary>
         /// 获取结果颜色
         /// </summary>
@@ -546,186 +452,37 @@ namespace BaccaratGame.UI.Components
         {
             return result switch
             {
-                "胜" => winRecordColor,
-                "负" => loseRecordColor,
-                "和" => tieRecordColor,
+                "胜" => winColor,
+                "负" => loseColor,
+                "和" => tieColor,
                 _ => Color.white
             };
         }
-        
+
         #endregion
-        
-        #region 面板控制
-        
+
+        #region 事件处理
+
+        /// <summary>
+        /// 隐藏面板
+        /// </summary>
+        public void HidePanel()
+        {
+            if (maskLayer != null) maskLayer.SetActive(false);
+            if (historyPanel != null) historyPanel.SetActive(false);
+            Debug.Log("[HistoryPanel] 面板已隐藏");
+        }
+
         /// <summary>
         /// 显示面板
         /// </summary>
         public void ShowPanel()
         {
-            if (isPanelOpen || isAnimating) return;
-            
-            isPanelOpen = true;
-            panelRoot.SetActive(true);
-            
-            RefreshData();
-            
-            if (enableShowAnimation)
-            {
-                StartCoroutine(ShowAnimation());
-            }
+            if (maskLayer != null) maskLayer.SetActive(true);
+            if (historyPanel != null) historyPanel.SetActive(true);
+            Debug.Log("[HistoryPanel] 面板已显示");
         }
-        
-        /// <summary>
-        /// 隐藏面板
-        /// </summary>
-        public void HidePanel(bool useAnimation = true)
-        {
-            if (!isPanelOpen || isAnimating) return;
-            
-            isPanelOpen = false;
-            
-            if (useAnimation && enableShowAnimation)
-            {
-                StartCoroutine(HideAnimation());
-            }
-            else
-            {
-                panelRoot.SetActive(false);
-            }
-        }
-        
-        /// <summary>
-        /// 切换面板显示状态
-        /// </summary>
-        public void TogglePanel()
-        {
-            if (isPanelOpen)
-                HidePanel();
-            else
-                ShowPanel();
-        }
-        
-        /// <summary>
-        /// 获取面板状态
-        /// </summary>
-        public bool IsOpen()
-        {
-            return isPanelOpen;
-        }
-        
-        #endregion
-        
-        #region 动画
-        
-        /// <summary>
-        /// 显示动画
-        /// </summary>
-        private IEnumerator ShowAnimation()
-        {
-            isAnimating = true;
-            
-            Transform mainPanel = backgroundImage.transform;
-            Vector3 originalScale = mainPanel.localScale;
-            mainPanel.localScale = Vector3.zero;
-            
-            float elapsed = 0f;
-            while (elapsed < animationDuration)
-            {
-                elapsed += Time.deltaTime;
-                float t = elapsed / animationDuration;
-                mainPanel.localScale = Vector3.Lerp(Vector3.zero, originalScale, t);
-                yield return null;
-            }
-            
-            mainPanel.localScale = originalScale;
-            isAnimating = false;
-        }
-        
-        /// <summary>
-        /// 隐藏动画
-        /// </summary>
-        private IEnumerator HideAnimation()
-        {
-            isAnimating = true;
-            
-            Transform mainPanel = backgroundImage.transform;
-            Vector3 originalScale = mainPanel.localScale;
-            
-            float elapsed = 0f;
-            while (elapsed < animationDuration)
-            {
-                elapsed += Time.deltaTime;
-                float t = elapsed / animationDuration;
-                mainPanel.localScale = Vector3.Lerp(originalScale, Vector3.zero, t);
-                yield return null;
-            }
-            
-            panelRoot.SetActive(false);
-            mainPanel.localScale = originalScale;
-            isAnimating = false;
-        }
-        
-        #endregion
-        
-        #region 私有方法
-        
-        /// <summary>
-        /// 清除历史项目
-        /// </summary>
-        private void ClearHistoryItems()
-        {
-            foreach (var item in historyItems)
-            {
-                if (item != null)
-                    DestroyImmediate(item);
-            }
-            historyItems.Clear();
-        }
-        
-        /// <summary>
-        /// 显示空消息
-        /// </summary>
-        private void ShowEmptyMessage()
-        {
-            GameObject emptyObj = new GameObject("EmptyMessage");
-            emptyObj.transform.SetParent(contentParent);
-            
-            RectTransform emptyRect = emptyObj.AddComponent<RectTransform>();
-            emptyRect.sizeDelta = new Vector2(0, 100);
-            
-            emptyMessageText = emptyObj.AddComponent<Text>();
-            emptyMessageText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            emptyMessageText.fontSize = 16;
-            emptyMessageText.color = Color.gray;
-            emptyMessageText.text = "暂无历史记录";
-            emptyMessageText.alignment = TextAnchor.MiddleCenter;
-            
-            historyItems.Add(emptyObj);
-        }
-        
-        /// <summary>
-        /// 演示协程
-        /// </summary>
-        private IEnumerator DemoCoroutine()
-        {
-            yield return new WaitForSeconds(3f);
-            
-            // 自动显示面板演示
-            ShowPanel();
-            yield return new WaitForSeconds(8f);
-            
-            // 隐藏面板
-            HidePanel();
-            yield return new WaitForSeconds(5f);
-            
-            // 重复演示
-            StartCoroutine(DemoCoroutine());
-        }
-        
-        #endregion
-        
-        #region 公共接口
-        
+
         /// <summary>
         /// 打开面板 (外部调用)
         /// </summary>
@@ -733,7 +490,7 @@ namespace BaccaratGame.UI.Components
         {
             ShowPanel();
         }
-        
+
         /// <summary>
         /// 关闭面板 (外部调用)
         /// </summary>
@@ -741,10 +498,70 @@ namespace BaccaratGame.UI.Components
         {
             HidePanel();
         }
-        
+
+        #endregion
+
+        #region 公共接口
+
+        /// <summary>
+        /// 切换面板显示状态
+        /// </summary>
+        public void TogglePanel()
+        {
+            if (maskLayer != null && maskLayer.activeInHierarchy)
+                HidePanel();
+            else
+                ShowPanel();
+        }
+
+        /// <summary>
+        /// 刷新数据
+        /// </summary>
+        public void RefreshData()
+        {
+            LoadDataToUI();
+            Debug.Log("[HistoryPanel] 数据已刷新");
+        }
+
+        #endregion
+
+        #region 编辑器辅助
+
+        /// <summary>
+        /// 重新创建UI
+        /// </summary>
+        [ContextMenu("重新创建UI")]
+        public void RecreateUI()
+        {
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                if (Application.isPlaying)
+                    Destroy(transform.GetChild(i).gameObject);
+                else
+                    DestroyImmediate(transform.GetChild(i).gameObject);
+            }
+
+            uiCreated = false;
+            CreateUI();
+            InitializeMockData();
+        }
+
+        /// <summary>
+        /// 显示组件状态
+        /// </summary>
+        [ContextMenu("显示组件状态")]
+        public void ShowStatus()
+        {
+            Debug.Log($"[HistoryPanel] UI已创建: {uiCreated}");
+            Debug.Log($"[HistoryPanel] 遮罩层: {(maskLayer != null ? "✓" : "✗")}");
+            Debug.Log($"[HistoryPanel] 历史面板: {(historyPanel != null ? "✓" : "✗")}");
+            Debug.Log($"[HistoryPanel] 滚动视图: {(scrollView != null ? "✓" : "✗")}");
+            Debug.Log($"[HistoryPanel] 数据条数: {mockData.Count}");
+        }
+
         #endregion
     }
-    
+
     #region 数据类型
     
     /// <summary>
@@ -755,10 +572,10 @@ namespace BaccaratGame.UI.Components
     {
         public string gameNumber;     // 局号
         public string betType;        // 投注类型
-        public decimal betAmount;     // 投注金额
+        public int betAmount;         // 投注金额
         public string result;         // 结果 (胜/负/和)
-        public decimal winAmount;     // 赢得金额
-        public DateTime gameTime;     // 游戏时间
+        public int winAmount;         // 赢得金额
+        public string gameTime;       // 游戏时间
     }
     
     #endregion
