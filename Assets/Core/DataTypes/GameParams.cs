@@ -1,229 +1,331 @@
 // Assets/Core/Data/Types/GameParams.cs
-// 游戏参数和配置类型定义 - 激进精简版
-// 只保留核心的启动参数和基本信息
+// 游戏参数管理中心 - 简化版
+// 只负责环境检测、参数接收和全局访问
 
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace BaccaratGame.Data
 {
-    #region 游戏启动参数
+    #region 网络配置结构
 
     /// <summary>
-    /// 游戏启动参数
+    /// 网络配置结构（对应NetworkConfig.json）
     /// </summary>
     [Serializable]
+    public class NetworkConfig
+    {
+        public ProductionConfig production;
+        public DefaultParams defaultParams;
+        
+        [Serializable]
+        public class ProductionConfig
+        {
+            public HttpConfig http;
+            public WebSocketConfig websocket;
+        }
+        
+        [Serializable]
+        public class HttpConfig
+        {
+            public string baseUrl;
+            public int timeout;
+        }
+        
+        [Serializable]
+        public class WebSocketConfig
+        {
+            public string url;
+            public int reconnectAttempts;
+        }
+        
+        [Serializable]
+        public class DefaultParams
+        {
+            public string table_id;
+            public string game_type;
+            public string user_id;
+            public string token;
+            public string language;
+            public string currency;
+        }
+    }
+
+    #endregion
+
+    #region 游戏参数管理器
+
+    /// <summary>
+    /// 游戏参数管理器 - 简化版
+    /// 只负责参数存储和全局访问
+    /// </summary>
     public class GameParams
     {
-        [Header("必要参数")]
-        public string table_id = "1";       // 桌台ID
-        public string game_type = "3";       // 游戏类型 (3=百家乐)
-        public string user_id = "8";         // 用户ID
-        public string token = "9eb5fcdac259fd6cedacad3e04bacf2ed7M3m261WOCWcaAKFFa2Nu"; // 用户令牌
+        #region 单例模式
 
-        [Header("可选参数")]
-        public string language = "zh";       // 语言设置
-        public string currency = "CNY";      // 货币类型
-
-        public GameParams() { }
-
-        public GameParams(string tableId, string gameType, string userId, string userToken)
+        private static GameParams _instance;
+        public static GameParams Instance
         {
-            table_id = tableId;
-            game_type = gameType;
-            user_id = userId;
-            token = userToken;
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = new GameParams();
+                }
+                return _instance;
+            }
         }
 
+        #endregion
+
+        #region 核心参数
+
+        public string table_id;
+        public string game_type;
+        public string user_id;
+        public string token;
+        public string language;
+        public string currency;
+
+        public string httpBaseUrl;
+        public string websocketUrl;
+        public int httpTimeout;
+        public int websocketReconnectAttempts;
+
+        #endregion
+
+        #region 状态属性
+
+        private bool _isInitialized = false;
+        private bool _isWebGLMode = false;
+
+        public bool IsInitialized => _isInitialized;
+        public bool IsWebGLMode => _isWebGLMode;
+
+        #endregion
+
+        #region 初始化方法
+
         /// <summary>
-        /// 从URL查询字符串解析游戏参数
+        /// 初始化参数系统
         /// </summary>
-        public static GameParams ParseFromUrl()
+        public void Initialize()
         {
-            var gameParams = new GameParams();
-            
+            if (_isInitialized)
+            {
+                Debug.Log("[GameParams] 已经初始化过，跳过");
+                return;
+            }
+
+            Debug.Log("[GameParams] 开始参数初始化");
+
+            // 1. 检测环境
+            DetectEnvironment();
+
+            // 2. 加载配置文件
+            LoadNetworkConfig();
+
+            // 3. 根据环境获取参数
+            if (_isWebGLMode)
+            {
+                LoadParametersFromJS();
+            }
+            else
+            {
+                LoadParametersFromConfig();
+            }
+
+            _isInitialized = true;
+            Debug.Log($"[GameParams] 参数初始化完成: {this}");
+        }
+
+        #endregion
+
+        #region 环境检测
+
+        /// <summary>
+        /// 检测运行环境
+        /// </summary>
+        private void DetectEnvironment()
+        {
+            #if UNITY_WEBGL && !UNITY_EDITOR
+            _isWebGLMode = true;
+            Debug.Log("[GameParams] WebGL环境");
+            #else
+            _isWebGLMode = false;
+            Debug.Log("[GameParams] Editor环境");
+            #endif
+        }
+
+        #endregion
+
+        #region 配置加载
+
+        /// <summary>
+        /// 加载NetworkConfig.json配置
+        /// </summary>
+        private void LoadNetworkConfig()
+        {
             try
             {
-                #if UNITY_WEBGL && !UNITY_EDITOR
-                string queryString = "";
-                if (Application.absoluteURL.Contains("?"))
+                var configAsset = Resources.Load<TextAsset>("NetworkConfig");
+                if (configAsset != null)
                 {
-                    queryString = Application.absoluteURL.Split('?')[1];
-                }
-                
-                if (!string.IsNullOrEmpty(queryString))
-                {
-                    var parameters = ParseQueryString(queryString);
+                    var config = JsonUtility.FromJson<NetworkConfig>(configAsset.text);
                     
-                    gameParams.table_id = parameters.GetValueOrDefault("table_id", "1");
-                    gameParams.game_type = parameters.GetValueOrDefault("game_type", "3");
-                    gameParams.user_id = parameters.GetValueOrDefault("user_id", "8");
-                    gameParams.token = parameters.GetValueOrDefault("token", "9eb5fcdac259fd6cedacad3e04bacf2ed7M3m261WOCWcaAKFFa2Nu");
-                    gameParams.language = parameters.GetValueOrDefault("language", "zh");
-                    gameParams.currency = parameters.GetValueOrDefault("currency", "CNY");
+                    // 加载网络配置
+                    httpBaseUrl = config.production.http.baseUrl;
+                    websocketUrl = config.production.websocket.url;
+                    httpTimeout = config.production.http.timeout;
+                    websocketReconnectAttempts = config.production.websocket.reconnectAttempts;
+                    
+                    Debug.Log("[GameParams] 网络配置加载成功");
                 }
-                #endif
+                else
+                {
+                    Debug.LogError("[GameParams] 未找到NetworkConfig.json");
+                }
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"[GameParams] URL解析失败，使用默认参数: {ex.Message}");
+                Debug.LogError($"[GameParams] 配置加载失败: {ex.Message}");
             }
-            
-            return gameParams;
         }
 
-        private static Dictionary<string, string> ParseQueryString(string queryString)
+        #endregion
+
+        #region 参数加载
+
+        /// <summary>
+        /// 从JS获取参数（WebGL模式）
+        /// </summary>
+        private void LoadParametersFromJS()
         {
-            var parameters = new Dictionary<string, string>();
-            
-            var pairs = queryString.Split('&');
-            foreach (var pair in pairs)
+            Debug.Log("[GameParams] 从JS获取参数");
+
+            #if UNITY_WEBGL && !UNITY_EDITOR
+            try
             {
-                var keyValue = pair.Split('=');
-                if (keyValue.Length == 2)
+                // 调用桥接JS中的GetUrlParameters函数
+                string paramsJson = Application.ExternalEval("GetUrlParameters()");
+                
+                if (!string.IsNullOrEmpty(paramsJson))
                 {
-                    var key = Uri.UnescapeDataString(keyValue[0]);
-                    var value = Uri.UnescapeDataString(keyValue[1]);
-                    parameters[key] = value;
+                    var jsParams = JsonUtility.FromJson<JSGameParams>(paramsJson);
+                    
+                    table_id = jsParams.table_id ?? "";
+                    game_type = jsParams.game_type ?? "";
+                    user_id = jsParams.user_id ?? "";
+                    token = jsParams.token ?? "";
+                    language = jsParams.language ?? "zh";
+                    currency = jsParams.currency ?? "CNY";
+                    
+                    Debug.Log("[GameParams] JS参数获取成功");
+                }
+                else
+                {
+                    Debug.LogWarning("[GameParams] JS返回空参数，使用配置默认值");
+                    LoadParametersFromConfig();
                 }
             }
-            
-            return parameters;
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GameParams] JS参数获取失败: {ex.Message}");
+                LoadParametersFromConfig();
+            }
+            #endif
         }
 
         /// <summary>
-        /// 验证参数完整性
+        /// 从配置文件加载参数（Editor模式 + 备用）
         /// </summary>
-        public bool IsValid()
+        private void LoadParametersFromConfig()
         {
-            return !string.IsNullOrEmpty(table_id) &&
-                   !string.IsNullOrEmpty(game_type) &&
-                   !string.IsNullOrEmpty(user_id) &&
-                   !string.IsNullOrEmpty(token);
+            Debug.Log("[GameParams] 从配置文件加载参数");
+
+            try
+            {
+                var configAsset = Resources.Load<TextAsset>("NetworkConfig");
+                if (configAsset != null)
+                {
+                    var config = JsonUtility.FromJson<NetworkConfig>(configAsset.text);
+                    var defaultParams = config.defaultParams;
+                    
+                    table_id = defaultParams.table_id;
+                    game_type = defaultParams.game_type;
+                    user_id = defaultParams.user_id;
+                    token = defaultParams.token;
+                    language = defaultParams.language;
+                    currency = defaultParams.currency;
+                    
+                    Debug.Log("[GameParams] 配置参数加载成功");
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GameParams] 配置参数加载失败: {ex.Message}");
+            }
         }
+
+        #endregion
+
+        #region 公共接口
+
+        /// <summary>
+        /// 获取WebSocket连接URL
+        /// </summary>
+        public string GetWebSocketUrl()
+        {
+            return websocketUrl;
+        }
+
+        /// <summary>
+        /// 获取HTTP API基础URL
+        /// </summary>
+        public string GetHttpBaseUrl()
+        {
+            return httpBaseUrl;
+        }
+
+        /// <summary>
+        /// 获取完整API URL
+        /// </summary>
+        public string GetApiUrl(string endpoint)
+        {
+            return httpBaseUrl.TrimEnd('/') + "/" + endpoint.TrimStart('/');
+        }
+
+        #endregion
+
+        #region 辅助类型
+
+        /// <summary>
+        /// JS传递的参数结构
+        /// </summary>
+        [Serializable]
+        private class JSGameParams
+        {
+            public string table_id;
+            public string game_type;
+            public string user_id;
+            public string token;
+            public string language;
+            public string currency;
+        }
+
+        #endregion
+
+        #region ToString
 
         public override string ToString()
         {
             var tokenPreview = string.IsNullOrEmpty(token) ? "null" : 
-                              token.Length > 8 ? token.Substring(0, 8) + "..." : token;
+                              (token.Length > 8 ? token.Substring(0, 8) + "..." : token);
             
-            return $"GameParams[Table:{table_id}, User:{user_id}, Token:{tokenPreview}]";
-        }
-    }
-
-    #endregion
-
-    #region 用户信息
-
-    /// <summary>
-    /// 用户信息
-    /// </summary>
-    [Serializable]
-    public class UserInfo
-    {
-        public string user_id = "";
-        public string username = "";
-        public string nickname = "";
-        public decimal balance = 0m;
-        public string currency = "CNY";
-
-        public UserInfo() { }
-
-        public UserInfo(string userId, string username, decimal balance)
-        {
-            user_id = userId;
-            this.username = username;
-            this.balance = balance;
+            return $"GameParams[Table:{table_id}, User:{user_id}, Token:{tokenPreview}, Env:{(_isWebGLMode ? "WebGL" : "Editor")}]";
         }
 
-        /// <summary>
-        /// 检查是否可以投注指定金额
-        /// </summary>
-        public bool CanBet(decimal amount)
-        {
-            return balance >= amount && amount > 0;
-        }
-
-        /// <summary>
-        /// 更新余额
-        /// </summary>
-        public void UpdateBalance(decimal newBalance)
-        {
-            balance = Math.Max(0m, newBalance);
-        }
-
-        public override string ToString()
-        {
-            return $"User[{user_id}:{username}, Balance:{balance}{currency}]";
-        }
-    }
-
-    #endregion
-
-    #region 桌台信息
-
-    /// <summary>
-    /// 桌台信息
-    /// </summary>
-    [Serializable]
-    public class TableInfo
-    {
-        [Header("基本信息")]
-        public int id = 0;
-        public string table_name = "";
-        public int game_type = 3;
-
-        [Header("投注限额")]
-        public decimal min_bet = 10m;
-        public decimal max_bet = 10000m;
-
-        [Header("当前状态")]
-        public string current_game_number = "";
-        public GameState game_state = GameState.Ready;
-        public RoundState round_state = RoundState.Idle;
-        public int countdown = 0;
-
-        public TableInfo() { }
-
-        public TableInfo(int tableId, string tableName)
-        {
-            id = tableId;
-            table_name = tableName;
-        }
-
-        /// <summary>
-        /// 检查是否可以投注
-        /// </summary>
-        public bool CanPlaceBet()
-        {
-            return round_state == RoundState.Betting && 
-                   game_state == GameState.Playing &&
-                   countdown > 0;
-        }
-
-        /// <summary>
-        /// 检查投注金额是否在限额内
-        /// </summary>
-        public bool IsValidBetAmount(decimal amount)
-        {
-            return amount >= min_bet && amount <= max_bet;
-        }
-
-        /// <summary>
-        /// 更新桌台状态
-        /// </summary>
-        public void UpdateStatus(GameState gameState, RoundState roundState, int newCountdown)
-        {
-            game_state = gameState;
-            round_state = roundState;
-            countdown = newCountdown;
-        }
-
-        public override string ToString()
-        {
-            return $"Table[{id}:{table_name}, {game_state}, Countdown:{countdown}]";
-        }
+        #endregion
     }
 
     #endregion
