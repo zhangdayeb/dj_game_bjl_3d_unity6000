@@ -6,7 +6,7 @@ using System;
 using System.Collections;
 using UnityEngine;
 using NativeWebSocket;
-using BaccaratGame.Core.Events;
+using BaccaratGame.Core.Game;
 using System.Text;
 
 namespace Core.Network
