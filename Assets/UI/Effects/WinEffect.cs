@@ -1,299 +1,524 @@
-// Assets/UI/Effects/WinEffect.cs
-// 中奖特效组件 - 完全重写版本
-// 职责：处理百家乐游戏中的各种中奖特效动画和视觉反馈
-// 特点：支持多级中奖特效、队列处理、粒子系统、音效集成
+// Assets/UI/Components/VideoOverlay/Set/WinEffect.cs
+// 简化版中奖特效组件 - 仅用于UI生成
+// 挂载到节点上自动创建中奖展示UI
+// 创建时间: 2025/6/28
 
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using BaccaratGame.Data;
-using BaccaratGame.Core.Events;
+using System.Collections.Generic;
 
-namespace BaccaratGame.UI.Effects
+namespace BaccaratGame.UI.Components.VideoOverlay
 {
     /// <summary>
-    /// 中奖特效组件
-    /// 负责处理百家乐游戏中所有中奖相关的视觉特效和音效
+    /// 简化版中奖特效组件
+    /// 挂载到节点上自动创建UI，包含不同等级的中奖展示
     /// </summary>
     public class WinEffect : MonoBehaviour
     {
-        #region 序列化字段配置
+        #region 配置参数
 
-        [Header("🎯 中奖阈值设置")]
-        [SerializeField] private decimal smallWinThreshold = 10m;
-        [SerializeField] private decimal mediumWinThreshold = 100m;
-        [SerializeField] private decimal bigWinThreshold = 1000m;
-        [SerializeField] private decimal jackpotThreshold = 10000m;
-
-        [Header("🎨 视觉特效")]
-        [SerializeField] private Image flashOverlay;
-        [SerializeField] private Text winAmountText;
-        [SerializeField] private Text winMessageText;
-        [SerializeField] private GameObject winContainer;
-        [SerializeField] private Transform effectCenter;
-
-        [Header("✨ 粒子系统")]
-        [SerializeField] private ParticleSystem celebrationParticles;
-        [SerializeField] private ParticleSystem coinParticles;
-        [SerializeField] private ParticleSystem fireworkParticles;
-        [SerializeField] private ParticleSystem confettiParticles;
-        [SerializeField] private ParticleSystem sparkleParticles;
-        [SerializeField] private ParticleSystem glowParticles;
-
-        [Header("🔊 音效设置")]
-        [SerializeField] private bool enableSounds = true;
-        [SerializeField] private AudioClip smallWinSound;
-        [SerializeField] private AudioClip mediumWinSound;
-        [SerializeField] private AudioClip bigWinSound;
-        [SerializeField] private AudioClip jackpotWinSound;
-        [SerializeField] private AudioClip coinDropSound;
-        [SerializeField] private AudioClip celebrationSound;
-        [SerializeField, Range(0f, 1f)] private float soundVolume = 1.0f;
-
-        [Header("📱 摄像机震动")]
-        [SerializeField] private bool enableCameraShake = true;
-        [SerializeField] private float smallShakeIntensity = 0.1f;
-        [SerializeField] private float mediumShakeIntensity = 0.3f;
-        [SerializeField] private float bigShakeIntensity = 0.5f;
-        [SerializeField] private float jackpotShakeIntensity = 1.0f;
-        [SerializeField] private float shakeDuration = 0.5f;
-
-        [Header("⚡ 动画设置")]
-        [SerializeField] private float textAnimationDuration = 2.0f;
-        [SerializeField] private float flashDuration = 0.1f;
-        [SerializeField] private int flashCount = 3;
-        [SerializeField] private AnimationCurve scaleUpCurve;
-        [SerializeField] private AnimationCurve fadeInCurve;
-
-        [Header("🎨 颜色配置")]
-        [SerializeField] private Color smallWinColor = Color.green;
-        [SerializeField] private Color mediumWinColor = Color.blue;
-        [SerializeField] private Color bigWinColor = Color.red;
-        [SerializeField] private Color jackpotWinColor = Color.yellow;
-        [SerializeField] private Color flashColor = Color.white;
-
-        [Header("⏱️ 时间设置")]
-        [SerializeField] private float smallWinDuration = 1.5f;
-        [SerializeField] private float mediumWinDuration = 2.5f;
-        [SerializeField] private float bigWinDuration = 4.0f;
-        [SerializeField] private float jackpotWinDuration = 6.0f;
-
-        [Header("🐛 调试设置")]
-        [SerializeField] private bool enableDebugMode = true;
-        [SerializeField] private bool showEffectBounds = false;
+        [Header("面板配置")]
+        public Vector2 panelSize = new Vector2(500, 350);
+        public Color backgroundColor = new Color(0.05f, 0.05f, 0.05f, 0.95f);
+        public Color titleColor = Color.white;
+        public int fontSize = 16;
+        
+        [Header("遮罩层设置")]
+        public Color maskColor = new Color(0, 0, 0, 0.4f);
+        
+        [Header("中奖等级配置")]
+        public Color smallWinColor = new Color(0.2f, 0.8f, 0.2f, 1f);  // 绿色
+        public Color mediumWinColor = new Color(0.2f, 0.6f, 1f, 1f);   // 蓝色
+        public Color bigWinColor = new Color(1f, 0.6f, 0.2f, 1f);      // 橙色
+        public Color jackpotWinColor = new Color(1f, 0.8f, 0.2f, 1f);  // 金色
+        
+        [Header("中奖阈值")]
+        public int smallWinThreshold = 10;
+        public int mediumWinThreshold = 100;
+        public int bigWinThreshold = 1000;
+        public int jackpotWinThreshold = 10000;
 
         #endregion
 
         #region 私有字段
 
-        // 组件引用
-        private AudioSource audioSource;
-        private Camera mainCamera;
-        private Canvas parentCanvas;
-
-        // 特效管理
-        private Queue<WinEffectRequest> effectQueue = new Queue<WinEffectRequest>();
-        private List<GameObject> activeEffects = new List<GameObject>();
-        private bool isPlayingEffect = false;
-
-        // 摄像机震动
-        private Vector3 originalCameraPosition;
-        private bool isShaking = false;
-
-        // 动画缓存
-        private Coroutine currentWinAnimation;
-        private Dictionary<WinLevel, WinEffectConfig> winConfigs = new Dictionary<WinLevel, WinEffectConfig>();
+        private bool uiCreated = false;
+        private GameObject maskLayer;
+        private GameObject winPanel;
+        private Canvas uiCanvas;
+        
+        // UI组件引用
+        private Text winAmountText;
+        private Text winMessageText;
+        private Image flashOverlay;
+        
+        // 中奖等级数据
+        private readonly string[] winLevelNames = { "小奖", "中奖", "大奖", "超级大奖" };
+        private readonly int[] winAmounts = { 50, 300, 2000, 50000 };
+        private Color[] winColors;
 
         #endregion
 
-        #region 事件定义
-
-        // 中奖特效事件
-        public System.Action<decimal, WinLevel> OnWinEffectStarted;
-        public System.Action<decimal, WinLevel> OnWinEffectCompleted;
-        public System.Action OnAllEffectsCleared;
-
-        #endregion
-
-        #region Unity生命周期
+        #region 生命周期
 
         private void Awake()
         {
-            InitializeComponent();
-            InitializeWinConfigs();
-            InitializeAnimationCurves();
+            InitializeWinColors();
+            CreateUI();
+            ShowSampleWin();
         }
 
-        private void Start()
+        #endregion
+
+        #region UI创建
+
+        /// <summary>
+        /// 创建完整的UI系统
+        /// </summary>
+        private void CreateUI()
         {
-            SetupEventListeners();
-            ValidateComponents();
+            if (uiCreated) return;
+
+            CreateCanvas();
+            CreateMaskLayer();
+            CreateWinPanel();
+            CreateWinDisplay();
+            CreateWinButtons();
+            
+            uiCreated = true;
         }
 
-        private void OnDestroy()
+        /// <summary>
+        /// 初始化中奖颜色
+        /// </summary>
+        private void InitializeWinColors()
         {
-            CleanupEventListeners();
-            StopAllEffects();
+            winColors = new Color[] { smallWinColor, mediumWinColor, bigWinColor, jackpotWinColor };
         }
 
-        private void OnDrawGizmosSelected()
+        /// <summary>
+        /// 创建Canvas
+        /// </summary>
+        private void CreateCanvas()
         {
-            if (showEffectBounds && effectCenter != null)
+            uiCanvas = GetComponentInParent<Canvas>();
+            if (uiCanvas == null)
             {
-                Gizmos.color = Color.yellow;
-                Gizmos.DrawWireSphere(effectCenter.position, 100f);
+                GameObject canvasObj = new GameObject("WinEffectCanvas");
+                canvasObj.transform.SetParent(transform.parent);
+                
+                uiCanvas = canvasObj.AddComponent<Canvas>();
+                uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                uiCanvas.sortingOrder = 4000; // 确保在最上层
+                
+                CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920, 1080);
+                scaler.matchWidthOrHeight = 0.5f;
+                
+                canvasObj.AddComponent<GraphicRaycaster>();
+                
+                transform.SetParent(canvasObj.transform);
+            }
+
+            RectTransform rectTransform = GetComponent<RectTransform>();
+            if (rectTransform == null)
+                rectTransform = gameObject.AddComponent<RectTransform>();
+                
+            rectTransform.anchorMin = Vector2.zero;
+            rectTransform.anchorMax = Vector2.one;
+            rectTransform.offsetMin = Vector2.zero;
+            rectTransform.offsetMax = Vector2.zero;
+        }
+
+        /// <summary>
+        /// 创建遮罩层
+        /// </summary>
+        private void CreateMaskLayer()
+        {
+            maskLayer = new GameObject("MaskLayer");
+            maskLayer.transform.SetParent(transform);
+
+            RectTransform maskRect = maskLayer.AddComponent<RectTransform>();
+            maskRect.anchorMin = Vector2.zero;
+            maskRect.anchorMax = Vector2.one;
+            maskRect.offsetMin = Vector2.zero;
+            maskRect.offsetMax = Vector2.zero;
+
+            Image maskImage = maskLayer.AddComponent<Image>();
+            maskImage.color = maskColor;
+            maskImage.sprite = CreateSimpleSprite();
+
+            Button maskButton = maskLayer.AddComponent<Button>();
+            maskButton.onClick.AddListener(HidePanel);
+            
+            ColorBlock colors = maskButton.colors;
+            colors.normalColor = Color.clear;
+            colors.highlightedColor = Color.clear;
+            colors.pressedColor = Color.clear;
+            colors.disabledColor = Color.clear;
+            maskButton.colors = colors;
+        }
+
+        /// <summary>
+        /// 创建中奖面板
+        /// </summary>
+        private void CreateWinPanel()
+        {
+            winPanel = new GameObject("WinPanel");
+            winPanel.transform.SetParent(transform);
+
+            RectTransform panelRect = winPanel.AddComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0.5f, 0.5f); // 居中
+            panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelRect.pivot = new Vector2(0.5f, 0.5f);
+            panelRect.sizeDelta = panelSize;
+            panelRect.anchoredPosition = Vector2.zero;
+
+            Image panelBg = winPanel.AddComponent<Image>();
+            panelBg.color = backgroundColor;
+            panelBg.sprite = CreateSimpleSprite();
+
+            // 添加发光边框
+            Outline outline = winPanel.AddComponent<Outline>();
+            outline.effectColor = jackpotWinColor;
+            outline.effectDistance = new Vector2(3, -3);
+
+            // 添加阴影
+            Shadow shadow = winPanel.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.6f);
+            shadow.effectDistance = new Vector2(5, -5);
+        }
+
+        /// <summary>
+        /// 创建中奖显示区域
+        /// </summary>
+        private void CreateWinDisplay()
+        {
+            // 创建闪光层
+            CreateFlashOverlay();
+            
+            // 创建标题
+            CreateTitle();
+            
+            // 创建中奖金额显示
+            CreateWinAmountDisplay();
+            
+            // 创建中奖消息显示
+            CreateWinMessageDisplay();
+        }
+
+        /// <summary>
+        /// 创建闪光覆盖层
+        /// </summary>
+        private void CreateFlashOverlay()
+        {
+            GameObject flashObj = new GameObject("FlashOverlay");
+            flashObj.transform.SetParent(winPanel.transform);
+
+            RectTransform flashRect = flashObj.AddComponent<RectTransform>();
+            flashRect.anchorMin = Vector2.zero;
+            flashRect.anchorMax = Vector2.one;
+            flashRect.offsetMin = Vector2.zero;
+            flashRect.offsetMax = Vector2.zero;
+
+            flashOverlay = flashObj.AddComponent<Image>();
+            flashOverlay.color = new Color(1f, 1f, 1f, 0.3f);
+            flashOverlay.sprite = CreateSimpleSprite();
+            
+            // 默认隐藏
+            flashObj.SetActive(false);
+        }
+
+        /// <summary>
+        /// 创建标题
+        /// </summary>
+        private void CreateTitle()
+        {
+            GameObject titleObj = new GameObject("Title");
+            titleObj.transform.SetParent(winPanel.transform);
+
+            RectTransform titleRect = titleObj.AddComponent<RectTransform>();
+            titleRect.anchorMin = new Vector2(0, 0.8f);
+            titleRect.anchorMax = new Vector2(1, 1f);
+            titleRect.offsetMin = new Vector2(15, 0);
+            titleRect.offsetMax = new Vector2(-15, -5);
+
+            Text titleText = titleObj.AddComponent<Text>();
+            titleText.text = "🎉 中奖特效展示 🎉";
+            titleText.color = titleColor;
+            titleText.alignment = TextAnchor.MiddleCenter;
+            titleText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            titleText.fontSize = fontSize + 4;
+            titleText.fontStyle = FontStyle.Bold;
+        }
+
+        /// <summary>
+        /// 创建中奖金额显示
+        /// </summary>
+        private void CreateWinAmountDisplay()
+        {
+            GameObject amountObj = new GameObject("WinAmount");
+            amountObj.transform.SetParent(winPanel.transform);
+
+            RectTransform amountRect = amountObj.AddComponent<RectTransform>();
+            amountRect.anchorMin = new Vector2(0, 0.5f);
+            amountRect.anchorMax = new Vector2(1, 0.8f);
+            amountRect.offsetMin = new Vector2(20, 0);
+            amountRect.offsetMax = new Vector2(-20, 0);
+
+            winAmountText = amountObj.AddComponent<Text>();
+            winAmountText.text = "¥50,000";
+            winAmountText.color = jackpotWinColor;
+            winAmountText.alignment = TextAnchor.MiddleCenter;
+            winAmountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            winAmountText.fontSize = fontSize + 12;
+            winAmountText.fontStyle = FontStyle.Bold;
+
+            // 添加发光效果
+            Outline amountOutline = amountObj.AddComponent<Outline>();
+            amountOutline.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            amountOutline.effectDistance = new Vector2(2, -2);
+        }
+
+        /// <summary>
+        /// 创建中奖消息显示
+        /// </summary>
+        private void CreateWinMessageDisplay()
+        {
+            GameObject messageObj = new GameObject("WinMessage");
+            messageObj.transform.SetParent(winPanel.transform);
+
+            RectTransform messageRect = messageObj.AddComponent<RectTransform>();
+            messageRect.anchorMin = new Vector2(0, 0.35f);
+            messageRect.anchorMax = new Vector2(1, 0.5f);
+            messageRect.offsetMin = new Vector2(20, 0);
+            messageRect.offsetMax = new Vector2(-20, 0);
+
+            winMessageText = messageObj.AddComponent<Text>();
+            winMessageText.text = "🏆 超级大奖!!! 🏆";
+            winMessageText.color = jackpotWinColor;
+            winMessageText.alignment = TextAnchor.MiddleCenter;
+            winMessageText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            winMessageText.fontSize = fontSize + 2;
+            winMessageText.fontStyle = FontStyle.Bold;
+
+            // 添加阴影
+            Shadow messageShadow = messageObj.AddComponent<Shadow>();
+            messageShadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            messageShadow.effectDistance = new Vector2(1, -1);
+        }
+
+        /// <summary>
+        /// 创建中奖按钮
+        /// </summary>
+        private void CreateWinButtons()
+        {
+            GameObject buttonsObj = new GameObject("WinButtons");
+            buttonsObj.transform.SetParent(winPanel.transform);
+
+            RectTransform buttonsRect = buttonsObj.AddComponent<RectTransform>();
+            buttonsRect.anchorMin = new Vector2(0, 0.05f);
+            buttonsRect.anchorMax = new Vector2(1, 0.35f);
+            buttonsRect.offsetMin = new Vector2(20, 0);
+            buttonsRect.offsetMax = new Vector2(-20, 0);
+
+            // 添加网格布局
+            GridLayoutGroup gridLayout = buttonsObj.AddComponent<GridLayoutGroup>();
+            gridLayout.cellSize = new Vector2(100, 50);
+            gridLayout.spacing = new Vector2(10, 10);
+            gridLayout.startCorner = GridLayoutGroup.Corner.UpperLeft;
+            gridLayout.startAxis = GridLayoutGroup.Axis.Horizontal;
+            gridLayout.childAlignment = TextAnchor.MiddleCenter;
+            gridLayout.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            gridLayout.constraintCount = 2;
+
+            // 创建中奖等级按钮
+            for (int i = 0; i < winLevelNames.Length; i++)
+            {
+                CreateWinLevelButton(buttonsObj, i);
+            }
+        }
+
+        /// <summary>
+        /// 创建中奖等级按钮
+        /// </summary>
+        private void CreateWinLevelButton(GameObject parent, int levelIndex)
+        {
+            GameObject buttonObj = new GameObject($"WinButton_{winLevelNames[levelIndex]}");
+            buttonObj.transform.SetParent(parent.transform);
+
+            RectTransform buttonRect = buttonObj.AddComponent<RectTransform>();
+            buttonRect.sizeDelta = new Vector2(100, 50);
+
+            Button winButton = buttonObj.AddComponent<Button>();
+            
+            Image buttonImage = buttonObj.AddComponent<Image>();
+            buttonImage.color = winColors[levelIndex];
+            buttonImage.sprite = CreateSimpleSprite();
+
+            winButton.onClick.AddListener(() => ShowWinLevel(levelIndex));
+
+            // 按钮文字
+            GameObject textObj = new GameObject("Text");
+            textObj.transform.SetParent(buttonObj.transform);
+
+            RectTransform textRect = textObj.AddComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+
+            Text buttonText = textObj.AddComponent<Text>();
+            buttonText.text = winLevelNames[levelIndex];
+            buttonText.color = Color.white;
+            buttonText.alignment = TextAnchor.MiddleCenter;
+            buttonText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+            buttonText.fontSize = fontSize - 2;
+            buttonText.fontStyle = FontStyle.Bold;
+
+            // 添加阴影
+            Shadow textShadow = textObj.AddComponent<Shadow>();
+            textShadow.effectColor = new Color(0f, 0f, 0f, 0.8f);
+            textShadow.effectDistance = new Vector2(1, -1);
+        }
+
+        /// <summary>
+        /// 创建简单背景
+        /// </summary>
+        private Sprite CreateSimpleSprite()
+        {
+            Texture2D texture = new Texture2D(1, 1);
+            texture.SetPixel(0, 0, Color.white);
+            texture.Apply();
+            
+            return Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f));
+        }
+
+        #endregion
+
+        #region 中奖展示逻辑
+
+        /// <summary>
+        /// 显示示例中奖
+        /// </summary>
+        private void ShowSampleWin()
+        {
+            // 默认显示超级大奖
+            ShowWinLevel(3);
+        }
+
+        /// <summary>
+        /// 显示指定等级的中奖
+        /// </summary>
+        private void ShowWinLevel(int levelIndex)
+        {
+            if (levelIndex < 0 || levelIndex >= winLevelNames.Length) return;
+
+            string levelName = winLevelNames[levelIndex];
+            int amount = winAmounts[levelIndex];
+            Color levelColor = winColors[levelIndex];
+
+            // 更新显示
+            if (winAmountText != null)
+            {
+                winAmountText.text = FormatWinAmount(amount);
+                winAmountText.color = levelColor;
+            }
+
+            if (winMessageText != null)
+            {
+                string message = GetWinMessage(levelIndex);
+                winMessageText.text = message;
+                winMessageText.color = levelColor;
+            }
+
+            // 更新边框颜色
+            Outline panelOutline = winPanel.GetComponent<Outline>();
+            if (panelOutline != null)
+            {
+                panelOutline.effectColor = levelColor;
+            }
+
+            // 播放闪光效果
+            StartCoroutine(PlayFlashEffect(levelColor));
+
+            Debug.Log($"[WinEffect] 显示{levelName}: ¥{amount}");
+        }
+
+        /// <summary>
+        /// 获取中奖消息
+        /// </summary>
+        private string GetWinMessage(int levelIndex)
+        {
+            return levelIndex switch
+            {
+                0 => "🎉 小奖中奖! 🎉",
+                1 => "🎊 中奖来了! 🎊", 
+                2 => "🔥 巨额奖金! 🔥",
+                3 => "🏆 超级大奖!!! 🏆",
+                _ => "🎉 中奖了! 🎉"
+            };
+        }
+
+        /// <summary>
+        /// 格式化中奖金额
+        /// </summary>
+        private string FormatWinAmount(int amount)
+        {
+            if (amount >= 10000)
+                return $"¥{amount / 10000:F1}万";
+            else if (amount >= 1000)
+                return $"¥{amount / 1000:F1}K";
+            else
+                return $"¥{amount}";
+        }
+
+        /// <summary>
+        /// 播放闪光特效
+        /// </summary>
+        private System.Collections.IEnumerator PlayFlashEffect(Color flashColor)
+        {
+            if (flashOverlay == null) yield break;
+
+            // 设置闪光颜色
+            Color originalColor = flashColor;
+            originalColor.a = 0.5f;
+            flashOverlay.color = originalColor;
+
+            // 闪光3次
+            for (int i = 0; i < 3; i++)
+            {
+                flashOverlay.gameObject.SetActive(true);
+                yield return new WaitForSeconds(0.1f);
+                
+                flashOverlay.gameObject.SetActive(false);
+                yield return new WaitForSeconds(0.1f);
             }
         }
 
         #endregion
 
-        #region 初始化
+        #region 事件处理
 
         /// <summary>
-        /// 初始化组件
+        /// 隐藏面板
         /// </summary>
-        private void InitializeComponent()
+        public void HidePanel()
         {
-            // 获取音频源
-            audioSource = GetComponent<AudioSource>();
-            if (audioSource == null)
-            {
-                audioSource = gameObject.AddComponent<AudioSource>();
-            }
-            audioSource.volume = soundVolume;
-            audioSource.playOnAwake = false;
-
-            // 获取主摄像机
-            mainCamera = Camera.main;
-            if (mainCamera != null)
-            {
-                originalCameraPosition = mainCamera.transform.position;
-            }
-
-            // 获取Canvas
-            parentCanvas = GetComponentInParent<Canvas>();
-
-            // 确保特效中心存在
-            if (effectCenter == null)
-            {
-                GameObject centerObj = new GameObject("EffectCenter");
-                centerObj.transform.SetParent(transform);
-                effectCenter = centerObj.transform;
-            }
-
-            if (enableDebugMode)
-                Debug.Log("[WinEffect] 组件初始化完成");
+            if (maskLayer != null) maskLayer.SetActive(false);
+            if (winPanel != null) winPanel.SetActive(false);
+            Debug.Log("[WinEffect] 面板已隐藏");
         }
 
         /// <summary>
-        /// 初始化中奖配置
+        /// 显示面板
         /// </summary>
-        private void InitializeWinConfigs()
+        public void ShowPanel()
         {
-            winConfigs[WinLevel.Small] = new WinEffectConfig
-            {
-                duration = smallWinDuration,
-                color = smallWinColor,
-                shakeIntensity = smallShakeIntensity,
-                message = "小奖中奖!",
-                sound = smallWinSound,
-                useParticles = true,
-                useFlash = true
-            };
-
-            winConfigs[WinLevel.Medium] = new WinEffectConfig
-            {
-                duration = mediumWinDuration,
-                color = mediumWinColor,
-                shakeIntensity = mediumShakeIntensity,
-                message = "中奖来了!",
-                sound = mediumWinSound,
-                useParticles = true,
-                useFlash = true
-            };
-
-            winConfigs[WinLevel.Big] = new WinEffectConfig
-            {
-                duration = bigWinDuration,
-                color = bigWinColor,
-                shakeIntensity = bigShakeIntensity,
-                message = "巨额奖金!",
-                sound = bigWinSound,
-                useParticles = true,
-                useFlash = true,
-                useFireworks = true
-            };
-
-            winConfigs[WinLevel.Jackpot] = new WinEffectConfig
-            {
-                duration = jackpotWinDuration,
-                color = jackpotWinColor,
-                shakeIntensity = jackpotShakeIntensity,
-                message = "超级大奖!!!",
-                sound = jackpotWinSound,
-                useParticles = true,
-                useFlash = true,
-                useFireworks = true,
-                useConfetti = true
-            };
-
-            if (enableDebugMode)
-                Debug.Log("[WinEffect] 中奖配置初始化完成");
-        }
-
-        /// <summary>
-        /// 初始化动画曲线
-        /// </summary>
-        private void InitializeAnimationCurves()
-        {
-            if (scaleUpCurve == null || scaleUpCurve.keys.Length == 0)
-            {
-                scaleUpCurve = new AnimationCurve();
-                scaleUpCurve.AddKey(0f, 0f);
-                scaleUpCurve.AddKey(0.2f, 1.2f);
-                scaleUpCurve.AddKey(1f, 1f);
-            }
-
-            if (fadeInCurve == null || fadeInCurve.keys.Length == 0)
-            {
-                fadeInCurve = new AnimationCurve();
-                fadeInCurve.AddKey(0f, 0f);
-                fadeInCurve.AddKey(0.3f, 1f);
-                fadeInCurve.AddKey(0.7f, 1f);
-                fadeInCurve.AddKey(1f, 0f);
-            }
-
-            if (enableDebugMode)
-                Debug.Log("[WinEffect] 动画曲线初始化完成");
-        }
-
-        #endregion
-
-        #region 事件系统
-
-        /// <summary>
-        /// 设置事件监听
-        /// </summary>
-        private void SetupEventListeners()
-        {
-            // 这里可以监听游戏事件
-            // 示例：
-            // GameEventManager.OnPlayerWin += HandlePlayerWin;
-            // GameEventManager.OnBankerWin += HandleBankerWin;
-            // GameEventManager.OnTieWin += HandleTieWin;
-        }
-
-        /// <summary>
-        /// 清理事件监听
-        /// </summary>
-        private void CleanupEventListeners()
-        {
-            // 取消事件监听
-            // GameEventManager.OnPlayerWin -= HandlePlayerWin;
-            // GameEventManager.OnBankerWin -= HandleBankerWin;
-            // GameEventManager.OnTieWin -= HandleTieWin;
+            if (maskLayer != null) maskLayer.SetActive(true);
+            if (winPanel != null) winPanel.SetActive(true);
+            Debug.Log("[WinEffect] 面板已显示");
         }
 
         #endregion
@@ -301,731 +526,124 @@ namespace BaccaratGame.UI.Effects
         #region 公共接口
 
         /// <summary>
-        /// 播放中奖特效
+        /// 切换面板显示状态
         /// </summary>
-        /// <param name="winAmount">中奖金额</param>
-        /// <param name="winType">中奖类型</param>
-        /// <param name="position">特效位置</param>
-        public void PlayWinEffect(decimal winAmount, string winType = "", Vector3? position = null)
+        public void TogglePanel()
         {
-            WinLevel winLevel = GetWinLevel(winAmount);
-            Vector3 effectPosition = position ?? (effectCenter != null ? effectCenter.position : transform.position);
-
-            var effectInfo = new WinEffectInfo
-            {
-                winAmount = winAmount,
-                winType = !string.IsNullOrEmpty(winType) ? winType : GetWinTypeFromLevel(winLevel),
-                position = effectPosition,
-                effectColor = GetWinColor(winLevel),
-                duration = GetWinDuration(winLevel)
-            };
-
-            var request = new WinEffectRequest
-            {
-                effectInfo = effectInfo,
-                winLevel = winLevel,
-                priority = GetEffectPriority(winLevel)
-            };
-
-            effectQueue.Enqueue(request);
-
-            if (!isPlayingEffect)
-            {
-                StartCoroutine(ProcessEffectQueue());
-            }
-
-            if (enableDebugMode)
-                Debug.Log($"[WinEffect] 添加中奖特效请求: {winAmount} ({winLevel})");
-        }
-
-        /// <summary>
-        /// 播放百家乐特定中奖特效
-        /// </summary>
-        /// <param name="result">游戏结果</param>
-        /// <param name="winAmount">中奖金额</param>
-        public void PlayBaccaratWinEffect(BaccaratResult result, decimal winAmount)
-        {
-            string winType = result switch
-            {
-                BaccaratResult.Player => "闲家获胜",
-                BaccaratResult.Banker => "庄家获胜", 
-                BaccaratResult.Tie => "和局",
-                _ => "中奖"
-            };
-
-            Color resultColor = result switch
-            {
-                BaccaratResult.Player => Color.blue,
-                BaccaratResult.Banker => Color.red,
-                BaccaratResult.Tie => Color.green,
-                _ => Color.white
-            };
-
-            PlayWinEffect(winAmount, winType);
-        }
-
-        /// <summary>
-        /// 停止所有特效
-        /// </summary>
-        public void StopAllEffects()
-        {
-            StopAllCoroutines();
-            ClearAllActiveEffects();
-            effectQueue.Clear();
-            isPlayingEffect = false;
-
-            // 恢复摄像机位置
-            if (mainCamera != null && isShaking)
-            {
-                mainCamera.transform.position = originalCameraPosition;
-                isShaking = false;
-            }
-
-            if (enableDebugMode)
-                Debug.Log("[WinEffect] 所有特效已停止");
-        }
-
-        #endregion
-
-        #region 特效处理
-
-        /// <summary>
-        /// 处理特效队列
-        /// </summary>
-        private IEnumerator ProcessEffectQueue()
-        {
-            isPlayingEffect = true;
-
-            while (effectQueue.Count > 0)
-            {
-                WinEffectRequest request = effectQueue.Dequeue();
-                yield return StartCoroutine(PlayWinEffectCoroutine(request));
-            }
-
-            isPlayingEffect = false;
-        }
-
-        /// <summary>
-        /// 播放中奖特效协程
-        /// </summary>
-        private IEnumerator PlayWinEffectCoroutine(WinEffectRequest request)
-        {
-            WinEffectInfo effectInfo = request.effectInfo;
-            WinLevel winLevel = request.winLevel;
-            WinEffectConfig config = winConfigs[winLevel];
-
-            // 触发开始事件
-            OnWinEffectStarted?.Invoke(effectInfo.winAmount, winLevel);
-
-            // 设置特效位置
-            transform.position = effectInfo.position;
-
-            // 并行播放各种特效
-            List<Coroutine> effects = new List<Coroutine>();
-
-            // 播放音效
-            PlayWinSound(config);
-
-            // 播放摄像机震动
-            if (enableCameraShake && config.shakeIntensity > 0)
-            {
-                effects.Add(StartCoroutine(CameraShakeCoroutine(config.shakeIntensity, shakeDuration)));
-            }
-
-            // 播放闪光效果
-            if (config.useFlash)
-            {
-                effects.Add(StartCoroutine(FlashEffectCoroutine(config.color)));
-            }
-
-            // 播放粒子特效
-            if (config.useParticles)
-            {
-                PlayParticleEffects(winLevel, effectInfo);
-            }
-
-            // 显示中奖文本
-            effects.Add(StartCoroutine(ShowWinTextCoroutine(effectInfo, config)));
-
-            // 等待主要特效完成
-            yield return new WaitForSeconds(config.duration);
-
-            // 等待所有特效完成
-            foreach (var effect in effects)
-            {
-                if (effect != null)
-                {
-                    yield return effect;
-                }
-            }
-
-            // 清理特效
-            CleanupEffect(winLevel);
-
-            // 触发完成事件
-            OnWinEffectCompleted?.Invoke(effectInfo.winAmount, winLevel);
-
-            if (enableDebugMode)
-                Debug.Log($"[WinEffect] 中奖特效播放完成: {effectInfo.winAmount} ({winLevel})");
-        }
-
-        /// <summary>
-        /// 显示中奖文本协程
-        /// </summary>
-        private IEnumerator ShowWinTextCoroutine(WinEffectInfo effectInfo, WinEffectConfig config)
-        {
-            if (winContainer != null)
-            {
-                winContainer.SetActive(true);
-            }
-
-            // 设置中奖金额文本
-            if (winAmountText != null)
-            {
-                winAmountText.text = FormatWinAmount(effectInfo.winAmount);
-                winAmountText.color = config.color;
-            }
-
-            // 设置中奖消息文本
-            if (winMessageText != null)
-            {
-                winMessageText.text = config.message;
-                winMessageText.color = config.color;
-            }
-
-            // 播放文本动画
-            yield return StartCoroutine(AnimateWinText());
-
-            // 隐藏文本
-            if (winContainer != null)
-            {
-                winContainer.SetActive(false);
-            }
-        }
-
-        /// <summary>
-        /// 文本动画协程
-        /// </summary>
-        private IEnumerator AnimateWinText()
-        {
-            if (winContainer == null) yield break;
-
-            Transform textTransform = winContainer.transform;
-            Vector3 originalScale = textTransform.localScale;
-            Color originalColor = Color.white;
-
-            CanvasGroup canvasGroup = winContainer.GetComponent<CanvasGroup>();
-            if (canvasGroup == null)
-            {
-                canvasGroup = winContainer.AddComponent<CanvasGroup>();
-            }
-
-            float elapsedTime = 0f;
-            while (elapsedTime < textAnimationDuration)
-            {
-                elapsedTime += Time.deltaTime;
-                float t = elapsedTime / textAnimationDuration;
-
-                // 缩放动画
-                float scaleValue = scaleUpCurve.Evaluate(t);
-                textTransform.localScale = originalScale * scaleValue;
-
-                // 透明度动画
-                float alphaValue = fadeInCurve.Evaluate(t);
-                canvasGroup.alpha = alphaValue;
-
-                yield return null;
-            }
-
-            textTransform.localScale = originalScale;
-        }
-
-        /// <summary>
-        /// 闪光特效协程
-        /// </summary>
-        private IEnumerator FlashEffectCoroutine(Color flashColor)
-        {
-            if (flashOverlay == null) yield break;
-
-            for (int i = 0; i < flashCount; i++)
-            {
-                // 闪光开启
-                flashOverlay.gameObject.SetActive(true);
-                flashOverlay.color = flashColor;
-
-                yield return new WaitForSeconds(flashDuration);
-
-                // 闪光关闭
-                flashOverlay.gameObject.SetActive(false);
-
-                yield return new WaitForSeconds(flashDuration);
-            }
-        }
-
-        /// <summary>
-        /// 摄像机震动协程
-        /// </summary>
-        private IEnumerator CameraShakeCoroutine(float intensity, float duration)
-        {
-            if (mainCamera == null) yield break;
-
-            isShaking = true;
-            float elapsedTime = 0f;
-
-            while (elapsedTime < duration)
-            {
-                elapsedTime += Time.deltaTime;
-                
-                Vector3 randomOffset = UnityEngine.Random.insideUnitSphere * intensity;
-                randomOffset.z = 0; // 保持Z轴不变
-                
-                mainCamera.transform.position = originalCameraPosition + randomOffset;
-                
-                yield return null;
-            }
-
-            // 恢复原始位置
-            mainCamera.transform.position = originalCameraPosition;
-            isShaking = false;
-        }
-
-        #endregion
-
-        #region 粒子特效
-
-        /// <summary>
-        /// 播放粒子特效
-        /// </summary>
-        private void PlayParticleEffects(WinLevel winLevel, WinEffectInfo effectInfo)
-        {
-            WinEffectConfig config = winConfigs[winLevel];
-
-            // 基础庆祝粒子
-            if (celebrationParticles != null)
-            {
-                ConfigureParticleSystem(celebrationParticles, winLevel, effectInfo.effectColor);
-                celebrationParticles.Play();
-            }
-
-            // 金币粒子
-            if (coinParticles != null)
-            {
-                ConfigureParticleSystem(coinParticles, winLevel, Color.yellow);
-                coinParticles.Play();
-            }
-
-            // 发光粒子
-            if (glowParticles != null)
-            {
-                ConfigureParticleSystem(glowParticles, winLevel, effectInfo.effectColor);
-                glowParticles.Play();
-            }
-
-            // 根据配置播放额外特效
-            if (config.useFireworks && fireworkParticles != null)
-            {
-                ConfigureParticleSystem(fireworkParticles, winLevel, effectInfo.effectColor);
-                fireworkParticles.Play();
-            }
-
-            if (config.useConfetti && confettiParticles != null)
-            {
-                ConfigureParticleSystem(confettiParticles, winLevel, Color.white);
-                confettiParticles.Play();
-            }
-
-            // 闪光粒子
-            if (winLevel >= WinLevel.Medium && sparkleParticles != null)
-            {
-                ConfigureParticleSystem(sparkleParticles, winLevel, Color.white);
-                sparkleParticles.Play();
-            }
-        }
-
-        /// <summary>
-        /// 配置粒子系统
-        /// </summary>
-        private void ConfigureParticleSystem(ParticleSystem particles, WinLevel winLevel, Color color)
-        {
-            var main = particles.main;
-            main.startColor = color;
-
-            // 根据中奖等级调整粒子参数
-            switch (winLevel)
-            {
-                case WinLevel.Small:
-                    main.maxParticles = 50;
-                    main.startSpeed = 5f;
-                    main.startLifetime = 2f;
-                    break;
-                case WinLevel.Medium:
-                    main.maxParticles = 100;
-                    main.startSpeed = 8f;
-                    main.startLifetime = 3f;
-                    break;
-                case WinLevel.Big:
-                    main.maxParticles = 200;
-                    main.startSpeed = 12f;
-                    main.startLifetime = 4f;
-                    break;
-                case WinLevel.Jackpot:
-                    main.maxParticles = 500;
-                    main.startSpeed = 20f;
-                    main.startLifetime = 6f;
-                    break;
-            }
-
-            // 配置发射器
-            var emission = particles.emission;
-            emission.rateOverTime = main.maxParticles / 2f;
-
-            // 配置形状
-            var shape = particles.shape;
-            shape.radius = GetEffectRadius(winLevel);
-        }
-
-        /// <summary>
-        /// 停止所有粒子系统
-        /// </summary>
-        private void StopAllParticleSystems()
-        {
-            ParticleSystem[] allParticles = {
-                celebrationParticles, coinParticles, fireworkParticles,
-                confettiParticles, sparkleParticles, glowParticles
-            };
-
-            foreach (var particle in allParticles)
-            {
-                if (particle != null)
-                {
-                    particle.Stop();
-                    particle.Clear();
-                }
-            }
-        }
-
-        #endregion
-
-        #region 辅助方法
-
-        /// <summary>
-        /// 获取中奖等级
-        /// </summary>
-        private WinLevel GetWinLevel(decimal winAmount)
-        {
-            if (winAmount >= jackpotThreshold)
-                return WinLevel.Jackpot;
-            else if (winAmount >= bigWinThreshold)
-                return WinLevel.Big;
-            else if (winAmount >= mediumWinThreshold)
-                return WinLevel.Medium;
+            if (maskLayer != null && maskLayer.activeInHierarchy)
+                HidePanel();
             else
-                return WinLevel.Small;
+                ShowPanel();
         }
 
         /// <summary>
-        /// 获取中奖颜色
+        /// 播放中奖特效 (简化版本，仅更新显示)
         /// </summary>
-        private Color GetWinColor(WinLevel winLevel)
+        public void PlayWinEffect(int winAmount, string winType = "")
         {
-            return winLevel switch
-            {
-                WinLevel.Small => smallWinColor,
-                WinLevel.Medium => mediumWinColor,
-                WinLevel.Big => bigWinColor,
-                WinLevel.Jackpot => jackpotWinColor,
-                _ => Color.white
-            };
+            int levelIndex = GetWinLevelIndex(winAmount);
+            ShowWinLevel(levelIndex);
         }
 
         /// <summary>
-        /// 获取中奖持续时间
+        /// 根据金额获取等级索引
         /// </summary>
-        private float GetWinDuration(WinLevel winLevel)
+        private int GetWinLevelIndex(int amount)
         {
-            return winLevel switch
-            {
-                WinLevel.Small => smallWinDuration,
-                WinLevel.Medium => mediumWinDuration,
-                WinLevel.Big => bigWinDuration,
-                WinLevel.Jackpot => jackpotWinDuration,
-                _ => 1.0f
-            };
+            if (amount >= jackpotWinThreshold) return 3;
+            if (amount >= bigWinThreshold) return 2;
+            if (amount >= mediumWinThreshold) return 1;
+            return 0;
         }
 
         /// <summary>
-        /// 从等级获取中奖类型
+        /// 测试小奖
         /// </summary>
-        private string GetWinTypeFromLevel(WinLevel winLevel)
-        {
-            return winLevel switch
-            {
-                WinLevel.Small => "小奖",
-                WinLevel.Medium => "中奖",
-                WinLevel.Big => "大奖",
-                WinLevel.Jackpot => "超级大奖",
-                _ => "中奖"
-            };
-        }
-
-        /// <summary>
-        /// 获取特效优先级
-        /// </summary>
-        private int GetEffectPriority(WinLevel winLevel)
-        {
-            return (int)winLevel;
-        }
-
-        /// <summary>
-        /// 获取特效半径
-        /// </summary>
-        private float GetEffectRadius(WinLevel winLevel)
-        {
-            return winLevel switch
-            {
-                WinLevel.Small => 50f,
-                WinLevel.Medium => 80f,
-                WinLevel.Big => 120f,
-                WinLevel.Jackpot => 200f,
-                _ => 50f
-            };
-        }
-
-        /// <summary>
-        /// 格式化中奖金额
-        /// </summary>
-        private string FormatWinAmount(decimal amount)
-        {
-            if (amount >= 10000)
-                return $"¥{amount / 10000:F1}万";
-            else if (amount >= 1000)
-                return $"¥{amount / 1000:F1}K";
-            else
-                return $"¥{amount:F0}";
-        }
-
-        /// <summary>
-        /// 播放中奖音效
-        /// </summary>
-        private void PlayWinSound(WinEffectConfig config)
-        {
-            if (!enableSounds || audioSource == null || config.sound == null) return;
-
-            audioSource.PlayOneShot(config.sound, soundVolume);
-
-            // 大奖额外播放庆祝音效
-            if (config.useFireworks && celebrationSound != null)
-            {
-                StartCoroutine(PlayDelayedSound(celebrationSound, 0.5f));
-            }
-
-            // 金币掉落音效
-            if (coinDropSound != null)
-            {
-                StartCoroutine(PlayDelayedSound(coinDropSound, 1.0f));
-            }
-        }
-
-        /// <summary>
-        /// 延迟播放音效
-        /// </summary>
-        private IEnumerator PlayDelayedSound(AudioClip clip, float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            if (audioSource != null && clip != null)
-            {
-                audioSource.PlayOneShot(clip, soundVolume * 0.8f);
-            }
-        }
-
-        /// <summary>
-        /// 清理特效
-        /// </summary>
-        private void CleanupEffect(WinLevel winLevel)
-        {
-            // 根据等级决定清理策略
-            if (winLevel >= WinLevel.Big)
-            {
-                // 大奖保留一段时间
-                StartCoroutine(DelayedCleanup(2.0f));
-            }
-            else
-            {
-                // 小奖立即清理
-                StopAllParticleSystems();
-            }
-        }
-
-        /// <summary>
-        /// 延迟清理
-        /// </summary>
-        private IEnumerator DelayedCleanup(float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            StopAllParticleSystems();
-        }
-
-        /// <summary>
-        /// 清理所有活动特效
-        /// </summary>
-        private void ClearAllActiveEffects()
-        {
-            foreach (GameObject effect in activeEffects)
-            {
-                if (effect != null)
-                {
-                    if (Application.isPlaying)
-                        Destroy(effect);
-                    else
-                        DestroyImmediate(effect);
-                }
-            }
-
-            activeEffects.Clear();
-            StopAllParticleSystems();
-
-            if (flashOverlay != null)
-            {
-                flashOverlay.gameObject.SetActive(false);
-            }
-
-            if (winContainer != null)
-            {
-                winContainer.SetActive(false);
-            }
-
-            OnAllEffectsCleared?.Invoke();
-        }
-
-        /// <summary>
-        /// 验证组件
-        /// </summary>
-        private void ValidateComponents()
-        {
-            if (winAmountText == null)
-                Debug.LogWarning("[WinEffect] 中奖金额文本组件未设置");
-
-            if (winMessageText == null)
-                Debug.LogWarning("[WinEffect] 中奖消息文本组件未设置");
-
-            if (celebrationParticles == null)
-                Debug.LogWarning("[WinEffect] 庆祝粒子系统未设置");
-        }
-
-        #endregion
-
-        #region 调试方法
-
-        /// <summary>
-        /// 显示调试信息
-        /// </summary>
-        [ContextMenu("显示调试信息")]
-        public void ShowDebugInfo()
-        {
-            Debug.Log("=== WinEffect 调试信息 ===");
-            Debug.Log($"队列中的特效请求: {effectQueue.Count}");
-            Debug.Log($"正在播放特效: {isPlayingEffect}");
-            Debug.Log($"活动特效对象: {activeEffects.Count}");
-            Debug.Log($"中奖阈值配置: 小奖{smallWinThreshold}, 中奖{mediumWinThreshold}, 大奖{bigWinThreshold}, 超级大奖{jackpotThreshold}");
-            Debug.Log($"摄像机震动状态: {isShaking}");
-        }
-
-        /// <summary>
-        /// 测试小奖特效
-        /// </summary>
-        [ContextMenu("测试小奖特效")]
         public void TestSmallWin()
         {
-            if (Application.isPlaying)
-                PlayWinEffect(50m, "测试小奖");
+            PlayWinEffect(50);
         }
 
         /// <summary>
-        /// 测试中奖特效
+        /// 测试中奖
         /// </summary>
-        [ContextMenu("测试中奖特效")]
         public void TestMediumWin()
         {
-            if (Application.isPlaying)
-                PlayWinEffect(300m, "测试中奖");
+            PlayWinEffect(300);
         }
 
         /// <summary>
-        /// 测试大奖特效
+        /// 测试大奖
         /// </summary>
-        [ContextMenu("测试大奖特效")]
         public void TestBigWin()
         {
-            if (Application.isPlaying)
-                PlayWinEffect(2000m, "测试大奖");
+            PlayWinEffect(2000);
         }
 
         /// <summary>
-        /// 测试超级大奖特效
+        /// 测试超级大奖
         /// </summary>
-        [ContextMenu("测试超级大奖特效")]
         public void TestJackpotWin()
         {
-            if (Application.isPlaying)
-                PlayWinEffect(50000m, "测试超级大奖");
+            PlayWinEffect(50000);
+        }
+
+        #endregion
+
+        #region 编辑器辅助
+
+        /// <summary>
+        /// 重新创建UI
+        /// </summary>
+        [ContextMenu("重新创建UI")]
+        public void RecreateUI()
+        {
+            for (int i = transform.childCount - 1; i >= 0; i--)
+            {
+                if (Application.isPlaying)
+                    Destroy(transform.GetChild(i).gameObject);
+                else
+                    DestroyImmediate(transform.GetChild(i).gameObject);
+            }
+
+            uiCreated = false;
+            CreateUI();
+            ShowSampleWin();
+        }
+
+        /// <summary>
+        /// 显示组件状态
+        /// </summary>
+        [ContextMenu("显示组件状态")]
+        public void ShowStatus()
+        {
+            Debug.Log($"[WinEffect] UI已创建: {uiCreated}");
+            Debug.Log($"[WinEffect] 遮罩层: {(maskLayer != null ? "✓" : "✗")}");
+            Debug.Log($"[WinEffect] 中奖面板: {(winPanel != null ? "✓" : "✗")}");
+            Debug.Log($"[WinEffect] 中奖等级数: {winLevelNames.Length}");
+        }
+
+        /// <summary>
+        /// 测试所有等级
+        /// </summary>
+        [ContextMenu("测试所有等级")]
+        public void TestAllLevels()
+        {
+            StartCoroutine(TestAllLevelsCoroutine());
+        }
+
+        /// <summary>
+        /// 测试所有等级协程
+        /// </summary>
+        private System.Collections.IEnumerator TestAllLevelsCoroutine()
+        {
+            for (int i = 0; i < winLevelNames.Length; i++)
+            {
+                ShowWinLevel(i);
+                yield return new WaitForSeconds(2f);
+            }
         }
 
         #endregion
     }
-
-    #region 数据结构
-
-    /// <summary>
-    /// 中奖等级
-    /// </summary>
-    public enum WinLevel
-    {
-        Small = 1,      // 小奖
-        Medium = 2,     // 中奖  
-        Big = 3,        // 大奖
-        Jackpot = 4     // 超级大奖
-    }
-
-    /// <summary>
-    /// 中奖特效信息
-    /// </summary>
-    [System.Serializable]
-    public struct WinEffectInfo
-    {
-        public decimal winAmount;
-        public string winType;
-        public Vector3 position;
-        public Color effectColor;
-        public float duration;
-    }
-
-    /// <summary>
-    /// 中奖特效请求
-    /// </summary>
-    [System.Serializable]
-    public struct WinEffectRequest
-    {
-        public WinEffectInfo effectInfo;
-        public WinLevel winLevel;
-        public int priority;
-    }
-
-    /// <summary>
-    /// 中奖特效配置
-    /// </summary>
-    [System.Serializable]
-    public class WinEffectConfig
-    {
-        public float duration = 2.0f;
-        public Color color = Color.white;
-        public float shakeIntensity = 0.1f;
-        public string message = "中奖!";
-        public AudioClip sound;
-        public bool useParticles = true;
-        public bool useFlash = true;
-        public bool useFireworks = false;
-        public bool useConfetti = false;
-    }
-
-    #endregion
 }
