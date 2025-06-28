@@ -1,7 +1,6 @@
 // Assets/Core/Data/Types/GameEnums.cs
-// 游戏基础枚举定义 - 简化版
-// 只保留必需的通用枚举类型
-// 创建时间: 2025/6/22
+// 游戏基础枚举定义 - 激进精简版
+// 只保留立即需要的枚举类型
 
 using System;
 
@@ -17,7 +16,6 @@ namespace BaccaratGame.Data
         Initializing = 0,    // 初始化中
         Ready = 1,           // 准备就绪  
         Playing = 2,         // 游戏中
-        Paused = 3,          // 暂停
         Disconnected = 4,    // 断开连接
         Ended = 5            // 游戏结束
     }
@@ -30,8 +28,7 @@ namespace BaccaratGame.Data
         Idle = 0,       // 空闲状态
         Betting = 1,    // 投注阶段
         Dealing = 2,    // 发牌阶段
-        Result = 3,     // 结果阶段
-        Settling = 4    // 结算阶段
+        Result = 3      // 结果阶段
     }
 
     /// <summary>
@@ -80,34 +77,6 @@ namespace BaccaratGame.Data
         King = 13   // K
     }
 
-    #endregion
-
-    #region 通用枚举
-
-    /// <summary>
-    /// 错误严重程度
-    /// </summary>
-    public enum ErrorSeverity
-    {
-        Low,       // 低级
-        Medium,    // 中级
-        High,      // 高级
-        Critical   // 严重
-    }
-
-    /// <summary>
-    /// 游戏结束原因
-    /// </summary>
-    public enum GameEndReason
-    {
-        Normal = 0,           // 正常结束
-        PlayerQuit = 1,       // 玩家退出
-        NetworkError = 2,     // 网络错误
-        SystemError = 3,      // 系统错误
-        Timeout = 4,          // 超时
-        InsufficientFunds = 5 // 余额不足
-    }
-
     /// <summary>
     /// 手牌类型
     /// </summary>
@@ -136,7 +105,6 @@ namespace BaccaratGame.Data
                 GameState.Initializing => "初始化中",
                 GameState.Ready => "准备就绪",
                 GameState.Playing => "游戏中",
-                GameState.Paused => "暂停",
                 GameState.Disconnected => "连接断开",
                 GameState.Ended => "游戏结束",
                 _ => "未知状态"
@@ -154,7 +122,6 @@ namespace BaccaratGame.Data
                 RoundState.Betting => "投注阶段",
                 RoundState.Dealing => "发牌阶段",
                 RoundState.Result => "结果阶段",
-                RoundState.Settling => "结算阶段",
                 _ => "未知状态"
             };
         }

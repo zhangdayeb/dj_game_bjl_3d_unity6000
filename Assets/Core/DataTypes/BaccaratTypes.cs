@@ -1,16 +1,87 @@
 // Assets/Core/Data/Types/BaccaratTypes.cs
-// 百家乐业务核心类型定义 - 精简版
-// 只保留百家乐游戏特有的业务逻辑类型
-// 创建时间: 2025/6/22
+// 百家乐业务核心类型定义 - 激进精简版
+// 只保留立即需要的核心业务逻辑类型
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
-using BaccaratGame.Data; // 引用Card类
 
 namespace BaccaratGame.Data
 {
+    #region 卡牌类
+
+    /// <summary>
+    /// 卡牌类
+    /// </summary>
+    [Serializable]
+    public class Card
+    {
+        [SerializeField] private CardSuit suit = CardSuit.Spades;
+        [SerializeField] private CardRank rank = CardRank.Ace;
+
+        public CardSuit Suit => suit;
+        public CardRank Rank => rank;
+
+        public Card() { }
+
+        public Card(CardSuit suit, CardRank rank)
+        {
+            this.suit = suit;
+            this.rank = rank;
+        }
+
+        public Card(int cardId)
+        {
+            this.suit = (CardSuit)(cardId / 100);
+            this.rank = (CardRank)(cardId % 100);
+        }
+
+        /// <summary>
+        /// 获取百家乐点数
+        /// </summary>
+        public int GetBaccaratValue()
+        {
+            return rank switch
+            {
+                CardRank.Ace => 1,
+                CardRank.Two => 2,
+                CardRank.Three => 3,
+                CardRank.Four => 4,
+                CardRank.Five => 5,
+                CardRank.Six => 6,
+                CardRank.Seven => 7,
+                CardRank.Eight => 8,
+                CardRank.Nine => 9,
+                _ => 0 // 10, J, Q, K
+            };
+        }
+
+        public override string ToString()
+        {
+            var suitSymbol = suit switch
+            {
+                CardSuit.Spades => "♠",
+                CardSuit.Hearts => "♥",
+                CardSuit.Clubs => "♣",
+                CardSuit.Diamonds => "♦",
+                _ => "?"
+            };
+
+            var rankName = rank switch
+            {
+                CardRank.Ace => "A",
+                CardRank.Jack => "J",
+                CardRank.Queen => "Q",
+                CardRank.King => "K",
+                _ => ((int)rank).ToString()
+            };
+
+            return $"{rankName}{suitSymbol}";
+        }
+    }
+
+    #endregion
+
     #region 百家乐枚举
 
     /// <summary>
@@ -36,12 +107,7 @@ namespace BaccaratGame.Data
         None = 0,
         Banker = 1,      // 庄胜
         Player = 2,      // 闲胜  
-        Tie = 3,         // 和局
-        BankerPair = 4,  // 庄对
-        PlayerPair = 5,  // 闲对
-        Lucky6 = 6,      // 幸运6
-        Dragon7 = 7,     // 龙7
-        Panda8 = 8       // 熊8
+        Tie = 3          // 和局
     }
 
     /// <summary>
@@ -69,7 +135,6 @@ namespace BaccaratGame.Data
         public decimal amount = 0m;
         public BetStatus status = BetStatus.Pending;
         public bool isWin = false;
-        public float odds = 1.0f;
         public decimal winAmount = 0m;
         public string betId = "";
         public string gameNumber = "";
@@ -92,18 +157,7 @@ namespace BaccaratGame.Data
         /// </summary>
         public string GetBetTypeName()
         {
-            return betType switch
-            {
-                BaccaratBetType.Player => "闲家",
-                BaccaratBetType.Banker => "庄家",
-                BaccaratBetType.Tie => "和局",
-                BaccaratBetType.PlayerPair => "闲对",
-                BaccaratBetType.BankerPair => "庄对",
-                BaccaratBetType.Lucky6 => "幸运6",
-                BaccaratBetType.Dragon7 => "龙7",
-                BaccaratBetType.Panda8 => "熊8",
-                _ => "未知"
-            };
+            return betType.GetBetTypeName();
         }
 
         /// <summary>
@@ -112,6 +166,11 @@ namespace BaccaratGame.Data
         public decimal GetNetProfit()
         {
             return isWin ? winAmount - amount : -amount;
+        }
+
+        public override string ToString()
+        {
+            return $"Bet[{betType}, {amount}, {status}]";
         }
     }
 
@@ -129,9 +188,6 @@ namespace BaccaratGame.Data
         public BaccaratResult mainResult = BaccaratResult.None;
         public bool hasPlayerPair = false;
         public bool hasBankerPair = false;
-        public bool isLucky6 = false;
-        public bool isDragon7 = false;
-        public bool isPanda8 = false;
 
         /// <summary>
         /// 计算手牌总点数
@@ -165,11 +221,6 @@ namespace BaccaratGame.Data
                 mainResult = BaccaratResult.Banker;
             else
                 mainResult = BaccaratResult.Tie;
-
-            // 检查特殊结果
-            isLucky6 = (mainResult == BaccaratResult.Banker && bankerTotal == 6);
-            isDragon7 = (mainResult == BaccaratResult.Banker && bankerTotal == 7 && bankerCards.Count == 3);
-            isPanda8 = (mainResult == BaccaratResult.Player && playerTotal == 8 && playerCards.Count == 3);
         }
 
         /// <summary>
@@ -185,319 +236,12 @@ namespace BaccaratGame.Data
                 _ => "无结果"
             };
 
-            var summary = $"{resultName} ({playerTotal} vs {bankerTotal})";
-
-            var special = new List<string>();
-            if (hasPlayerPair) special.Add("闲对");
-            if (hasBankerPair) special.Add("庄对");
-            if (isLucky6) special.Add("幸运6");
-            if (isDragon7) special.Add("龙7");
-            if (isPanda8) special.Add("熊8");
-
-            if (special.Count > 0)
-                summary += " + " + string.Join(", ", special);
-
-            return summary;
-        }
-    }
-
-    /// <summary>
-    /// 游戏统计数据
-    /// </summary>
-    [Serializable]
-    public class GameStatistics
-    {
-        public int totalRounds = 0;
-        public int playerWins = 0;
-        public int bankerWins = 0;
-        public int ties = 0;
-        public int playerPairs = 0;
-        public int bankerPairs = 0;
-
-        /// <summary>
-        /// 获取玩家胜率
-        /// </summary>
-        public float GetPlayerWinRate()
-        {
-            return totalRounds > 0 ? (float)playerWins / totalRounds : 0f;
-        }
-
-        /// <summary>
-        /// 获取庄家胜率
-        /// </summary>
-        public float GetBankerWinRate()
-        {
-            return totalRounds > 0 ? (float)bankerWins / totalRounds : 0f;
-        }
-
-        /// <summary>
-        /// 获取和局率
-        /// </summary>
-        public float GetTieRate()
-        {
-            return totalRounds > 0 ? (float)ties / totalRounds : 0f;
-        }
-
-        /// <summary>
-        /// 获取对子出现率
-        /// </summary>
-        public float GetPairRate()
-        {
-            return totalRounds > 0 ? (float)(playerPairs + bankerPairs) / totalRounds : 0f;
-        }
-
-        /// <summary>
-        /// 重置统计数据
-        /// </summary>
-        public void Reset()
-        {
-            totalRounds = 0;
-            playerWins = 0;
-            bankerWins = 0;
-            ties = 0;
-            playerPairs = 0;
-            bankerPairs = 0;
-        }
-
-        /// <summary>
-        /// 获取统计摘要
-        /// </summary>
-        public string GetSummary()
-        {
-            return $"总局数: {totalRounds}, 庄胜: {bankerWins}, 闲胜: {playerWins}, 和局: {ties}";
-        }
-    }
-
-    #endregion
-
-    #region 免佣相关类型
-
-    /// <summary>
-    /// 免佣设置
-    /// </summary>
-    [Serializable]
-    public class ExemptSettings
-    {
-        public bool isEnabled = false;
-        public float exemptRate = 0.05f;       // 免佣率 5%
-        public decimal minBetAmount = 100m;     // 最低免佣投注额
-        public bool isAvailable = true;        // 是否可用
-        public bool onlyForBanker = true;      // 仅限庄家投注
-        public float breakEvenPoint = 20f;     // 保本点
-    }
-
-    /// <summary>
-    /// 免佣统计
-    /// </summary>
-    [Serializable]
-    public class ExemptStatistics
-    {
-        public int totalExemptGames = 0;
-        public decimal totalExemptSavings = 0m;
-        public float averageExemptRate = 0f;
-        public DateTime lastExemptTime = DateTime.MinValue;
-    }
-
-    #endregion
-
-    #region 事件相关数据类型
-
-    /// <summary>
-    /// 回合信息 - 事件专用
-    /// </summary>
-    [Serializable]
-    public class RoundInfo
-    {
-        public string roundId = "";
-        public int roundNumber = 0;
-        public string tableId = "";
-        public string dealerId = "";
-        public DateTime startTime = DateTime.Now;
-        public float bettingDuration = 30f;
-
-        public RoundInfo() { }
-
-        public RoundInfo(string roundId, int roundNumber, string tableId, string dealerId)
-        {
-            this.roundId = roundId;
-            this.roundNumber = roundNumber;
-            this.tableId = tableId;
-            this.dealerId = dealerId;
-            this.startTime = DateTime.Now;
-        }
-
-        /// <summary>
-        /// 验证回合信息完整性
-        /// </summary>
-        public bool IsValid()
-        {
-            return !string.IsNullOrEmpty(roundId) &&
-                   !string.IsNullOrEmpty(tableId) &&
-                   roundNumber > 0;
+            return $"{resultName} ({playerTotal} vs {bankerTotal})";
         }
 
         public override string ToString()
         {
-            return $"Round[{roundId}:{roundNumber}, Table:{tableId}]";
-        }
-    }
-
-    /// <summary>
-    /// 投注结算信息
-    /// </summary>
-    [Serializable]
-    public class BetSettlement
-    {
-        public string betId = "";
-        public string settlementId = "";
-        public BaccaratBetType betType = BaccaratBetType.Player;
-        public decimal betAmount = 0m;
-        public decimal winAmount = 0m;
-        public decimal payout = 0m;
-        public bool isWin = false;
-        public DateTime settlementTime = DateTime.Now;
-
-        public BetSettlement()
-        {
-            settlementId = Guid.NewGuid().ToString();
-            settlementTime = DateTime.Now;
-        }
-
-        public BetSettlement(string betId, BaccaratBetType betType, decimal betAmount, bool isWin, decimal winAmount)
-        {
-            this.betId = betId;
-            this.betType = betType;
-            this.betAmount = betAmount;
-            this.isWin = isWin;
-            this.winAmount = winAmount;
-            this.payout = isWin ? winAmount - betAmount : 0m;
-            this.settlementId = Guid.NewGuid().ToString();
-            this.settlementTime = DateTime.Now;
-        }
-
-        /// <summary>
-        /// 获取净盈亏
-        /// </summary>
-        public decimal GetNetProfit()
-        {
-            return isWin ? winAmount - betAmount : -betAmount;
-        }
-
-        /// <summary>
-        /// 获取投注类型显示名称
-        /// </summary>
-        public string GetBetTypeName()
-        {
-            return betType.GetBetTypeName();
-        }
-
-        public override string ToString()
-        {
-            return $"Settlement[{betId}, {betType}, {(isWin ? "WIN" : "LOSE")}, Profit:{GetNetProfit()}]";
-        }
-    }
-
-    /// <summary>
-    /// 手牌信息
-    /// </summary>
-    [Serializable]
-    public class HandInfo
-    {
-        public List<Card> cards = new List<Card>();
-        public int total = 0;
-        public bool hasPair = false;
-
-        public HandInfo() { }
-
-        public HandInfo(List<Card> cards)
-        {
-            this.cards = new List<Card>(cards ?? new List<Card>());
-            CalculateTotal();
-            CheckPair();
-        }
-
-        /// <summary>
-        /// 计算手牌总点数
-        /// </summary>
-        public void CalculateTotal()
-        {
-            total = 0;
-            foreach (var card in cards)
-            {
-                total += card.GetBaccaratValue();
-            }
-            total %= 10; // 百家乐只取个位数
-        }
-
-        /// <summary>
-        /// 检查是否有对子
-        /// </summary>
-        public void CheckPair()
-        {
-            hasPair = cards.Count >= 2 && cards[0].Rank == cards[1].Rank;
-        }
-
-        /// <summary>
-        /// 添加卡牌
-        /// </summary>
-        public void AddCard(Card card)
-        {
-            if (card != null)
-            {
-                cards.Add(card);
-                CalculateTotal();
-                CheckPair();
-            }
-        }
-
-        /// <summary>
-        /// 清空手牌
-        /// </summary>
-        public void Clear()
-        {
-            cards.Clear();
-            total = 0;
-            hasPair = false;
-        }
-
-        /// <summary>
-        /// 获取手牌字符串表示
-        /// </summary>
-        public string GetCardsString()
-        {
-            return string.Join(" ", cards.Select(c => c.ToString()));
-        }
-
-        public override string ToString()
-        {
-            return $"Hand[{GetCardsString()}, Total:{total}, Pair:{hasPair}]";
-        }
-    }
-
-    /// <summary>
-    /// 发牌信息
-    /// </summary>
-    [Serializable]
-    public class CardDealtInfo
-    {
-        public Card card;
-        public bool isVisible = true;
-        public string targetHand = ""; // "player" 或 "banker"
-        public int cardIndex = 0;
-        public float dealDelay = 0f;
-
-        public CardDealtInfo() { }
-
-        public CardDealtInfo(Card card, bool isVisible, string targetHand)
-        {
-            this.card = card;
-            this.isVisible = isVisible;
-            this.targetHand = targetHand;
-        }
-
-        public override string ToString()
-        {
-            return $"CardDealt[{card}, {targetHand}, Visible:{isVisible}]";
+            return $"Round[{gameNumber}, {mainResult}, {playerTotal}vs{bankerTotal}]";
         }
     }
 
@@ -530,17 +274,7 @@ namespace BaccaratGame.Data
         }
 
         /// <summary>
-        /// 判断是否为主要投注类型
-        /// </summary>
-        public static bool IsMainBet(this BaccaratBetType betType)
-        {
-            return betType == BaccaratBetType.Player ||
-                   betType == BaccaratBetType.Banker ||
-                   betType == BaccaratBetType.Tie;
-        }
-
-        /// <summary>
-        /// 获取投注类型显示名称（扩展方法版本）
+        /// 获取投注类型显示名称
         /// </summary>
         public static string GetBetTypeName(this BaccaratBetType betType)
         {
@@ -559,28 +293,13 @@ namespace BaccaratGame.Data
         }
 
         /// <summary>
-        /// 判断是否为天牌（8或9点）
+        /// 判断是否为主要投注类型
         /// </summary>
-        public static bool IsNatural(this HandInfo handInfo)
+        public static bool IsMainBet(this BaccaratBetType betType)
         {
-            return handInfo.total == 8 || handInfo.total == 9;
-        }
-
-        /// <summary>
-        /// 获取主要结果
-        /// </summary>
-        public static BaccaratResult GetResult(this RoundResult roundResult)
-        {
-            return roundResult.mainResult;
-        }
-
-        /// <summary>
-        /// 判断是否为天牌
-        /// </summary>
-        public static bool IsNatural(this RoundResult roundResult)
-        {
-            return (roundResult.playerTotal == 8 || roundResult.playerTotal == 9) ||
-                   (roundResult.bankerTotal == 8 || roundResult.bankerTotal == 9);
+            return betType == BaccaratBetType.Player ||
+                   betType == BaccaratBetType.Banker ||
+                   betType == BaccaratBetType.Tie;
         }
     }
 
