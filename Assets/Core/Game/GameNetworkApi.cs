@@ -45,12 +45,19 @@ namespace BaccaratGame.Core
                 return;
             }
 
+            // 🔥 关键修改：初始化前先确保清理旧实例
+            CleanupHttpClients();
+
             var gameParams = GameParams.Instance;
             
             if (!gameParams.IsInitialized)
             {
                 throw new InvalidOperationException("GameParams未初始化，请先调用GameParams.Instance.Initialize()");
             }
+
+            Debug.Log($"[GameNetworkApi] 开始创建 HttpClient 实例");
+            Debug.Log($"  - Game API URL: {gameParams.httpBaseUrl}");
+            Debug.Log($"  - User API URL: {gameParams.userUrl}");
 
             // 创建游戏接口客户端 (baseUrl)
             _gameHttpClient = HttpClient.Create(
@@ -69,24 +76,49 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 清理资源
+        /// 清理 HttpClient 实例（内部方法）
         /// </summary>
-        public void Cleanup()
+        private void CleanupHttpClients()
         {
             if (_gameHttpClient != null)
             {
+                Debug.Log("[GameNetworkApi] 销毁现有 Game HttpClient");
                 UnityEngine.Object.Destroy(_gameHttpClient.gameObject);
                 _gameHttpClient = null;
             }
 
             if (_userHttpClient != null)
             {
+                Debug.Log("[GameNetworkApi] 销毁现有 User HttpClient");
                 UnityEngine.Object.Destroy(_userHttpClient.gameObject);
                 _userHttpClient = null;
             }
+        }
+
+        /// <summary>
+        /// 清理资源
+        /// </summary>
+        public void Cleanup()
+        {
+            Debug.Log("[GameNetworkApi] 开始清理资源");
+            
+            CleanupHttpClients();
 
             _isInitialized = false;
             Debug.Log("[GameNetworkApi] 资源已清理");
+        }
+
+        /// <summary>
+        /// 强制重新初始化（用于调试）
+        /// </summary>
+        public void ForceReinitialize()
+        {
+            Debug.Log("[GameNetworkApi] 强制重新初始化");
+            
+            Cleanup();
+            Initialize();
+            
+            Debug.Log("[GameNetworkApi] 强制重新初始化完成");
         }
 
         #endregion

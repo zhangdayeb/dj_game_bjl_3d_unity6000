@@ -161,9 +161,12 @@ namespace BaccaratGame.Core
                 _networkApi = null;
             }
 
+            // 重置所有状态
             _isInitialized = false;
             _isInitializing = false;
             _currentRetryAttempt = 0;
+            _tableInfo = null;
+            _userInfo = null;
 
             Debug.Log("[GameNetInit] 网络初始化资源已清理");
         }
@@ -183,6 +186,13 @@ namespace BaccaratGame.Core
             {
                 _currentRetryAttempt = attempt;
 
+                // 🔥 关键修改：每次重试前先清理实例（除了第一次）
+                if (attempt > 0)
+                {
+                    Debug.Log($"[GameNetInit] 第{attempt + 1}次重试前，先清理现有实例");
+                    CleanupForRetry();
+                }
+
                 try
                 {
                     await InitializeNetworkInternal();
@@ -192,9 +202,13 @@ namespace BaccaratGame.Core
                 {
                     lastException = ex;
                     
+                    // 🔥 关键修改：异常时也立即清理，防止实例累积
+                    Debug.LogWarning($"[GameNetInit] 第{attempt + 1}次尝试失败，清理实例: {ex.Message}");
+                    CleanupForRetry();
+                    
                     if (attempt < maxRetryAttempts && enableRetry)
                     {
-                        Debug.LogWarning($"[GameNetInit] 初始化失败 (第{attempt + 1}次尝试)，{retryDelay}秒后重试: {ex.Message}");
+                        Debug.LogWarning($"[GameNetInit] {retryDelay}秒后进行第{attempt + 2}次重试");
                         await Task.Delay((int)(retryDelay * 1000));
                     }
                     else
@@ -207,6 +221,26 @@ namespace BaccaratGame.Core
 
             // 如果到这里，说明所有重试都失败了
             throw lastException ?? new Exception("网络初始化失败");
+        }
+
+        /// <summary>
+        /// 专门用于重试的清理方法（不重置初始化状态）
+        /// </summary>
+        private void CleanupForRetry()
+        {
+            if (_networkApi != null)
+            {
+                Debug.Log("[GameNetInit] 清理 GameNetworkApi 实例");
+                _networkApi.Cleanup();
+                _networkApi = null;
+            }
+
+            // 注意：不重置 _isInitializing 状态，因为我们还在初始化过程中
+            // 只重置数据缓存
+            _tableInfo = null;
+            _userInfo = null;
+
+            Debug.Log("[GameNetInit] 重试前清理完成");
         }
 
         /// <summary>
@@ -261,6 +295,14 @@ namespace BaccaratGame.Core
         /// </summary>
         private void InitializeApiClients()
         {
+            // 🔥 关键修改：创建前先检查并清理
+            if (_networkApi != null)
+            {
+                Debug.Log("[GameNetInit] 发现现有 GameNetworkApi 实例，先清理");
+                _networkApi.Cleanup();
+                _networkApi = null;
+            }
+
             _networkApi = GameNetworkApi.CreateAndInitialize();
             Debug.Log("[GameNetInit] API客户端初始化完成");
         }
