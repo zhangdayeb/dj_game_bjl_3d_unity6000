@@ -28,8 +28,7 @@ namespace BaccaratGame.Core
     [Serializable]
     public class GetUserTableInfoRequest
     {
-        public string user_id;
-        public string table_id;
+        public string id;
     }
 
     /// <summary>
@@ -83,9 +82,6 @@ namespace BaccaratGame.Core
         private bool _isInitialized = false;
 
         #endregion
-
-        // 在 GameNetworkApi 类中添加单例模式支持
-        // 在现有代码的开头添加这个部分：
 
         #region 单例模式
 
@@ -224,26 +220,26 @@ namespace BaccaratGame.Core
         #region 游戏相关API (baseUrl) - 全部改为POST请求
 
         /// <summary>
-        /// 获取台桌信息
+        /// 获取台桌信息 - 修复版本
         /// </summary>
         /// <returns>台桌信息</returns>
-        public async Task<object> GetTableInfo()
+        public async Task<string> GetTableInfo()
         {
             EnsureInitialized();
 
             var gameParams = GameParams.Instance;
-            var requestData = new GetTableInfoRequest
+            var requestData = new GetUserTableInfoRequest  // 使用这个结构
             {
-                tableId = gameParams.table_id,
-                gameType = gameParams.game_type
+                id = gameParams.table_id
             };
 
-            Debug.Log($"[GameNetworkApi] 正在获取台桌信息: tableId={gameParams.table_id}, gameType={gameParams.game_type}");
+            Debug.Log($"[GameNetworkApi] 正在获取台桌信息: user_id={gameParams.user_id}, table_id={gameParams.table_id}");
 
             try
             {
-                var result = await _gameHttpClient.PostAsync<TableInfo>("bjl/get_table/table_info", requestData);
-                Debug.Log($"[GameNetworkApi] 台桌信息获取成功: {result?.table_title}");
+                // 使用用户API客户端，调用 user/table/info 端点
+                var result = await _userHttpClient.PostAsync("user/table/info", requestData);
+                Debug.Log($"[GameNetworkApi] 台桌信息获取成功");
                 return result;
             }
             catch (Exception ex)
@@ -257,22 +253,21 @@ namespace BaccaratGame.Core
         /// 获取用户台桌信息 (如果需要的话)
         /// </summary>
         /// <returns>用户台桌相关信息</returns>
-        public async Task<object> GetUserTableInfo()
+        public async Task<string> GetUserTableInfo()
         {
             EnsureInitialized();
 
             var gameParams = GameParams.Instance;
             var requestData = new GetUserTableInfoRequest
             {
-                user_id = gameParams.user_id,
-                table_id = gameParams.table_id
+                id = gameParams.table_id
             };
 
             Debug.Log($"[GameNetworkApi] 正在获取用户台桌信息: user_id={gameParams.user_id}");
 
             try
             {
-                var result = await _gameHttpClient.PostAsync<object>("user/table/info", requestData);
+                var result = await _gameHttpClient.PostAsync("user/table/info", requestData);
                 Debug.Log("[GameNetworkApi] 用户台桌信息获取成功");
                 return result;
             }
@@ -288,7 +283,7 @@ namespace BaccaratGame.Core
         /// </summary>
         /// <param name="bets">投注数据</param>
         /// <returns>投注结果</returns>
-        public async Task<object> Order(object[] bets)
+        public async Task<string> Order(object[] bets)
         {
             EnsureInitialized();
 
@@ -305,7 +300,7 @@ namespace BaccaratGame.Core
 
             try
             {
-                var result = await _gameHttpClient.PostAsync<object>("bjl/bet/order", requestData);
+                var result = await _gameHttpClient.PostAsync("bjl/bet/order", requestData);
                 Debug.Log("[GameNetworkApi] 投注订单提交成功");
                 return result;
             }
@@ -324,7 +319,7 @@ namespace BaccaratGame.Core
         /// <param name="startDate">开始日期</param>
         /// <param name="endDate">结束日期</param>
         /// <returns>投注历史记录</returns>
-        public async Task<object> GetBettingHistory(int page = 1, int pageSize = 20, string startDate = null, string endDate = null)
+        public async Task<string> GetBettingHistory(int page = 1, int pageSize = 20, string startDate = null, string endDate = null)
         {
             EnsureInitialized();
 
@@ -344,7 +339,7 @@ namespace BaccaratGame.Core
 
             try
             {
-                var result = await _gameHttpClient.PostAsync<object>("bjl/bet/history", requestData);
+                var result = await _gameHttpClient.PostAsync("bjl/bet/history", requestData);
                 Debug.Log("[GameNetworkApi] 投注历史获取成功");
                 return result;
             }
@@ -363,7 +358,7 @@ namespace BaccaratGame.Core
         /// 获取用户信息
         /// </summary>
         /// <returns>用户信息</returns>
-        public async Task<object> GetUserInfo()
+        public async Task<string> GetUserInfo()
         {
             EnsureInitialized();
 
@@ -377,8 +372,8 @@ namespace BaccaratGame.Core
 
             try
             {
-                var result = await _userHttpClient.PostAsync<UserInfo>("user/user/index", requestData);
-                Debug.Log($"[GameNetworkApi] 用户信息获取成功: {result?.user_name}, 余额: {result?.money_balance}");
+                var result = await _userHttpClient.PostAsync("user/user/index", requestData);
+                Debug.Log($"[GameNetworkApi] 用户信息获取成功");
                 return result;
             }
             catch (Exception ex)
@@ -432,61 +427,6 @@ namespace BaccaratGame.Core
 
         #endregion
 
-        #region 便捷方法
-
-        /// <summary>
-        /// 安全获取用户信息（失败时返回默认值）
-        /// </summary>
-        /// <returns>用户信息或默认值</returns>
-        public async Task<object> GetUserInfoSafely()
-        {
-            try
-            {
-                return await GetUserInfo();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[GameNetworkApi] 获取用户信息失败，使用默认值: {ex.Message}");
-
-                var gameParams = GameParams.Instance;
-                return new UserInfo
-                {
-                    id = int.TryParse(gameParams.user_id, out int userId) ? userId : 0,
-                    user_name = "游客",
-                    money_balance = 0m,
-                    status = 1
-                };
-            }
-        }
-
-        /// <summary>
-        /// 安全获取台桌信息（失败时返回默认值）
-        /// </summary>
-        /// <returns>台桌信息或默认值</returns>
-        public async Task<object> GetTableInfoSafely()
-        {
-            try
-            {
-                return await GetTableInfo();
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[GameNetworkApi] 获取台桌信息失败，使用默认值: {ex.Message}");
-
-                var gameParams = GameParams.Instance;
-                return new TableInfo
-                {
-                    id = int.TryParse(gameParams.table_id, out int tableId) ? tableId : 1,
-                    table_title = "百家乐桌台",
-                    game_type = int.TryParse(gameParams.game_type, out int gameType) ? gameType : 3,
-                    status = 1,
-                    run_status = 1
-                };
-            }
-        }
-
-        #endregion
-
         #region 私有方法
 
         /// <summary>
@@ -520,6 +460,6 @@ namespace BaccaratGame.Core
 }
 
 // TODO: 将来可扩展的API方法
-// - public async Task<object> GetGameRules();
-// - public async Task<object> GetTableList();
-// - public async Task<object> GetGameStatistics();
+// - public async Task<string> GetGameRules();
+// - public async Task<string> GetTableList();
+// - public async Task<string> GetGameStatistics();

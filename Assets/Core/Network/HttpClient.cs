@@ -11,6 +11,7 @@ namespace BaccaratGame.Core
     /// <summary>
     /// HTTP客户端 - 简化版，只提供GET和POST功能
     /// 自动携带Token，完整日志打印，按需创建使用
+    /// 统一返回字符串，不使用泛型
     /// </summary>
     public class HttpClient : MonoBehaviour
     {
@@ -84,11 +85,10 @@ namespace BaccaratGame.Core
         /// <summary>
         /// 发送GET请求
         /// </summary>
-        /// <typeparam name="T">响应数据类型</typeparam>
         /// <param name="endpoint">API端点</param>
         /// <param name="queryParams">查询参数对象</param>
-        /// <returns>解析后的响应数据</returns>
-        public async Task<T> GetAsync<T>(string endpoint, object queryParams = null) where T : class
+        /// <returns>原始JSON字符串</returns>
+        public async Task<string> GetAsync(string endpoint, object queryParams = null)
         {
             var requestId = ++_requestCounter;
             var url = BuildUrl(endpoint, queryParams);
@@ -122,7 +122,7 @@ namespace BaccaratGame.Core
             using (var request = UnityWebRequest.Get(url))
             {
                 SetHeaders(request, requestId);
-                var result = await SendRequest<T>(request, "GET", requestId);
+                var result = await SendRequest(request, "GET", requestId);
                 
                 Debug.Log($"[HttpClient][请求#{requestId}] ================ GET请求完成 ================");
                 return result;
@@ -132,11 +132,10 @@ namespace BaccaratGame.Core
         /// <summary>
         /// 发送POST请求
         /// </summary>
-        /// <typeparam name="T">响应数据类型</typeparam>
         /// <param name="endpoint">API端点</param>
         /// <param name="data">请求体数据</param>
-        /// <returns>解析后的响应数据</returns>
-        public async Task<T> PostAsync<T>(string endpoint, object data = null) where T : class
+        /// <returns>原始JSON字符串</returns>
+        public async Task<string> PostAsync(string endpoint, object data = null)
         {
             var requestId = ++_requestCounter;
             var url = BuildUrl(endpoint);
@@ -156,7 +155,7 @@ namespace BaccaratGame.Core
                 request.downloadHandler = new DownloadHandlerBuffer();
                 
                 SetHeaders(request, requestId);
-                var result = await SendRequest<T>(request, "POST", requestId);
+                var result = await SendRequest(request, "POST", requestId);
                 
                 Debug.Log($"[HttpClient][请求#{requestId}] ================ POST请求完成 ================");
                 return result;
@@ -243,9 +242,9 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 发送请求并处理响应
+        /// 发送请求并处理响应 - 简化版本，直接返回字符串
         /// </summary>
-        private async Task<T> SendRequest<T>(UnityWebRequest request, string method, int requestId) where T : class
+        private async Task<string> SendRequest(UnityWebRequest request, string method, int requestId)
         {
             var startTime = DateTime.UtcNow;
             
@@ -320,53 +319,9 @@ namespace BaccaratGame.Core
                 throw new Exception(errorMsg);
             }
             
-            // 解析响应
-            return ParseResponse<T>(responseText, requestId);
-        }
-
-        /// <summary>
-        /// 解析响应数据
-        /// </summary>
-        private T ParseResponse<T>(string responseText, int requestId) where T : class
-        {
-            if (string.IsNullOrEmpty(responseText))
-            {
-                Debug.LogWarning($"[HttpClient][请求#{requestId}] ⚠️ 响应数据为空");
-                return null;
-            }
-            
-            try
-            {
-                Debug.Log($"[HttpClient][请求#{requestId}] 开始解析为类型: {typeof(T).Name}");
-                
-                var result = JsonUtility.FromJson<T>(responseText);
-                
-                Debug.Log($"[HttpClient][请求#{requestId}] ✅ 数据解析成功，类型: {typeof(T).Name}");
-                
-                // 如果解析后的对象不为空，尝试显示部分信息
-                if (result != null)
-                {
-                    try
-                    {
-                        var resultJson = JsonUtility.ToJson(result, true);
-                        var preview = resultJson.Length > 500 ? resultJson.Substring(0, 500) + "..." : resultJson;
-                        Debug.Log($"[HttpClient][请求#{requestId}] 解析后对象预览:\n{preview}");
-                    }
-                    catch
-                    {
-                        Debug.Log($"[HttpClient][请求#{requestId}] 解析后对象: {result.GetType().Name} (无法序列化预览)");
-                    }
-                }
-                
-                return result;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[HttpClient][请求#{requestId}] ❌ 解析响应数据失败: {ex.Message}");
-                Debug.LogError($"[HttpClient][请求#{requestId}] 目标类型: {typeof(T).Name}");
-                Debug.LogError($"[HttpClient][请求#{requestId}] 原始响应数据:\n{responseText}");
-                throw new Exception($"解析响应数据失败: {ex.Message}");
-            }
+            // 直接返回原始字符串，不做任何解析
+            Debug.Log($"[HttpClient][请求#{requestId}] ✅ 返回原始JSON字符串，长度: {responseText.Length}");
+            return responseText;
         }
 
         /// <summary>
