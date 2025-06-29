@@ -265,7 +265,7 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 更新倒计时显示
+        /// 更新倒计时显示 - 简化版本，只显示数字
         /// </summary>
         /// <param name="remainingTime">剩余时间</param>
         private void UpdateTimerDisplay(int remainingTime)
@@ -275,12 +275,10 @@ namespace BaccaratGame.Core
                 // 确保时间不为负数
                 remainingTime = Mathf.Max(0, remainingTime);
                 
-                // 格式化时间显示：mm:ss
-                int minutes = remainingTime / 60;
-                int seconds = remainingTime % 60;
-                timerTextMeshPro.text = $"{minutes:D2}:{seconds:D2}";
+                // 直接显示倒计时数字
+                timerTextMeshPro.text = remainingTime.ToString();
                 
-                Debug.Log($"[EventsUIManager] 更新倒计时显示: {timerTextMeshPro.text}");
+                Debug.Log($"[EventsUIManager] 更新倒计时显示: {remainingTime}");
             }
             else
             {
