@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
-using TMPro;  // TextMeshPro支持
+using TMPro;
+using Newtonsoft.Json.Linq;  // 使用 JSON 解析替代 dynamic
 using BaccaratGame.Data;
 using BaccaratGame.Core;
 
@@ -25,29 +26,33 @@ namespace BaccaratGame.Managers
         {
             try
             {
-                // GameNetworkApi 现在返回 object，需要转换
+                // 获取原始响应
                 var response = await GameNetworkApi.Instance.GetUserInfo();
                 
                 if (response != null && balanceText != null)
                 {
-                    // 将响应转为 dynamic 来访问 data 字段
-                    dynamic responseData = response;
-                    var userInfo = responseData.data;
+                    // 将响应转换为JSON字符串，然后解析
+                    string jsonString = response.ToString();
+                    var jsonObj = JObject.Parse(jsonString);
                     
-                    if (userInfo != null)
+                    // 获取 data 字段
+                    var dataToken = jsonObj["data"];
+                    if (dataToken != null)
                     {
-                        Debug.Log($"[UserBalanceManager] 获取用户信息: {userInfo.user_name}, 原始余额: {userInfo.money_balance}");
+                        // 获取 money_balance
+                        string balanceStr = dataToken["money_balance"]?.ToString();
+                        Debug.Log($"[UserBalanceManager] 获取用户信息: {dataToken["user_name"]}, 原始余额: {balanceStr}");
                         
                         // money_balance 是字符串 "1000.00"
                         decimal balance = 0m;
-                        if (decimal.TryParse(userInfo.money_balance?.ToString(), out balance))
+                        if (decimal.TryParse(balanceStr, out balance))
                         {
                             balanceText.text = balance.ToString("F2");
                             Debug.Log($"[UserBalanceManager] 余额更新成功: {balance:F2}");
                         }
                         else
                         {
-                            Debug.LogWarning($"[UserBalanceManager] 无法解析余额: {userInfo.money_balance}");
+                            Debug.LogWarning($"[UserBalanceManager] 无法解析余额: {balanceStr}");
                             balanceText.text = "0.00";
                         }
                     }
