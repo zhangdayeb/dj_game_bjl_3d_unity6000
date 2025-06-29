@@ -1,17 +1,16 @@
 // Assets/Core/UI/EventsUIManager.cs
-// UI事件管理器 - 处理网络事件与UI组件的联动
-// 挂载到空白GameObject上，通过拖拽设置UI组件引用
+// UI事件管理器 - TextMeshPro版本，完全响应网络数据
 
 using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
+using TMPro; // TextMeshPro命名空间
 
 namespace BaccaratGame.Core
 {
     /// <summary>
-    /// UI事件管理器
+    /// UI事件管理器 - 简化版
     /// 订阅NetworkEvents的事件，控制UI组件的显示和隐藏
-    /// 需要挂载到空白GameObject上
+    /// 只支持TextMeshPro组件，完全响应网络数据
     /// </summary>
     public class EventsUIManager : MonoBehaviour
     {
@@ -47,11 +46,11 @@ namespace BaccaratGame.Core
 
         #region 私有字段
 
-        // UI组件引用
-        private Text timerText;          // 倒计时文本
-        private Text statusText;         // 状态文本
-        private Text dealCardsText;      // 开牌信息文本
-        private Text winResultText;      // 中奖信息文本
+        // TextMeshPro UI组件引用
+        private TextMeshProUGUI timerTextMeshPro;          // 倒计时文本
+        private TextMeshProUGUI statusTextMeshPro;         // 状态文本
+        private TextMeshProUGUI dealCardsTextMeshPro;      // 开牌信息文本
+        private TextMeshProUGUI winResultTextMeshPro;      // 中奖信息文本
         
         // 协程引用
         private Coroutine hideStatusCoroutine;
@@ -74,7 +73,7 @@ namespace BaccaratGame.Core
 
         private void OnEnable()
         {
-            // 订阅网络事件 - 使用正确的委托类型
+            // 订阅网络事件
             NetworkEvents.OnCountdownReceived += HandleCountdownReceived;
             NetworkEvents.OnDealCardsReceived += HandleDealCardsReceived;
             NetworkEvents.OnGameResultReceived += HandleGameResultReceived;
@@ -88,6 +87,9 @@ namespace BaccaratGame.Core
             NetworkEvents.OnCountdownReceived -= HandleCountdownReceived;
             NetworkEvents.OnDealCardsReceived -= HandleDealCardsReceived;
             NetworkEvents.OnGameResultReceived -= HandleGameResultReceived;
+            
+            // 停止所有协程
+            StopAllCoroutines();
             
             Debug.Log("[EventsUIManager] 网络事件订阅已取消");
         }
@@ -107,43 +109,59 @@ namespace BaccaratGame.Core
         /// </summary>
         private void InitializeUIReferences()
         {
-            // 查找Timer节点中的Text组件
+            // 查找Timer节点中的TextMeshPro组件
             if (timerNode != null)
             {
-                timerText = timerNode.GetComponentInChildren<Text>();
-                if (timerText == null)
+                timerTextMeshPro = timerNode.GetComponentInChildren<TextMeshProUGUI>();
+                if (timerTextMeshPro == null)
                 {
-                    Debug.LogWarning("[EventsUIManager] Timer节点中未找到Text组件");
+                    Debug.LogWarning("[EventsUIManager] Timer节点中未找到TextMeshPro组件");
+                }
+                else
+                {
+                    Debug.Log("[EventsUIManager] ✅ 找到Timer的TextMeshPro组件");
                 }
             }
             
-            // 查找Status节点中的Text组件
+            // 查找Status节点中的TextMeshPro组件
             if (statusNode != null)
             {
-                statusText = statusNode.GetComponentInChildren<Text>();
-                if (statusText == null)
+                statusTextMeshPro = statusNode.GetComponentInChildren<TextMeshProUGUI>();
+                if (statusTextMeshPro == null)
                 {
-                    Debug.LogWarning("[EventsUIManager] Status节点中未找到Text组件");
+                    Debug.LogWarning("[EventsUIManager] Status节点中未找到TextMeshPro组件");
+                }
+                else
+                {
+                    Debug.Log("[EventsUIManager] ✅ 找到Status的TextMeshPro组件");
                 }
             }
             
-            // 查找开牌节点中的Text组件
+            // 查找开牌节点中的TextMeshPro组件
             if (dealCardsNode != null)
             {
-                dealCardsText = dealCardsNode.GetComponentInChildren<Text>();
-                if (dealCardsText == null)
+                dealCardsTextMeshPro = dealCardsNode.GetComponentInChildren<TextMeshProUGUI>();
+                if (dealCardsTextMeshPro == null)
                 {
-                    Debug.LogWarning("[EventsUIManager] 开牌节点中未找到Text组件");
+                    Debug.LogWarning("[EventsUIManager] 开牌节点中未找到TextMeshPro组件");
+                }
+                else
+                {
+                    Debug.Log("[EventsUIManager] ✅ 找到开牌的TextMeshPro组件");
                 }
             }
             
-            // 查找中奖节点中的Text组件
+            // 查找中奖节点中的TextMeshPro组件
             if (winResultNode != null)
             {
-                winResultText = winResultNode.GetComponentInChildren<Text>();
-                if (winResultText == null)
+                winResultTextMeshPro = winResultNode.GetComponentInChildren<TextMeshProUGUI>();
+                if (winResultTextMeshPro == null)
                 {
-                    Debug.LogWarning("[EventsUIManager] 中奖节点中未找到Text组件");
+                    Debug.LogWarning("[EventsUIManager] 中奖节点中未找到TextMeshPro组件");
+                }
+                else
+                {
+                    Debug.Log("[EventsUIManager] ✅ 找到中奖的TextMeshPro组件");
                 }
             }
             
@@ -191,7 +209,7 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 处理开牌消息 - 更新参数类型
+        /// 处理开牌消息
         /// </summary>
         /// <param name="dealCardsData">开牌数据</param>
         private void HandleDealCardsReceived(NetworkEvents.DealCardsData dealCardsData)
@@ -203,7 +221,7 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 处理中奖消息 - 更新参数类型
+        /// 处理中奖消息
         /// </summary>
         /// <param name="gameResultData">游戏结果数据</param>
         private void HandleGameResultReceived(NetworkEvents.GameResultData gameResultData)
@@ -252,14 +270,21 @@ namespace BaccaratGame.Core
         /// <param name="remainingTime">剩余时间</param>
         private void UpdateTimerDisplay(int remainingTime)
         {
-            if (timerText != null)
+            if (timerTextMeshPro != null)
             {
+                // 确保时间不为负数
+                remainingTime = Mathf.Max(0, remainingTime);
+                
                 // 格式化时间显示：mm:ss
                 int minutes = remainingTime / 60;
                 int seconds = remainingTime % 60;
-                timerText.text = $"{minutes:D2}:{seconds:D2}";
+                timerTextMeshPro.text = $"{minutes:D2}:{seconds:D2}";
                 
-                Debug.Log($"[EventsUIManager] 更新倒计时显示: {timerText.text}");
+                Debug.Log($"[EventsUIManager] 更新倒计时显示: {timerTextMeshPro.text}");
+            }
+            else
+            {
+                Debug.LogWarning("[EventsUIManager] timerTextMeshPro为空，无法更新倒计时显示");
             }
         }
 
@@ -282,9 +307,9 @@ namespace BaccaratGame.Core
             
             // 显示状态组件并更新文本
             SetNodeActive(statusNode, true);
-            if (statusText != null)
+            if (statusTextMeshPro != null)
             {
-                statusText.text = statusMessage;
+                statusTextMeshPro.text = statusMessage;
             }
             
             // 启动自动隐藏协程
@@ -311,7 +336,7 @@ namespace BaccaratGame.Core
         #region 开牌组件控制
 
         /// <summary>
-        /// 显示开牌组件 - 增加数据参数
+        /// 显示开牌组件
         /// </summary>
         /// <param name="dealCardsData">开牌数据</param>
         private void ShowDealCardsComponent(NetworkEvents.DealCardsData dealCardsData)
@@ -327,10 +352,10 @@ namespace BaccaratGame.Core
             SetNodeActive(dealCardsNode, true);
             
             // 更新开牌信息文本
-            if (dealCardsText != null)
+            if (dealCardsTextMeshPro != null)
             {
                 string dealCardsInfo = FormatDealCardsInfo(dealCardsData);
-                dealCardsText.text = dealCardsInfo;
+                dealCardsTextMeshPro.text = dealCardsInfo;
             }
             
             // 启动自动隐藏协程
@@ -391,7 +416,7 @@ namespace BaccaratGame.Core
         #region 中奖组件控制
 
         /// <summary>
-        /// 显示中奖组件 - 增加数据参数
+        /// 显示中奖组件
         /// </summary>
         /// <param name="gameResultData">游戏结果数据</param>
         private void ShowWinResultComponent(NetworkEvents.GameResultData gameResultData)
@@ -407,10 +432,10 @@ namespace BaccaratGame.Core
             SetNodeActive(winResultNode, true);
             
             // 更新中奖信息文本
-            if (winResultText != null)
+            if (winResultTextMeshPro != null)
             {
                 string winResultInfo = FormatWinResultInfo(gameResultData);
-                winResultText.text = winResultInfo;
+                winResultTextMeshPro.text = winResultInfo;
             }
             
             // 启动自动隐藏协程
@@ -545,9 +570,10 @@ namespace BaccaratGame.Core
         {
             Debug.Log($"[EventsUIManager] 组件状态检查:");
             Debug.Log($"  Timer节点: {(timerNode != null ? "✓" : "✗")} - 激活: {(timerNode?.activeInHierarchy ?? false)}");
-            Debug.Log($"  Status节点: {(statusNode != null ? "✓" : "✗")} - 激活: {(statusNode?.activeInHierarchy ?? false)}");
-            Debug.Log($"  开牌节点: {(dealCardsNode != null ? "✓" : "✗")} - 激活: {(dealCardsNode?.activeInHierarchy ?? false)}");
-            Debug.Log($"  中奖节点: {(winResultNode != null ? "✓" : "✗")} - 激活: {(winResultNode?.activeInHierarchy ?? false)}");
+            Debug.Log($"  Timer TextMeshPro: {(timerTextMeshPro != null ? "✓" : "✗")}");
+            Debug.Log($"  Status TextMeshPro: {(statusTextMeshPro != null ? "✓" : "✗")}");
+            Debug.Log($"  开牌 TextMeshPro: {(dealCardsTextMeshPro != null ? "✓" : "✗")}");
+            Debug.Log($"  中奖 TextMeshPro: {(winResultTextMeshPro != null ? "✓" : "✗")}");
             Debug.Log($"  当前游戏阶段: {currentGamePhase}");
             Debug.Log($"  Timer激活状态: {isTimerActive}");
         }
