@@ -85,19 +85,19 @@ namespace BaccaratGame.Managers
         public decimal PlayerPairAmount { get; private set; } = 0;
 
         /// <summary>
-        /// 大投注金额
+        /// 幸运6投注金额
         /// </summary>
-        public decimal BigAmount { get; private set; } = 0;
+        public decimal Lucky6Amount { get; private set; } = 0;
 
         /// <summary>
-        /// 小投注金额
+        /// 龙7投注金额
         /// </summary>
-        public decimal SmallAmount { get; private set; } = 0;
+        public decimal Long7Amount { get; private set; } = 0;
 
         /// <summary>
-        /// 超级六投注金额
+        /// 熊8投注金额
         /// </summary>
-        public decimal SuperSixAmount { get; private set; } = 0;
+        public decimal Xiong8Amount { get; private set; } = 0;
 
         #endregion
 
@@ -231,33 +231,33 @@ namespace BaccaratGame.Managers
         }
 
         /// <summary>
-        /// 设置大投注金额
+        /// 设置幸运6投注金额
         /// </summary>
         /// <param name="amount">投注金额</param>
-        public void SetBigAmount(decimal amount)
+        public void SetLucky6Amount(decimal amount)
         {
-            BigAmount = amount;
-            Debug.Log($"[BetDataManager] 大投注金额: {amount}");
+            Lucky6Amount = amount;
+            Debug.Log($"[BetDataManager] 幸运6投注金额: {amount}");
         }
 
         /// <summary>
-        /// 设置小投注金额
+        /// 设置龙7投注金额
         /// </summary>
         /// <param name="amount">投注金额</param>
-        public void SetSmallAmount(decimal amount)
+        public void SetLong7Amount(decimal amount)
         {
-            SmallAmount = amount;
-            Debug.Log($"[BetDataManager] 小投注金额: {amount}");
+            Long7Amount = amount;
+            Debug.Log($"[BetDataManager] 龙7投注金额: {amount}");
         }
 
         /// <summary>
-        /// 设置超级六投注金额
+        /// 设置熊8投注金额
         /// </summary>
         /// <param name="amount">投注金额</param>
-        public void SetSuperSixAmount(decimal amount)
+        public void SetXiong8Amount(decimal amount)
         {
-            SuperSixAmount = amount;
-            Debug.Log($"[BetDataManager] 超级六投注金额: {amount}");
+            Xiong8Amount = amount;
+            Debug.Log($"[BetDataManager] 熊8投注金额: {amount}");
         }
 
         /// <summary>
@@ -311,33 +311,33 @@ namespace BaccaratGame.Managers
         }
 
         /// <summary>
-        /// 增加大投注金额
+        /// 增加幸运6投注金额
         /// </summary>
         /// <param name="amount">增加的金额</param>
-        public void AddBigAmount(decimal amount)
+        public void AddLucky6Amount(decimal amount)
         {
-            BigAmount += amount;
-            Debug.Log($"[BetDataManager] 大投注金额增加: +{amount}, 总计: {BigAmount}");
+            Lucky6Amount += amount;
+            Debug.Log($"[BetDataManager] 幸运6投注金额增加: +{amount}, 总计: {Lucky6Amount}");
         }
 
         /// <summary>
-        /// 增加小投注金额
+        /// 增加龙7投注金额
         /// </summary>
         /// <param name="amount">增加的金额</param>
-        public void AddSmallAmount(decimal amount)
+        public void AddLong7Amount(decimal amount)
         {
-            SmallAmount += amount;
-            Debug.Log($"[BetDataManager] 小投注金额增加: +{amount}, 总计: {SmallAmount}");
+            Long7Amount += amount;
+            Debug.Log($"[BetDataManager] 龙7投注金额增加: +{amount}, 总计: {Long7Amount}");
         }
 
         /// <summary>
-        /// 增加超级六投注金额
+        /// 增加熊8投注金额
         /// </summary>
         /// <param name="amount">增加的金额</param>
-        public void AddSuperSixAmount(decimal amount)
+        public void AddXiong8Amount(decimal amount)
         {
-            SuperSixAmount += amount;
-            Debug.Log($"[BetDataManager] 超级六投注金额增加: +{amount}, 总计: {SuperSixAmount}");
+            Xiong8Amount += amount;
+            Debug.Log($"[BetDataManager] 熊8投注金额增加: +{amount}, 总计: {Xiong8Amount}");
         }
 
         #endregion
@@ -354,9 +354,9 @@ namespace BaccaratGame.Managers
             TieAmount = 0;
             BankerPairAmount = 0;
             PlayerPairAmount = 0;
-            BigAmount = 0;
-            SmallAmount = 0;
-            SuperSixAmount = 0;
+            Lucky6Amount = 0;
+            Long7Amount = 0;
+            Xiong8Amount = 0;
             
             Debug.Log("[BetDataManager] 所有投注金额已清空");
         }
@@ -368,7 +368,7 @@ namespace BaccaratGame.Managers
         public decimal GetTotalBetAmount()
         {
             decimal total = BankerAmount + PlayerAmount + TieAmount + BankerPairAmount + 
-                           PlayerPairAmount + BigAmount + SmallAmount + SuperSixAmount;
+                           PlayerPairAmount + Lucky6Amount + Long7Amount + Xiong8Amount;
             return total;
         }
 
@@ -392,7 +392,7 @@ namespace BaccaratGame.Managers
                    $"选中筹码: {CurrentSelectedChip}\n" +
                    $"庄: {BankerAmount}, 闲: {PlayerAmount}, 和: {TieAmount}\n" +
                    $"庄对: {BankerPairAmount}, 闲对: {PlayerPairAmount}\n" +
-                   $"大: {BigAmount}, 小: {SmallAmount}, 超级六: {SuperSixAmount}\n" +
+                   $"幸运6: {Lucky6Amount}, 龙7: {Long7Amount}, 熊8: {Xiong8Amount}\n" +
                    $"总投注: {GetTotalBetAmount()}";
         }
 

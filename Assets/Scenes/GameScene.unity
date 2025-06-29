@@ -3017,8 +3017,6 @@ MonoBehaviour:
   - {fileID: 25327852}
   - {fileID: 314604901}
   - {fileID: 1317433026}
-  selectedChipDisplay: {fileID: 0}
-  chipValues: 01000000050000000a0000001400000032000000
   selectedBorderColor: {r: 0, g: 1, b: 0.6, a: 1}
   selectedScale: 1.1
   borderWidth: 3
@@ -15589,6 +15587,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2009462477}
+  - component: {fileID: 2009462478}
   m_Layer: 5
   m_Name: BetArea
   m_TagString: Untagged
@@ -15624,6 +15623,26 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 50}
   m_SizeDelta: {x: 0, y: -100}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &2009462478
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2009462476}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9edcf456807a9884db50a3d2640a9a71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bankerButton: {fileID: 1736244427}
+  playerButton: {fileID: 933755362}
+  tieButton: {fileID: 1191266859}
+  bankerPairButton: {fileID: 428417111}
+  playerPairButton: {fileID: 314330438}
+  long7Button: {fileID: 415364894}
+  xiong8Button: {fileID: 251194091}
+  superSixButton: {fileID: 1349463601}
 --- !u!1 &2029984349
 GameObject:
   m_ObjectHideFlags: 0
