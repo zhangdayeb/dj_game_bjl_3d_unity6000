@@ -5,12 +5,13 @@
 
 using UnityEngine;
 using UnityEngine.UI;
+using BaccaratGame.Managers;
 
 namespace BaccaratGame.Core
 {
     /// <summary>
-    /// 筹码选择管理器
-    /// 负责处理筹码按钮的选中效果、数据存储和显示更新
+    /// 筹码选择管理器 - 纯UI控制器
+    /// 负责处理筹码按钮的选中效果，数据管理交给BetDataManager
     /// </summary>
     public class ChipSelectionManager : MonoBehaviour
     {
@@ -18,11 +19,6 @@ namespace BaccaratGame.Core
 
         [Header("筹码按钮引用")]
         [SerializeField] private Button[] chipButtons = new Button[5];
-        
-
-        
-        [Header("筹码数值配置")]
-        [SerializeField] private int[] chipValues = { 1, 5, 10, 20, 50 };
         
         [Header("选中效果配置")]
         [SerializeField] private Color selectedBorderColor = new Color(0f, 1f, 0.6f, 1f); // 绿色边框
@@ -33,7 +29,6 @@ namespace BaccaratGame.Core
 
         #region 私有字段
 
-        private int currentSelectedIndex = 0; // 当前选中的筹码索引
         private Outline[] chipOutlines; // 存储每个筹码的Outline组件
 
         #endregion
@@ -41,22 +36,19 @@ namespace BaccaratGame.Core
         #region 公共属性
 
         /// <summary>
-        /// 获取当前选中的筹码值
+        /// 获取当前选中的筹码值（从BetDataManager读取）
         /// </summary>
-        public int CurrentSelectedChipValue
-        {
-            get
-            {
-                if (currentSelectedIndex >= 0 && currentSelectedIndex < chipValues.Length)
-                    return chipValues[currentSelectedIndex];
-                return 0;
-            }
-        }
+        public int CurrentSelectedChipValue => BetDataManager.Instance.CurrentSelectedChip;
 
         /// <summary>
-        /// 获取当前选中的筹码索引
+        /// 获取当前选中的筹码索引（从BetDataManager读取）
         /// </summary>
-        public int CurrentSelectedIndex => currentSelectedIndex;
+        public int CurrentSelectedIndex => BetDataManager.Instance.GetSelectedChipIndex();
+
+        /// <summary>
+        /// 获取可用筹码数组（从BetDataManager读取）
+        /// </summary>
+        public int[] AvailableChips => BetDataManager.Instance.AvailableChips;
 
         #endregion
 
@@ -70,7 +62,9 @@ namespace BaccaratGame.Core
         private void Start()
         {
             SetupChipButtons();
-            SelectChipByIndex(0); // 默认选中第一个筹码
+            // 从BetDataManager获取默认选中的筹码索引并应用UI效果
+            int defaultIndex = BetDataManager.Instance.GetSelectedChipIndex();
+            ApplyChipSelectionUI(defaultIndex);
         }
 
         #endregion
@@ -89,9 +83,10 @@ namespace BaccaratGame.Core
                 return;
             }
 
-            if (chipValues == null || chipValues.Length != chipButtons.Length)
+            var availableChips = BetDataManager.Instance.AvailableChips;
+            if (availableChips.Length != chipButtons.Length)
             {
-                Debug.LogError("[ChipSelectionManager] 筹码数值配置与按钮数量不匹配！");
+                Debug.LogError($"[ChipSelectionManager] 筹码按钮数量({chipButtons.Length})与BetDataManager中筹码数量({availableChips.Length})不匹配！");
                 return;
             }
 
@@ -106,6 +101,8 @@ namespace BaccaratGame.Core
         /// </summary>
         private void SetupChipButtons()
         {
+            var availableChips = BetDataManager.Instance.AvailableChips;
+            
             for (int i = 0; i < chipButtons.Length; i++)
             {
                 if (chipButtons[i] == null)
@@ -119,7 +116,7 @@ namespace BaccaratGame.Core
                 chipButtons[i].onClick.RemoveAllListeners(); // 清除可能存在的监听器
                 chipButtons[i].onClick.AddListener(() => OnChipButtonClicked(index));
 
-                Debug.Log($"[ChipSelectionManager] 设置筹码按钮{i}点击事件，对应值：{chipValues[i]}");
+                Debug.Log($"[ChipSelectionManager] 设置筹码按钮{i}点击事件，对应值：{availableChips[i]}");
             }
         }
 
@@ -139,12 +136,20 @@ namespace BaccaratGame.Core
                 return;
             }
 
-            SelectChipByIndex(chipIndex);
-            Debug.Log($"[ChipSelectionManager] 玩家选择筹码{chipIndex}，值：{chipValues[chipIndex]}");
+            // 更新BetDataManager中的数据
+            bool success = BetDataManager.Instance.SetSelectedChipByIndex(chipIndex);
+            if (success)
+            {
+                // 更新UI效果
+                SelectChipByIndex(chipIndex);
+                
+                var availableChips = BetDataManager.Instance.AvailableChips;
+                Debug.Log($"[ChipSelectionManager] 玩家选择筹码{chipIndex}，值：{availableChips[chipIndex]}");
+            }
         }
 
         /// <summary>
-        /// 按索引选择筹码
+        /// 按索引选择筹码（纯UI效果，不修改数据）
         /// </summary>
         /// <param name="chipIndex">要选择的筹码索引</param>
         public void SelectChipByIndex(int chipIndex)
@@ -155,24 +160,39 @@ namespace BaccaratGame.Core
                 return;
             }
 
+            // 获取当前选中的索引（从BetDataManager）
+            int currentIndex = BetDataManager.Instance.GetSelectedChipIndex();
+            
             // 如果已经选中同一个筹码，不需要重复操作
-            if (currentSelectedIndex == chipIndex)
+            if (currentIndex == chipIndex)
             {
                 Debug.Log($"[ChipSelectionManager] 筹码{chipIndex}已经被选中");
                 return;
             }
 
-            // 取消之前选中的筹码效果
-            ClearChipSelection(currentSelectedIndex);
+            // 应用UI选中效果
+            ApplyChipSelectionUI(chipIndex);
 
-            // 设置新选中的筹码
-            currentSelectedIndex = chipIndex;
-            ApplyChipSelection(currentSelectedIndex);
+            Debug.Log($"[ChipSelectionManager] UI选中筹码{chipIndex}");
+        }
+
+        /// <summary>
+        /// 应用筹码选中的UI效果
+        /// </summary>
+        /// <param name="chipIndex">要选择的筹码索引</param>
+        private void ApplyChipSelectionUI(int chipIndex)
+        {
+            // 清除所有筹码的选中效果
+            for (int i = 0; i < chipButtons.Length; i++)
+            {
+                ClearChipSelection(i);
+            }
+
+            // 应用新选中筹码的效果
+            ApplyChipSelection(chipIndex);
 
             // 更新显示
             UpdateChipDisplay();
-
-            Debug.Log($"[ChipSelectionManager] 选中筹码{chipIndex}，值：{chipValues[chipIndex]}");
         }
 
         /// <summary>
@@ -181,16 +201,19 @@ namespace BaccaratGame.Core
         /// <param name="chipValue">要选择的筹码值</param>
         public void SelectChipByValue(int chipValue)
         {
-            for (int i = 0; i < chipValues.Length; i++)
+            // 先更新BetDataManager中的数据
+            bool success = BetDataManager.Instance.SetSelectedChipByValue(chipValue);
+            if (success)
             {
-                if (chipValues[i] == chipValue)
-                {
-                    SelectChipByIndex(i);
-                    return;
-                }
+                // 获取对应的索引并更新UI
+                int chipIndex = BetDataManager.Instance.GetSelectedChipIndex();
+                ApplyChipSelectionUI(chipIndex);
+                Debug.Log($"[ChipSelectionManager] 按值选择筹码：{chipValue}");
             }
-
-            Debug.LogWarning($"[ChipSelectionManager] 未找到值为{chipValue}的筹码");
+            else
+            {
+                Debug.LogWarning($"[ChipSelectionManager] 未找到值为{chipValue}的筹码");
+            }
         }
 
         #endregion
@@ -265,10 +288,13 @@ namespace BaccaratGame.Core
         /// </summary>
         public void ClearAllSelection()
         {
-            ClearChipSelection(currentSelectedIndex);
-            currentSelectedIndex = -1;
+            // 清除所有UI效果
+            for (int i = 0; i < chipButtons.Length; i++)
+            {
+                ClearChipSelection(i);
+            }
             
-            Debug.Log("[ChipSelectionManager] 清除所有筹码选择");
+            Debug.Log("[ChipSelectionManager] 清除所有筹码选择UI效果");
         }
 
         /// <summary>
@@ -276,7 +302,12 @@ namespace BaccaratGame.Core
         /// </summary>
         public void ResetToDefault()
         {
-            SelectChipByIndex(0);
+            // 重置BetDataManager中的数据
+            BetDataManager.Instance.ResetToDefault();
+            
+            // 应用UI效果
+            ApplyChipSelectionUI(0);
+            
             Debug.Log("[ChipSelectionManager] 重置为默认选择");
         }
 
@@ -286,7 +317,7 @@ namespace BaccaratGame.Core
         /// <returns>筹码值数组</returns>
         public int[] GetAllChipValues()
         {
-            return (int[])chipValues.Clone();
+            return (int[])BetDataManager.Instance.AvailableChips.Clone();
         }
 
         #endregion
@@ -302,7 +333,11 @@ namespace BaccaratGame.Core
             Debug.Log("=== ChipSelectionManager 配置验证 ===");
             
             Debug.Log($"筹码按钮数量: {(chipButtons != null ? chipButtons.Length : 0)}");
-            Debug.Log($"筹码数值数量: {(chipValues != null ? chipValues.Length : 0)}");
+            
+            var availableChips = BetDataManager.Instance.AvailableChips;
+            Debug.Log($"BetDataManager筹码数量: {availableChips.Length}");
+            Debug.Log($"BetDataManager筹码数值: [{string.Join(", ", availableChips)}]");
+            Debug.Log($"当前选中筹码: {BetDataManager.Instance.CurrentSelectedChip}");
             
             if (chipButtons != null)
             {
@@ -310,11 +345,6 @@ namespace BaccaratGame.Core
                 {
                     Debug.Log($"筹码按钮{i}: {(chipButtons[i] != null ? chipButtons[i].name : "未配置")}");
                 }
-            }
-
-            if (chipValues != null)
-            {
-                Debug.Log($"筹码数值: [{string.Join(", ", chipValues)}]");
             }
         }
 
@@ -331,9 +361,11 @@ namespace BaccaratGame.Core
             }
 
             Debug.Log("=== 测试筹码选择 ===");
+            var availableChips = BetDataManager.Instance.AvailableChips;
+            
             for (int i = 0; i < chipButtons.Length; i++)
             {
-                SelectChipByIndex(i);
+                SelectChipByValue(availableChips[i]);
                 Debug.Log($"测试选择筹码{i}，当前显示值：{CurrentSelectedChipValue}");
             }
         }
