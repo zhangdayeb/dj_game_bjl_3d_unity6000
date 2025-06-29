@@ -2939,6 +2939,7 @@ GameObject:
   m_Component:
   - component: {fileID: 257005301}
   - component: {fileID: 257005302}
+  - component: {fileID: 257005303}
   m_Layer: 5
   m_Name: ChipSelectionArea
   m_TagString: Untagged
@@ -2998,6 +2999,29 @@ MonoBehaviour:
   m_ChildScaleWidth: 0
   m_ChildScaleHeight: 0
   m_ReverseArrangement: 0
+--- !u!114 &257005303
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 257005300}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 77a9d2ac69f91cb478c9a523c72582f3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  chipButtons:
+  - {fileID: 1426113431}
+  - {fileID: 1142238909}
+  - {fileID: 25327852}
+  - {fileID: 314604901}
+  - {fileID: 1317433026}
+  selectedChipDisplay: {fileID: 0}
+  chipValues: 01000000050000000a0000001400000032000000
+  selectedBorderColor: {r: 0, g: 1, b: 0.6, a: 1}
+  selectedScale: 1.1
+  borderWidth: 3
 --- !u!1 &258817719
 GameObject:
   m_ObjectHideFlags: 0
