@@ -9,6 +9,7 @@ using BaccaratGame.Data;
 
 namespace BaccaratGame.Core
 {
+    
     #region API请求数据结构
 
     /// <summary>
@@ -80,6 +81,43 @@ namespace BaccaratGame.Core
         private HttpClient _gameHttpClient;    // 游戏接口客户端 (baseUrl)
         private HttpClient _userHttpClient;    // 用户接口客户端 (userUrl)
         private bool _isInitialized = false;
+
+        #endregion
+
+        // 在 GameNetworkApi 类中添加单例模式支持
+        // 在现有代码的开头添加这个部分：
+
+        #region 单例模式
+
+        private static GameNetworkApi _instance;
+
+        /// <summary>
+        /// 单例实例
+        /// </summary>
+        public static GameNetworkApi Instance
+        {
+            get
+            {
+                if (_instance == null)
+                {
+                    _instance = new GameNetworkApi();
+                    _instance.Initialize();
+                }
+                return _instance;
+            }
+        }
+
+        /// <summary>
+        /// 重置单例实例（用于重新初始化）
+        /// </summary>
+        public static void ResetInstance()
+        {
+            if (_instance != null)
+            {
+                _instance.Cleanup();
+                _instance = null;
+            }
+        }
 
         #endregion
 

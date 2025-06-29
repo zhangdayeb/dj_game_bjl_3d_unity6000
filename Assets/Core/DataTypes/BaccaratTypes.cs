@@ -22,6 +22,7 @@ namespace BaccaratGame.Data
         public string table_describe = "";         // 台桌描述
         public int game_type = 3;                  // 游戏类型：3=百家乐
         public int list_order = 0;                 // 显示排序
+        public string bureau_number = "";           // 局号信息
 
         [Header("荷官信息")]
         public string he_guan_name = "";           // 荷官名称
