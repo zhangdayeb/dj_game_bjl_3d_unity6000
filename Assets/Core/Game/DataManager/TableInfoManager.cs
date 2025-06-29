@@ -32,21 +32,41 @@ namespace BaccaratGame.Managers
                 {
                     Debug.Log($"[TableInfoManager] 原始响应类型: {response.GetType()}");
                     
-                    // 输出完整的响应内容用于调试
-                    string responseStr = response.ToString();
-                    Debug.Log($"[TableInfoManager] 完整响应内容: {responseStr}");
-                    
                     // 直接尝试转换为 TableInfo 类型
                     if (response is TableInfo tableInfo)
                     {
-                        // 如果直接是 TableInfo 类型
-                        string gameNumber = tableInfo.bureau_number?.ToString() ?? "未知";
+                        // 如果直接是 TableInfo 类型，检查所有可能的局号字段
+                        Debug.Log($"[TableInfoManager] TableInfo对象 - bureau_number: {tableInfo.bureau_number}");
+                        Debug.Log($"[TableInfoManager] TableInfo对象 - id: {tableInfo.id}");
+                        Debug.Log($"[TableInfoManager] TableInfo对象 - table_title: {tableInfo.table_title}");
+                        
+                        string gameNumber = "未知";
+                        
+                        // 尝试不同的字段名
+                        if (!string.IsNullOrEmpty(tableInfo.bureau_number?.ToString()))
+                        {
+                            gameNumber = tableInfo.bureau_number.ToString();
+                        }
+                        else if (tableInfo.id > 0)
+                        {
+                            gameNumber = tableInfo.id.ToString();
+                        }
+                        else
+                        {
+                            // 如果以上都没有，尝试从字符串中解析
+                            string responseStr = response.ToString();
+                            gameNumber = ExtractBureauNumber(responseStr);
+                        }
+                        
                         gameNumberText.text = gameNumber;
                         Debug.Log($"[TableInfoManager] 局号更新成功(直接类型): {gameNumber}");
                     }
                     else
                     {
-                        // 如果是包装响应，尝试使用字符串解析
+                        // 如果不是 TableInfo 类型，输出完整内容
+                        string responseStr = response.ToString();
+                        Debug.Log($"[TableInfoManager] 非TableInfo类型，完整响应: {responseStr}");
+                        
                         string gameNumber = ExtractBureauNumber(responseStr);
                         gameNumberText.text = gameNumber;
                         Debug.Log($"[TableInfoManager] 局号更新成功(字符串解析): {gameNumber}");

@@ -7,14 +7,32 @@ using BaccaratGame.Core;
 namespace BaccaratGame.Managers
 {
     /// <summary>
-    /// 用户余额管理器 - 简化版
-    /// 每3秒自动刷新用户余额，直接更新UI显示
-    /// 挂载节点：GameScene/DataManager
+    /// 用户余额管理器 - JSON解析版
     /// </summary>
     public class UserBalanceManager : MonoBehaviour
     {
         [Header("UI组件配置")]
-        public TextMeshProUGUI balanceText;  // TextMeshPro组件
+        public TextMeshProUGUI balanceText;
+        
+        // JSON响应数据结构
+        [System.Serializable]
+        public class ApiResponse
+        {
+            public int code;
+            public string message;
+            public UserData data;
+        }
+        
+        [System.Serializable]
+        public class UserData
+        {
+            public int id;
+            public string user_name;
+            public string money_balance;  // 注意：这里是字符串
+            public string money_freeze;
+            public int status;
+            public int state;
+        }
         
         private void Start()
         {
@@ -30,35 +48,41 @@ namespace BaccaratGame.Managers
                 
                 if (response != null && balanceText != null)
                 {
-                    Debug.Log($"[UserBalanceManager] 原始响应类型: {response.GetType()}");
+                    // 尝试获取原始JSON字符串
+                    string jsonString = GetJsonString(response);
                     
-                    // 输出完整的响应内容用于调试
-                    string responseStr = response.ToString();
-                    Debug.Log($"[UserBalanceManager] 完整响应内容: {responseStr}");
-                    
-                    // 直接尝试转换为 UserInfo 类型
-                    if (response is UserInfo userInfo)
+                    if (!string.IsNullOrEmpty(jsonString))
                     {
-                        // 如果直接是 UserInfo 类型，直接访问 money_balance 字段
-                        decimal balance = userInfo.money_balance;
-                        balanceText.text = balance.ToString("F2");
-                        Debug.Log($"[UserBalanceManager] 余额更新成功(直接类型): {balance:F2}");
-                    }
-                    else
-                    {
-                        // 如果是包装响应，尝试使用字符串解析
-                        string balanceStr = ExtractMoneyBalance(responseStr);
+                        Debug.Log($"[UserBalanceManager] JSON字符串: {jsonString.Substring(0, Math.Min(200, jsonString.Length))}...");
                         
-                        if (decimal.TryParse(balanceStr, out decimal balance))
+                        // 使用Unity JsonUtility解析
+                        ApiResponse apiResponse = JsonUtility.FromJson<ApiResponse>(jsonString);
+                        
+                        if (apiResponse != null && apiResponse.data != null)
                         {
-                            balanceText.text = balance.ToString("F2");
-                            Debug.Log($"[UserBalanceManager] 余额更新成功(字符串解析): {balance:F2}");
+                            string balanceStr = apiResponse.data.money_balance;
+                            
+                            if (decimal.TryParse(balanceStr, out decimal balance))
+                            {
+                                balanceText.text = balance.ToString("F2");
+                                Debug.Log($"[UserBalanceManager] 余额更新成功: {balance:F2}");
+                            }
+                            else
+                            {
+                                Debug.LogWarning($"[UserBalanceManager] 无法解析余额: {balanceStr}");
+                                balanceText.text = "0.00";
+                            }
                         }
                         else
                         {
-                            Debug.LogWarning($"[UserBalanceManager] 无法解析余额: {balanceStr}");
+                            Debug.LogWarning("[UserBalanceManager] JSON解析失败或data为空");
                             balanceText.text = "0.00";
                         }
+                    }
+                    else
+                    {
+                        Debug.LogWarning("[UserBalanceManager] 无法获取JSON字符串");
+                        balanceText.text = "0.00";
                     }
                 }
                 else
@@ -69,57 +93,48 @@ namespace BaccaratGame.Managers
             catch (Exception ex)
             {
                 Debug.LogError($"[UserBalanceManager] 获取用户信息失败: {ex.Message}");
+                balanceText.text = "0.00";
             }
         }
         
         /// <summary>
-        /// 从响应字符串中提取余额
+        /// 从响应对象中获取JSON字符串
         /// </summary>
-        private string ExtractMoneyBalance(string responseStr)
+        private string GetJsonString(object response)
         {
             try
             {
-                // 简单的字符串查找方式提取 money_balance
-                string searchKey = "\"money_balance\":\"";
-                int startIndex = responseStr.IndexOf(searchKey);
-                
-                if (startIndex >= 0)
+                // 方法1：检查是否有原始JSON属性
+                var type = response.GetType();
+                var jsonProperty = type.GetProperty("JsonString") ?? type.GetProperty("RawJson") ?? type.GetProperty("OriginalJson");
+                if (jsonProperty != null)
                 {
-                    startIndex += searchKey.Length;
-                    int endIndex = responseStr.IndexOf("\"", startIndex);
-                    
-                    if (endIndex > startIndex)
+                    var jsonValue = jsonProperty.GetValue(response);
+                    if (jsonValue != null)
                     {
-                        string result = responseStr.Substring(startIndex, endIndex - startIndex);
-                        Debug.Log($"[UserBalanceManager] 提取余额成功: {result}");
-                        return result;
+                        return jsonValue.ToString();
                     }
                 }
                 
-                // 如果上面的方法失败，尝试另一种格式（无引号的数字）
-                searchKey = "\"money_balance\":";
-                startIndex = responseStr.IndexOf(searchKey);
-                if (startIndex >= 0)
+                // 方法2：检查是否有字段
+                var jsonField = type.GetField("jsonString") ?? type.GetField("rawJson") ?? type.GetField("originalJson");
+                if (jsonField != null)
                 {
-                    startIndex += searchKey.Length;
-                    int endIndex = responseStr.IndexOfAny(new char[] { ',', '}', '\n', '\r' }, startIndex);
-                    
-                    if (endIndex > startIndex)
+                    var jsonValue = jsonField.GetValue(response);
+                    if (jsonValue != null)
                     {
-                        string result = responseStr.Substring(startIndex, endIndex - startIndex).Trim().Trim('"');
-                        Debug.Log($"[UserBalanceManager] 提取余额成功(格式2): {result}");
-                        return result;
+                        return jsonValue.ToString();
                     }
                 }
                 
-                Debug.LogWarning($"[UserBalanceManager] 无法从响应中提取余额");
-                Debug.LogWarning($"[UserBalanceManager] 响应前200字符: {responseStr.Substring(0, Math.Min(200, responseStr.Length))}");
-                return "0.00";
+                // 方法3：如果以上都失败，返回null，需要修改API层
+                Debug.LogWarning("[UserBalanceManager] 响应对象中没有找到原始JSON字符串");
+                return null;
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[UserBalanceManager] 提取余额时出错: {ex.Message}");
-                return "0.00";
+                Debug.LogError($"[UserBalanceManager] 获取JSON字符串失败: {ex.Message}");
+                return null;
             }
         }
         
