@@ -50,6 +50,8 @@ namespace BaccaratGame.Core
         // UI组件引用
         private Text timerText;          // 倒计时文本
         private Text statusText;         // 状态文本
+        private Text dealCardsText;      // 开牌信息文本
+        private Text winResultText;      // 中奖信息文本
         
         // 协程引用
         private Coroutine hideStatusCoroutine;
@@ -72,7 +74,7 @@ namespace BaccaratGame.Core
 
         private void OnEnable()
         {
-            // 订阅网络事件
+            // 订阅网络事件 - 使用正确的委托类型
             NetworkEvents.OnCountdownReceived += HandleCountdownReceived;
             NetworkEvents.OnDealCardsReceived += HandleDealCardsReceived;
             NetworkEvents.OnGameResultReceived += HandleGameResultReceived;
@@ -125,6 +127,26 @@ namespace BaccaratGame.Core
                 }
             }
             
+            // 查找开牌节点中的Text组件
+            if (dealCardsNode != null)
+            {
+                dealCardsText = dealCardsNode.GetComponentInChildren<Text>();
+                if (dealCardsText == null)
+                {
+                    Debug.LogWarning("[EventsUIManager] 开牌节点中未找到Text组件");
+                }
+            }
+            
+            // 查找中奖节点中的Text组件
+            if (winResultNode != null)
+            {
+                winResultText = winResultNode.GetComponentInChildren<Text>();
+                if (winResultText == null)
+                {
+                    Debug.LogWarning("[EventsUIManager] 中奖节点中未找到Text组件");
+                }
+            }
+            
             Debug.Log("[EventsUIManager] UI组件引用初始化完成");
         }
 
@@ -152,7 +174,7 @@ namespace BaccaratGame.Core
         /// <param name="countdownData">倒计时数据</param>
         private void HandleCountdownReceived(NetworkEvents.CountdownData countdownData)
         {
-            Debug.Log($"[EventsUIManager] 处理倒计时消息 - 时间: {countdownData.remainingTime}, 阶段: {countdownData.phase}");
+            Debug.Log($"[EventsUIManager] 处理倒计时消息 - 时间: {countdownData.remainingTime}, 阶段: {countdownData.phase}, 局号: {countdownData.bureauNumber}");
             
             currentGamePhase = countdownData.phase;
             
@@ -169,27 +191,27 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 处理开牌消息
+        /// 处理开牌消息 - 更新参数类型
         /// </summary>
-        /// <param name="message">开牌消息</param>
-        private void HandleDealCardsReceived(string message)
+        /// <param name="dealCardsData">开牌数据</param>
+        private void HandleDealCardsReceived(NetworkEvents.DealCardsData dealCardsData)
         {
-            Debug.Log($"[EventsUIManager] 处理开牌消息: {message}");
+            Debug.Log($"[EventsUIManager] 处理开牌消息 - 庄家: {dealCardsData.zhuangPoint}点, 闲家: {dealCardsData.xianPoint}点, 局号: {dealCardsData.bureauNumber}");
             
-            // 显示开牌组件
-            ShowDealCardsComponent();
+            // 显示开牌组件并更新信息
+            ShowDealCardsComponent(dealCardsData);
         }
 
         /// <summary>
-        /// 处理中奖消息
+        /// 处理中奖消息 - 更新参数类型
         /// </summary>
-        /// <param name="message">中奖消息</param>
-        private void HandleGameResultReceived(string message)
+        /// <param name="gameResultData">游戏结果数据</param>
+        private void HandleGameResultReceived(NetworkEvents.GameResultData gameResultData)
         {
-            Debug.Log($"[EventsUIManager] 处理中奖消息: {message}");
+            Debug.Log($"[EventsUIManager] 处理中奖消息 - 结果: {gameResultData.result}, 金额: {gameResultData.winAmount}, 局号: {gameResultData.bureauNumber}");
             
-            // 显示中奖组件
-            ShowWinResultComponent();
+            // 显示中奖组件并更新信息
+            ShowWinResultComponent(gameResultData);
         }
 
         #endregion
@@ -289,9 +311,10 @@ namespace BaccaratGame.Core
         #region 开牌组件控制
 
         /// <summary>
-        /// 显示开牌组件
+        /// 显示开牌组件 - 增加数据参数
         /// </summary>
-        private void ShowDealCardsComponent()
+        /// <param name="dealCardsData">开牌数据</param>
+        private void ShowDealCardsComponent(NetworkEvents.DealCardsData dealCardsData)
         {
             // 取消之前的隐藏协程
             if (hideDealCardsCoroutine != null)
@@ -303,10 +326,51 @@ namespace BaccaratGame.Core
             // 显示开牌组件
             SetNodeActive(dealCardsNode, true);
             
+            // 更新开牌信息文本
+            if (dealCardsText != null)
+            {
+                string dealCardsInfo = FormatDealCardsInfo(dealCardsData);
+                dealCardsText.text = dealCardsInfo;
+            }
+            
             // 启动自动隐藏协程
             hideDealCardsCoroutine = StartCoroutine(HideDealCardsAfterDelay());
             
             Debug.Log($"[EventsUIManager] 显示开牌组件，{dealCardsDisplayDuration}秒后自动隐藏");
+        }
+
+        /// <summary>
+        /// 格式化开牌信息显示
+        /// </summary>
+        /// <param name="dealCardsData">开牌数据</param>
+        /// <returns>格式化后的文本</returns>
+        private string FormatDealCardsInfo(NetworkEvents.DealCardsData dealCardsData)
+        {
+            string info = $"开牌结果\n";
+            info += $"庄家: {dealCardsData.zhuangPoint}点 ({dealCardsData.zhuangCount}张)\n";
+            info += $"闲家: {dealCardsData.xianPoint}点 ({dealCardsData.xianCount}张)\n";
+            
+            if (!string.IsNullOrEmpty(dealCardsData.zhuangString))
+            {
+                info += $"庄家牌面: {dealCardsData.zhuangString}\n";
+            }
+            
+            if (!string.IsNullOrEmpty(dealCardsData.xianString))
+            {
+                info += $"闲家牌面: {dealCardsData.xianString}\n";
+            }
+            
+            if (dealCardsData.lucky > 0)
+            {
+                info += $"幸运数字: {dealCardsData.lucky}";
+            }
+            
+            if (!string.IsNullOrEmpty(dealCardsData.bureauNumber))
+            {
+                info += $"\n局号: {dealCardsData.bureauNumber}";
+            }
+            
+            return info;
         }
 
         /// <summary>
@@ -327,9 +391,10 @@ namespace BaccaratGame.Core
         #region 中奖组件控制
 
         /// <summary>
-        /// 显示中奖组件
+        /// 显示中奖组件 - 增加数据参数
         /// </summary>
-        private void ShowWinResultComponent()
+        /// <param name="gameResultData">游戏结果数据</param>
+        private void ShowWinResultComponent(NetworkEvents.GameResultData gameResultData)
         {
             // 取消之前的隐藏协程
             if (hideWinResultCoroutine != null)
@@ -341,10 +406,50 @@ namespace BaccaratGame.Core
             // 显示中奖组件
             SetNodeActive(winResultNode, true);
             
+            // 更新中奖信息文本
+            if (winResultText != null)
+            {
+                string winResultInfo = FormatWinResultInfo(gameResultData);
+                winResultText.text = winResultInfo;
+            }
+            
             // 启动自动隐藏协程
             hideWinResultCoroutine = StartCoroutine(HideWinResultAfterDelay());
             
             Debug.Log($"[EventsUIManager] 显示中奖组件，{winResultDisplayDuration}秒后自动隐藏");
+        }
+
+        /// <summary>
+        /// 格式化中奖信息显示
+        /// </summary>
+        /// <param name="gameResultData">游戏结果数据</param>
+        /// <returns>格式化后的文本</returns>
+        private string FormatWinResultInfo(NetworkEvents.GameResultData gameResultData)
+        {
+            string info = $"游戏结果\n";
+            info += $"结果: {gameResultData.result}\n";
+            
+            if (gameResultData.winAmount > 0)
+            {
+                info += $"中奖金额: {gameResultData.winAmount:F2}\n";
+            }
+            
+            if (gameResultData.betAmount > 0)
+            {
+                info += $"投注金额: {gameResultData.betAmount:F2}\n";
+            }
+            
+            if (gameResultData.betType > 0)
+            {
+                info += $"投注类型: {gameResultData.betType}\n";
+            }
+            
+            if (!string.IsNullOrEmpty(gameResultData.bureauNumber))
+            {
+                info += $"局号: {gameResultData.bureauNumber}";
+            }
+            
+            return info;
         }
 
         /// <summary>
@@ -391,7 +496,7 @@ namespace BaccaratGame.Core
         [ContextMenu("测试显示倒计时")]
         public void TestShowCountdown()
         {
-            var testData = new NetworkEvents.CountdownData(30, "betting");
+            var testData = new NetworkEvents.CountdownData(30, "betting", "TEST001");
             HandleCountdownReceived(testData);
         }
 
@@ -401,7 +506,18 @@ namespace BaccaratGame.Core
         [ContextMenu("测试显示开牌")]
         public void TestShowDealCards()
         {
-            HandleDealCardsReceived("测试开牌消息");
+            var testData = new NetworkEvents.DealCardsData
+            {
+                zhuangPoint = 8,
+                xianPoint = 5,
+                zhuangCount = 2,
+                xianCount = 2,
+                zhuangString = "梅花3-梅花5-",
+                xianString = "红桃10-黑桃5-",
+                lucky = 8,
+                bureauNumber = "TEST001"
+            };
+            HandleDealCardsReceived(testData);
         }
 
         /// <summary>
@@ -410,7 +526,15 @@ namespace BaccaratGame.Core
         [ContextMenu("测试显示中奖")]
         public void TestShowWinResult()
         {
-            HandleGameResultReceived("测试中奖消息");
+            var testData = new NetworkEvents.GameResultData
+            {
+                result = "win",
+                winAmount = 100.0f,
+                betAmount = 50.0f,
+                betType = 1,
+                bureauNumber = "TEST001"
+            };
+            HandleGameResultReceived(testData);
         }
 
         /// <summary>
