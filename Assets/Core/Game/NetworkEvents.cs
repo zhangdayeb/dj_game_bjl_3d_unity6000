@@ -46,13 +46,15 @@ namespace BaccaratGame.Core
             public string phase;         // 阶段："betting" 或 "dealing"
             public bool isCountdownEnd;  // 是否倒计时结束
             public string bureauNumber;  // 局号
+            public int countdownTime;    // 总倒计时时间
             
-            public CountdownData(int time, string gamePhase, string bureau = "")
+            public CountdownData(int time, string gamePhase, string bureau = "", int totalTime = 30)
             {
                 remainingTime = time;
                 phase = gamePhase;
                 isCountdownEnd = time <= 0;
                 bureauNumber = bureau;
+                countdownTime = totalTime;
             }
         }
 
@@ -209,32 +211,28 @@ namespace BaccaratGame.Core
         {
             try
             {
-                // 提取局号
-                string bureauNumber = ExtractStringField(message, "bureau_number");
+                // 使用Unity的JsonUtility来解析（需要先构造简化的JSON结构）
+                // 先尝试手动解析关键字段
                 
-                // 从嵌套路径提取倒计时：data.table_run_info.end_time
-                int endTime = ExtractNestedIntField(message, "data", "table_run_info", "end_time");
+                // 查找 data.table_run_info 部分
+                string tableRunInfoSection = ExtractJsonSection(message, "\"table_run_info\":{", "}}");
+                if (string.IsNullOrEmpty(tableRunInfoSection))
+                {
+                    Debug.LogError("[NetworkEvents] 无法找到 table_run_info 部分");
+                    return null;
+                }
                 
-                // 如果没有找到end_time，尝试其他可能的字段
-                if (endTime <= 0)
-                {
-                    endTime = ExtractIntField(message, "countdown_time", 0);
-                }
-                if (endTime <= 0)
-                {
-                    endTime = ExtractIntField(message, "time", 0);
-                }
-                if (endTime <= 0)
-                {
-                    endTime = ExtractIntField(message, "countdown", 0);
-                }
+                // 从 table_run_info 中提取字段
+                int endTime = ExtractIntFromSection(tableRunInfoSection, "\"end_time\":", 0);
+                int countdownTime = ExtractIntFromSection(tableRunInfoSection, "\"countdown_time\":", 30);
+                string bureauNumber = ExtractStringFromSection(tableRunInfoSection, "\"bureau_number\":\"", "\"");
                 
                 // 判断游戏阶段
                 string phase = endTime > 0 ? "betting" : "dealing";
                 
-                Debug.Log($"[NetworkEvents] 倒计时解析 - end_time: {endTime}, 阶段: {phase}, 局号: {bureauNumber}");
+                Debug.Log($"[NetworkEvents] 倒计时解析详情 - end_time: {endTime}, countdown_time: {countdownTime}, 阶段: {phase}, 局号: {bureauNumber}");
                 
-                return new CountdownData(endTime, phase, bureauNumber);
+                return new CountdownData(endTime, phase, bureauNumber, countdownTime);
             }
             catch (Exception ex)
             {
@@ -255,55 +253,59 @@ namespace BaccaratGame.Core
             {
                 var dealCardsData = new DealCardsData();
                 
-                // 提取局号
-                dealCardsData.bureauNumber = ExtractStringField(message, "bureau_number");
+                // 提取顶层局号
+                dealCardsData.bureauNumber = ExtractStringFromSection(message, "\"bureau_number\":\"", "\"");
                 
-                // 提取result部分的数据
-                dealCardsData.zhuangPoint = ExtractNestedIntField(message, "data", "result_info", "result", "zhuang_point");
-                dealCardsData.xianPoint = ExtractNestedIntField(message, "data", "result_info", "result", "xian_point");
-                dealCardsData.zhuangCount = ExtractNestedIntField(message, "data", "result_info", "result", "zhuang_count");
-                dealCardsData.xianCount = ExtractNestedIntField(message, "data", "result_info", "result", "xian_count");
-                dealCardsData.zhuangDui = ExtractNestedIntField(message, "data", "result_info", "result", "zhuang_dui");
-                dealCardsData.xianDui = ExtractNestedIntField(message, "data", "result_info", "result", "xian_dui");
-                dealCardsData.lucky = ExtractNestedIntField(message, "data", "result_info", "result", "lucky");
-                dealCardsData.luckySize = ExtractNestedIntField(message, "data", "result_info", "result", "luckySize");
-                
-                // 提取牌面描述
-                dealCardsData.zhuangString = ExtractNestedStringField(message, "data", "result_info", "result", "zhuang_string");
-                dealCardsData.xianString = ExtractNestedStringField(message, "data", "result_info", "result", "xian_string");
-                
-                // 提取中奖数组 - 简化处理，只取第一个值
-                string winArrayStr = ExtractNestedStringField(message, "data", "result_info", "result", "win_array");
-                if (!string.IsNullOrEmpty(winArrayStr))
+                // 查找 result_info.result 部分
+                string resultSection = ExtractJsonSection(message, "\"result\":{", "}");
+                if (string.IsNullOrEmpty(resultSection))
                 {
-                    // 简单解析数组，查找数字
-                    var matches = System.Text.RegularExpressions.Regex.Matches(winArrayStr, @"\d+");
-                    if (matches.Count > 0)
+                    Debug.LogError("[NetworkEvents] 无法找到 result 部分");
+                    return null;
+                }
+                
+                // 从 result 部分提取数据
+                dealCardsData.zhuangPoint = ExtractIntFromSection(resultSection, "\"zhuang_point\":", 0);
+                dealCardsData.xianPoint = ExtractIntFromSection(resultSection, "\"xian_point\":", 0);
+                dealCardsData.zhuangCount = ExtractIntFromSection(resultSection, "\"zhuang_count\":", 0);
+                dealCardsData.xianCount = ExtractIntFromSection(resultSection, "\"xian_count\":", 0);
+                dealCardsData.zhuangDui = ExtractIntFromSection(resultSection, "\"zhuang_dui\":", 0);
+                dealCardsData.xianDui = ExtractIntFromSection(resultSection, "\"xian_dui\":", 0);
+                dealCardsData.lucky = ExtractIntFromSection(resultSection, "\"lucky\":", 0);
+                dealCardsData.luckySize = ExtractIntFromSection(resultSection, "\"luckySize\":", 0);
+                
+                // 提取牌面描述字符串
+                dealCardsData.zhuangString = ExtractStringFromSection(resultSection, "\"zhuang_string\":\"", "\"");
+                dealCardsData.xianString = ExtractStringFromSection(resultSection, "\"xian_string\":\"", "\"");
+                
+                // 提取中奖数组
+                string winArraySection = ExtractJsonSection(resultSection, "\"win_array\":[", "]");
+                if (!string.IsNullOrEmpty(winArraySection))
+                {
+                    ParseWinArray(winArraySection, out dealCardsData.winArray);
+                }
+                
+                // 查找并解析牌面信息
+                string infoSection = ExtractJsonSection(message, "\"info\":{", "}");
+                if (!string.IsNullOrEmpty(infoSection))
+                {
+                    // 解析庄家牌面
+                    string zhuangSection = ExtractJsonSection(infoSection, "\"zhuang\":{", "}");
+                    if (!string.IsNullOrEmpty(zhuangSection))
                     {
-                        dealCardsData.winArray = new int[matches.Count];
-                        for (int i = 0; i < matches.Count; i++)
-                        {
-                            int.TryParse(matches[i].Value, out dealCardsData.winArray[i]);
-                        }
+                        ParseCardDictionary(zhuangSection, dealCardsData.zhuangCards);
+                    }
+                    
+                    // 解析闲家牌面
+                    string xianSection = ExtractJsonSection(infoSection, "\"xian\":{", "}");
+                    if (!string.IsNullOrEmpty(xianSection))
+                    {
+                        ParseCardDictionary(xianSection, dealCardsData.xianCards);
                     }
                 }
                 
-                // 提取牌面信息 - 庄家牌
-                string zhuangCardsSection = ExtractSectionBetween(message, "\"zhuang\":{", "}");
-                if (!string.IsNullOrEmpty(zhuangCardsSection))
-                {
-                    ParseCardDictionary(zhuangCardsSection, dealCardsData.zhuangCards);
-                }
-                
-                // 提取牌面信息 - 闲家牌
-                string xianCardsSection = ExtractSectionBetween(message, "\"xian\":{", "}");
-                if (!string.IsNullOrEmpty(xianCardsSection))
-                {
-                    ParseCardDictionary(xianCardsSection, dealCardsData.xianCards);
-                }
-                
                 Debug.Log($"[NetworkEvents] 开牌解析详情 - 庄: {dealCardsData.zhuangPoint}点({dealCardsData.zhuangCount}张), " +
-                         $"闲: {dealCardsData.xianPoint}点({dealCardsData.xianCount}张), 幸运: {dealCardsData.lucky}");
+                         $"闲: {dealCardsData.xianPoint}点({dealCardsData.xianCount}张), 幸运: {dealCardsData.lucky}, 局号: {dealCardsData.bureauNumber}");
                 
                 return dealCardsData;
             }
@@ -327,18 +329,37 @@ namespace BaccaratGame.Core
                 var gameResultData = new GameResultData();
                 
                 // 提取局号
-                gameResultData.bureauNumber = ExtractStringField(message, "bureau_number");
+                gameResultData.bureauNumber = ExtractStringFromSection(message, "\"bureau_number\":\"", "\"");
                 
-                // 提取基本结果信息
-                gameResultData.result = ExtractStringField(message, "result", "unknown");
+                // 查找 result_info 部分
+                string resultInfoSection = ExtractJsonSection(message, "\"result_info\":{", "}");
+                if (!string.IsNullOrEmpty(resultInfoSection))
+                {
+                    // 从 result_info 中提取 money 字段
+                    gameResultData.winAmount = ExtractFloatFromSection(resultInfoSection, "\"money\":", 0f);
+                    Debug.Log($"[NetworkEvents] 从 result_info.money 提取中奖金额: {gameResultData.winAmount}");
+                }
                 
-                // 提取金额信息（如果有的话）
-                gameResultData.winAmount = ExtractFloatField(message, "win_amount", 0f);
-                gameResultData.betAmount = ExtractFloatField(message, "bet_amount", 0f);
-                gameResultData.betType = ExtractIntField(message, "bet_type", 0);
+                // 如果没有在 result_info 中找到，尝试其他可能的字段位置
+                if (gameResultData.winAmount <= 0)
+                {
+                    gameResultData.winAmount = ExtractFloatFromSection(message, "\"money\":", 0f);
+                    gameResultData.winAmount = ExtractFloatFromSection(message, "\"win_amount\":", gameResultData.winAmount);
+                }
+                
+                // 提取其他可能的字段
+                gameResultData.result = ExtractStringFromSection(message, "\"result\":\"", "\"");
+                gameResultData.betAmount = ExtractFloatFromSection(message, "\"bet_amount\":", 0f);
+                gameResultData.betType = ExtractIntFromSection(message, "\"bet_type\":", 0);
+                
+                // 如果没有明确的结果字段，根据金额判断
+                if (string.IsNullOrEmpty(gameResultData.result))
+                {
+                    gameResultData.result = gameResultData.winAmount > 0 ? "win" : "lose";
+                }
                 
                 Debug.Log($"[NetworkEvents] 中奖解析详情 - 结果: {gameResultData.result}, " +
-                         $"中奖金额: {gameResultData.winAmount}, 投注金额: {gameResultData.betAmount}");
+                         $"中奖金额: {gameResultData.winAmount}, 投注金额: {gameResultData.betAmount}, 局号: {gameResultData.bureauNumber}");
                 
                 return gameResultData;
             }
@@ -354,235 +375,175 @@ namespace BaccaratGame.Core
         #region 辅助解析方法
 
         /// <summary>
-        /// 从JSON消息中提取整数字段
+        /// 提取JSON中两个标记之间的内容
         /// </summary>
-        private static int ExtractIntField(string jsonMessage, string fieldName, int defaultValue = 0)
+        /// <param name="json">JSON字符串</param>
+        /// <param name="startMarker">开始标记</param>
+        /// <param name="endMarker">结束标记</param>
+        /// <returns>提取的内容</returns>
+        private static string ExtractJsonSection(string json, string startMarker, string endMarker)
         {
             try
             {
-                string searchPattern = $"\"{fieldName}\"";
-                int fieldIndex = jsonMessage.IndexOf(searchPattern);
-                if (fieldIndex == -1) return defaultValue;
-
-                int colonIndex = jsonMessage.IndexOf(":", fieldIndex);
-                if (colonIndex == -1) return defaultValue;
-
-                int valueStart = colonIndex + 1;
-                while (valueStart < jsonMessage.Length && 
-                       (jsonMessage[valueStart] == ' ' || jsonMessage[valueStart] == '"'))
-                    valueStart++;
-
-                int valueEnd = valueStart;
-                while (valueEnd < jsonMessage.Length && 
-                       (char.IsDigit(jsonMessage[valueEnd]) || jsonMessage[valueEnd] == '-'))
-                    valueEnd++;
-
-                if (valueEnd > valueStart)
-                {
-                    string valueStr = jsonMessage.Substring(valueStart, valueEnd - valueStart);
-                    if (int.TryParse(valueStr, out int result))
-                    {
-                        return result;
-                    }
-                }
-                
-                return defaultValue;
-            }
-            catch (Exception ex)
-            {
-                Debug.LogWarning($"[NetworkEvents] 提取字段 {fieldName} 失败: {ex.Message}");
-                return defaultValue;
-            }
-        }
-
-        /// <summary>
-        /// 从JSON消息中提取浮点数字段
-        /// </summary>
-        private static float ExtractFloatField(string jsonMessage, string fieldName, float defaultValue = 0f)
-        {
-            try
-            {
-                string searchPattern = $"\"{fieldName}\"";
-                int fieldIndex = jsonMessage.IndexOf(searchPattern);
-                if (fieldIndex == -1) return defaultValue;
-
-                int colonIndex = jsonMessage.IndexOf(":", fieldIndex);
-                if (colonIndex == -1) return defaultValue;
-
-                int valueStart = colonIndex + 1;
-                while (valueStart < jsonMessage.Length && 
-                       (jsonMessage[valueStart] == ' ' || jsonMessage[valueStart] == '"'))
-                    valueStart++;
-
-                int valueEnd = valueStart;
-                while (valueEnd < jsonMessage.Length && 
-                       (char.IsDigit(jsonMessage[valueEnd]) || jsonMessage[valueEnd] == '.' || jsonMessage[valueEnd] == '-'))
-                    valueEnd++;
-
-                if (valueEnd > valueStart)
-                {
-                    string valueStr = jsonMessage.Substring(valueStart, valueEnd - valueStart);
-                    if (float.TryParse(valueStr, out float result))
-                    {
-                        return result;
-                    }
-                }
-                
-                return defaultValue;
-            }
-            catch
-            {
-                return defaultValue;
-            }
-        }
-
-        /// <summary>
-        /// 从JSON消息中提取字符串字段
-        /// </summary>
-        private static string ExtractStringField(string jsonMessage, string fieldName, string defaultValue = "")
-        {
-            try
-            {
-                string searchPattern = $"\"{fieldName}\"";
-                int fieldIndex = jsonMessage.IndexOf(searchPattern);
-                if (fieldIndex == -1) return defaultValue;
-
-                int colonIndex = jsonMessage.IndexOf(":", fieldIndex);
-                if (colonIndex == -1) return defaultValue;
-
-                int valueStart = colonIndex + 1;
-                while (valueStart < jsonMessage.Length && 
-                       (jsonMessage[valueStart] == ' ' || jsonMessage[valueStart] == '"'))
-                    valueStart++;
-
-                int valueEnd = valueStart;
-                while (valueEnd < jsonMessage.Length && 
-                       jsonMessage[valueEnd] != '"' && 
-                       jsonMessage[valueEnd] != ',' && 
-                       jsonMessage[valueEnd] != '}')
-                    valueEnd++;
-
-                return jsonMessage.Substring(valueStart, valueEnd - valueStart).Trim();
-            }
-            catch
-            {
-                return defaultValue;
-            }
-        }
-
-        /// <summary>
-        /// 从嵌套JSON路径中提取整数字段
-        /// </summary>
-        private static int ExtractNestedIntField(string jsonMessage, params string[] path)
-        {
-            try
-            {
-                string currentSection = jsonMessage;
-                
-                // 逐级查找嵌套路径
-                for (int i = 0; i < path.Length - 1; i++)
-                {
-                    string sectionStart = $"\"{path[i]}\":{{";
-                    int startIndex = currentSection.IndexOf(sectionStart);
-                    if (startIndex == -1) return 0;
-                    
-                    startIndex += sectionStart.Length - 1; // 保留开始的{
-                    
-                    // 找到匹配的结束括号
-                    int braceCount = 1;
-                    int endIndex = startIndex + 1;
-                    while (endIndex < currentSection.Length && braceCount > 0)
-                    {
-                        if (currentSection[endIndex] == '{') braceCount++;
-                        else if (currentSection[endIndex] == '}') braceCount--;
-                        endIndex++;
-                    }
-                    
-                    if (braceCount == 0)
-                    {
-                        currentSection = currentSection.Substring(startIndex, endIndex - startIndex);
-                    }
-                    else
-                    {
-                        return 0;
-                    }
-                }
-                
-                // 在最终的section中查找目标字段
-                return ExtractIntField(currentSection, path[path.Length - 1], 0);
-            }
-            catch
-            {
-                return 0;
-            }
-        }
-
-        /// <summary>
-        /// 从嵌套JSON路径中提取字符串字段
-        /// </summary>
-        private static string ExtractNestedStringField(string jsonMessage, params string[] path)
-        {
-            try
-            {
-                string currentSection = jsonMessage;
-                
-                // 逐级查找嵌套路径
-                for (int i = 0; i < path.Length - 1; i++)
-                {
-                    string sectionStart = $"\"{path[i]}\":{{";
-                    int startIndex = currentSection.IndexOf(sectionStart);
-                    if (startIndex == -1) return "";
-                    
-                    startIndex += sectionStart.Length - 1; // 保留开始的{
-                    
-                    // 找到匹配的结束括号
-                    int braceCount = 1;
-                    int endIndex = startIndex + 1;
-                    while (endIndex < currentSection.Length && braceCount > 0)
-                    {
-                        if (currentSection[endIndex] == '{') braceCount++;
-                        else if (currentSection[endIndex] == '}') braceCount--;
-                        endIndex++;
-                    }
-                    
-                    if (braceCount == 0)
-                    {
-                        currentSection = currentSection.Substring(startIndex, endIndex - startIndex);
-                    }
-                    else
-                    {
-                        return "";
-                    }
-                }
-                
-                // 在最终的section中查找目标字段
-                return ExtractStringField(currentSection, path[path.Length - 1], "");
-            }
-            catch
-            {
-                return "";
-            }
-        }
-
-        /// <summary>
-        /// 提取两个标记之间的内容
-        /// </summary>
-        private static string ExtractSectionBetween(string text, string startMarker, string endMarker)
-        {
-            try
-            {
-                int startIndex = text.IndexOf(startMarker);
+                int startIndex = json.IndexOf(startMarker);
                 if (startIndex == -1) return "";
                 
                 startIndex += startMarker.Length;
-                int endIndex = text.IndexOf(endMarker, startIndex);
-                if (endIndex == -1) return "";
                 
-                return text.Substring(startIndex, endIndex - startIndex);
+                // 对于嵌套的大括号，需要计算平衡
+                if (endMarker.Contains("}"))
+                {
+                    int braceCount = 1;
+                    int currentIndex = startIndex;
+                    
+                    while (currentIndex < json.Length && braceCount > 0)
+                    {
+                        if (json[currentIndex] == '{')
+                            braceCount++;
+                        else if (json[currentIndex] == '}')
+                            braceCount--;
+                        
+                        currentIndex++;
+                    }
+                    
+                    if (braceCount == 0)
+                    {
+                        return json.Substring(startIndex, currentIndex - startIndex - 1);
+                    }
+                }
+                else
+                {
+                    int endIndex = json.IndexOf(endMarker, startIndex);
+                    if (endIndex != -1)
+                    {
+                        return json.Substring(startIndex, endIndex - startIndex);
+                    }
+                }
+                
+                return "";
             }
             catch
             {
                 return "";
+            }
+        }
+
+        /// <summary>
+        /// 从指定区域提取整数值
+        /// </summary>
+        private static int ExtractIntFromSection(string section, string fieldMarker, int defaultValue)
+        {
+            try
+            {
+                int startIndex = section.IndexOf(fieldMarker);
+                if (startIndex == -1) return defaultValue;
+                
+                startIndex += fieldMarker.Length;
+                
+                // 跳过空格
+                while (startIndex < section.Length && section[startIndex] == ' ')
+                    startIndex++;
+                
+                int endIndex = startIndex;
+                while (endIndex < section.Length && 
+                       (char.IsDigit(section[endIndex]) || section[endIndex] == '-'))
+                    endIndex++;
+                
+                if (endIndex > startIndex)
+                {
+                    string valueStr = section.Substring(startIndex, endIndex - startIndex);
+                    if (int.TryParse(valueStr, out int result))
+                        return result;
+                }
+                
+                return defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        /// <summary>
+        /// 从指定区域提取浮点数值
+        /// </summary>
+        private static float ExtractFloatFromSection(string section, string fieldMarker, float defaultValue)
+        {
+            try
+            {
+                int startIndex = section.IndexOf(fieldMarker);
+                if (startIndex == -1) return defaultValue;
+                
+                startIndex += fieldMarker.Length;
+                
+                // 跳过空格
+                while (startIndex < section.Length && section[startIndex] == ' ')
+                    startIndex++;
+                
+                int endIndex = startIndex;
+                while (endIndex < section.Length && 
+                       (char.IsDigit(section[endIndex]) || section[endIndex] == '.' || section[endIndex] == '-'))
+                    endIndex++;
+                
+                if (endIndex > startIndex)
+                {
+                    string valueStr = section.Substring(startIndex, endIndex - startIndex);
+                    if (float.TryParse(valueStr, out float result))
+                        return result;
+                }
+                
+                return defaultValue;
+            }
+            catch
+            {
+                return defaultValue;
+            }
+        }
+
+        /// <summary>
+        /// 从指定区域提取字符串值
+        /// </summary>
+        private static string ExtractStringFromSection(string section, string startMarker, string endMarker)
+        {
+            try
+            {
+                int startIndex = section.IndexOf(startMarker);
+                if (startIndex == -1) return "";
+                
+                startIndex += startMarker.Length;
+                int endIndex = section.IndexOf(endMarker, startIndex);
+                
+                if (endIndex != -1)
+                {
+                    return section.Substring(startIndex, endIndex - startIndex);
+                }
+                
+                return "";
+            }
+            catch
+            {
+                return "";
+            }
+        }
+
+        /// <summary>
+        /// 解析中奖数组
+        /// </summary>
+        private static void ParseWinArray(string arraySection, out int[] winArray)
+        {
+            try
+            {
+                var matches = System.Text.RegularExpressions.Regex.Matches(arraySection, @"\d+");
+                winArray = new int[matches.Count];
+                
+                for (int i = 0; i < matches.Count; i++)
+                {
+                    int.TryParse(matches[i].Value, out winArray[i]);
+                }
+            }
+            catch
+            {
+                winArray = new int[0];
             }
         }
 
@@ -593,7 +554,7 @@ namespace BaccaratGame.Core
         {
             try
             {
-                // 简单的键值对解析
+                // 解析形如 "1":"m3.png","2":"m5.png" 的字符串
                 var matches = System.Text.RegularExpressions.Regex.Matches(cardSection, @"""(\d+)"":""([^""]+)""");
                 foreach (System.Text.RegularExpressions.Match match in matches)
                 {
@@ -635,7 +596,7 @@ namespace BaccaratGame.Core
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         public static void SimulateCountdownMessage(int time)
         {
-            string mockMessage = $"{{\"code\":200,\"msg\":\"倒计时信息\",\"data\":{{\"table_run_info\":{{\"end_time\":{time}}}}},\"bureau_number\":\"2025062920116947\"}}";
+            string mockMessage = $"{{\"code\":200,\"msg\":\"倒计时信息\",\"data\":{{\"table_run_info\":{{\"end_time\":{time},\"countdown_time\":30,\"bureau_number\":\"TEST001\"}}}}}}";
             TriggerCountdownReceived(mockMessage);
         }
 
@@ -645,7 +606,7 @@ namespace BaccaratGame.Core
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         public static void SimulateDealCardsMessage()
         {
-            string mockMessage = @"{""code"":200,""msg"":""开牌信息"",""data"":{""result_info"":{""result"":{""luckySize"":2,""size"":0,""zhuang_point"":8,""xian_point"":5,""zhuang_dui"":0,""xian_dui"":0,""lucky"":8,""zhuang_count"":2,""xian_count"":2,""zhuang_string"":""梅花3-梅花5-"",""xian_string"":""红桃10-黑桃5-"",""win_array"":[8]},""info"":{""zhuang"":{""1"":""m3.png"",""2"":""m5.png""},""xian"":{""4"":""r10.png"",""5"":""h5.png""}}},""bureau_number"":""2025062920116948""}}";
+            string mockMessage = @"{""code"":200,""msg"":""开牌信息"",""data"":{""result_info"":{""result"":{""luckySize"":2,""size"":0,""zhuang_point"":8,""xian_point"":5,""zhuang_dui"":0,""xian_dui"":0,""lucky"":8,""zhuang_count"":2,""xian_count"":2,""zhuang_string"":""梅花3-梅花5-"",""xian_string"":""红桃10-黑桃5-"",""win_array"":[8]},""info"":{""zhuang"":{""1"":""m3.png"",""2"":""m5.png""},""xian"":{""4"":""r10.png"",""5"":""h5.png""}}},""bureau_number"":""TEST002""}}";
             TriggerDealCardsReceived(mockMessage);
         }
 
@@ -655,7 +616,7 @@ namespace BaccaratGame.Core
         [System.Diagnostics.Conditional("UNITY_EDITOR")]
         public static void SimulateGameResultMessage()
         {
-            string mockMessage = "{\"code\":200,\"msg\":\"中奖信息\",\"data\":{\"result\":\"win\",\"win_amount\":100.0,\"bet_amount\":50.0},\"bureau_number\":\"2025062920116948\"}";
+            string mockMessage = "{\"code\":200,\"msg\":\"中奖信息\",\"data\":{\"result_info\":{\"money\":150.5},\"bureau_number\":\"TEST003\"}}";
             TriggerGameResultReceived(mockMessage);
         }
 
