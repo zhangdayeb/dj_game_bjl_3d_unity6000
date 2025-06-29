@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
 using TMPro;
-using Newtonsoft.Json.Linq;  // 使用 JSON 解析替代 dynamic
 using BaccaratGame.Data;
 using BaccaratGame.Core;
 
@@ -31,34 +30,35 @@ namespace BaccaratGame.Managers
                 
                 if (response != null && balanceText != null)
                 {
-                    // 将响应转换为JSON字符串，然后解析
-                    string jsonString = response.ToString();
-                    var jsonObj = JObject.Parse(jsonString);
+                    Debug.Log($"[UserBalanceManager] 原始响应类型: {response.GetType()}");
                     
-                    // 获取 data 字段
-                    var dataToken = jsonObj["data"];
-                    if (dataToken != null)
+                    // 输出完整的响应内容用于调试
+                    string responseStr = response.ToString();
+                    Debug.Log($"[UserBalanceManager] 完整响应内容: {responseStr}");
+                    
+                    // 直接尝试转换为 UserInfo 类型
+                    if (response is UserInfo userInfo)
                     {
-                        // 获取 money_balance
-                        string balanceStr = dataToken["money_balance"]?.ToString();
-                        Debug.Log($"[UserBalanceManager] 获取用户信息: {dataToken["user_name"]}, 原始余额: {balanceStr}");
+                        // 如果直接是 UserInfo 类型，直接访问 money_balance 字段
+                        decimal balance = userInfo.money_balance;
+                        balanceText.text = balance.ToString("F2");
+                        Debug.Log($"[UserBalanceManager] 余额更新成功(直接类型): {balance:F2}");
+                    }
+                    else
+                    {
+                        // 如果是包装响应，尝试使用字符串解析
+                        string balanceStr = ExtractMoneyBalance(responseStr);
                         
-                        // money_balance 是字符串 "1000.00"
-                        decimal balance = 0m;
-                        if (decimal.TryParse(balanceStr, out balance))
+                        if (decimal.TryParse(balanceStr, out decimal balance))
                         {
                             balanceText.text = balance.ToString("F2");
-                            Debug.Log($"[UserBalanceManager] 余额更新成功: {balance:F2}");
+                            Debug.Log($"[UserBalanceManager] 余额更新成功(字符串解析): {balance:F2}");
                         }
                         else
                         {
                             Debug.LogWarning($"[UserBalanceManager] 无法解析余额: {balanceStr}");
                             balanceText.text = "0.00";
                         }
-                    }
-                    else
-                    {
-                        Debug.LogWarning("[UserBalanceManager] response.data 为空");
                     }
                 }
                 else
@@ -69,6 +69,57 @@ namespace BaccaratGame.Managers
             catch (Exception ex)
             {
                 Debug.LogError($"[UserBalanceManager] 获取用户信息失败: {ex.Message}");
+            }
+        }
+        
+        /// <summary>
+        /// 从响应字符串中提取余额
+        /// </summary>
+        private string ExtractMoneyBalance(string responseStr)
+        {
+            try
+            {
+                // 简单的字符串查找方式提取 money_balance
+                string searchKey = "\"money_balance\":\"";
+                int startIndex = responseStr.IndexOf(searchKey);
+                
+                if (startIndex >= 0)
+                {
+                    startIndex += searchKey.Length;
+                    int endIndex = responseStr.IndexOf("\"", startIndex);
+                    
+                    if (endIndex > startIndex)
+                    {
+                        string result = responseStr.Substring(startIndex, endIndex - startIndex);
+                        Debug.Log($"[UserBalanceManager] 提取余额成功: {result}");
+                        return result;
+                    }
+                }
+                
+                // 如果上面的方法失败，尝试另一种格式（无引号的数字）
+                searchKey = "\"money_balance\":";
+                startIndex = responseStr.IndexOf(searchKey);
+                if (startIndex >= 0)
+                {
+                    startIndex += searchKey.Length;
+                    int endIndex = responseStr.IndexOfAny(new char[] { ',', '}', '\n', '\r' }, startIndex);
+                    
+                    if (endIndex > startIndex)
+                    {
+                        string result = responseStr.Substring(startIndex, endIndex - startIndex).Trim().Trim('"');
+                        Debug.Log($"[UserBalanceManager] 提取余额成功(格式2): {result}");
+                        return result;
+                    }
+                }
+                
+                Debug.LogWarning($"[UserBalanceManager] 无法从响应中提取余额");
+                Debug.LogWarning($"[UserBalanceManager] 响应前200字符: {responseStr.Substring(0, Math.Min(200, responseStr.Length))}");
+                return "0.00";
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[UserBalanceManager] 提取余额时出错: {ex.Message}");
+                return "0.00";
             }
         }
         
