@@ -7829,6 +7829,7 @@ Transform:
   m_Children:
   - {fileID: 1495049865}
   - {fileID: 693415371}
+  - {fileID: 1191732703}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &922796657
@@ -9344,6 +9345,57 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1191266857}
   m_CullTransparentMesh: 1
+--- !u!1 &1191732702
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1191732703}
+  - component: {fileID: 1191732704}
+  m_Layer: 0
+  m_Name: EventsUIManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1191732703
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1191732702}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 914044578}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1191732704
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1191732702}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 07f55111e74d7a3488aadb97c992ac36, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  timerNode: {fileID: 991237064}
+  statusNode: {fileID: 1611183}
+  dealCardsNode: {fileID: 113015639}
+  winResultNode: {fileID: 1412854529}
+  statusDisplayDuration: 5
+  dealCardsDisplayDuration: 5
+  winResultDisplayDuration: 5
 --- !u!1 &1207372806
 GameObject:
   m_ObjectHideFlags: 0
