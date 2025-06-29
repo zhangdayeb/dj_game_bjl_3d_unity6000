@@ -25,13 +25,15 @@ namespace BaccaratGame.Managers
         {
             try
             {
-                // HttpClient 返回原始响应，需要手动解析 data 字段
+                // GameNetworkApi 现在返回 object，需要转换
                 var response = await GameNetworkApi.Instance.GetUserInfo();
                 
                 if (response != null && balanceText != null)
                 {
-                    // 假设 response 有 data 属性包含实际的用户信息
-                    var userInfo = response.data;
+                    // 将响应转为 dynamic 来访问 data 字段
+                    dynamic responseData = response;
+                    var userInfo = responseData.data;
+                    
                     if (userInfo != null)
                     {
                         Debug.Log($"[UserBalanceManager] 获取用户信息: {userInfo.user_name}, 原始余额: {userInfo.money_balance}");

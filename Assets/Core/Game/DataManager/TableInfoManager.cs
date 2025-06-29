@@ -25,13 +25,15 @@ namespace BaccaratGame.Managers
         {
             try
             {
-                // HttpClient 返回原始响应，需要手动解析 data 字段
+                // GameNetworkApi 现在返回 object，需要转换
                 var response = await GameNetworkApi.Instance.GetTableInfo();
                 
                 if (response != null && gameNumberText != null)
                 {
-                    // 假设 response 有 data 属性包含实际的台桌信息
-                    var tableInfo = response.data;
+                    // 将响应转为 dynamic 来访问 data 字段
+                    dynamic responseData = response;
+                    var tableInfo = responseData.data;
+                    
                     if (tableInfo != null)
                     {
                         // bureau_number 是字符串 "202506290932261"

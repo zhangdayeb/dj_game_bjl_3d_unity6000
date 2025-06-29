@@ -435,37 +435,6 @@ namespace BaccaratGame.Core
         #region 便捷方法
 
         /// <summary>
-        /// 获取基础数据（台桌信息和用户信息）
-        /// </summary>
-        /// <returns>台桌信息和用户信息</returns>
-        public async Task<(TableInfo tableInfo, UserInfo userInfo)> GetBasicData()
-        {
-            EnsureInitialized();
-
-            Debug.Log("[GameNetworkApi] 开始并行获取基础数据");
-
-            try
-            {
-                // 并行获取台桌信息和用户信息
-                var tableInfoTask = GetTableInfo();
-                var userInfoTask = GetUserInfo();
-
-                await Task.WhenAll(tableInfoTask, userInfoTask);
-
-                var tableInfo = await tableInfoTask;
-                var userInfo = await userInfoTask;
-
-                Debug.Log("[GameNetworkApi] 基础数据获取完成");
-                return (tableInfo, userInfo);
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[GameNetworkApi] 获取基础数据失败: {ex.Message}");
-                throw;
-            }
-        }
-
-        /// <summary>
         /// 安全获取用户信息（失败时返回默认值）
         /// </summary>
         /// <returns>用户信息或默认值</returns>
