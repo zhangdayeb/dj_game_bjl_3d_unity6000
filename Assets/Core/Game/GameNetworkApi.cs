@@ -227,7 +227,7 @@ namespace BaccaratGame.Core
         /// 获取台桌信息
         /// </summary>
         /// <returns>台桌信息</returns>
-        public async Task<TableInfo> GetTableInfo()
+        public async Task<object> GetTableInfo()
         {
             EnsureInitialized();
 
@@ -363,7 +363,7 @@ namespace BaccaratGame.Core
         /// 获取用户信息
         /// </summary>
         /// <returns>用户信息</returns>
-        public async Task<UserInfo> GetUserInfo()
+        public async Task<object> GetUserInfo()
         {
             EnsureInitialized();
 
@@ -469,7 +469,7 @@ namespace BaccaratGame.Core
         /// 安全获取用户信息（失败时返回默认值）
         /// </summary>
         /// <returns>用户信息或默认值</returns>
-        public async Task<UserInfo> GetUserInfoSafely()
+        public async Task<object> GetUserInfoSafely()
         {
             try
             {
@@ -494,7 +494,7 @@ namespace BaccaratGame.Core
         /// 安全获取台桌信息（失败时返回默认值）
         /// </summary>
         /// <returns>台桌信息或默认值</returns>
-        public async Task<TableInfo> GetTableInfoSafely()
+        public async Task<object> GetTableInfoSafely()
         {
             try
             {

@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;  // 添加TextMeshPro支持
+using TMPro;  // TextMeshPro支持
 using BaccaratGame.Data;
 using BaccaratGame.Core;
 
@@ -15,9 +14,7 @@ namespace BaccaratGame.Managers
     public class TableInfoManager : MonoBehaviour
     {
         [Header("UI组件配置")]
-        [Tooltip("可以拖拽 Text 或 TextMeshPro 组件")]
-        public Text gameNumberText;           // 传统Text组件
-        public TextMeshProUGUI gameNumberTextTMP;  // TextMeshPro组件
+        public TextMeshProUGUI gameNumberText;  // TextMeshPro组件
         
         private void Start()
         {
@@ -28,28 +25,33 @@ namespace BaccaratGame.Managers
         {
             try
             {
-                var tableInfo = await GameNetworkApi.Instance.GetTableInfo();
+                // HttpClient 返回原始响应，需要手动解析 data 字段
+                var response = await GameNetworkApi.Instance.GetTableInfo();
                 
-                if (tableInfo != null)
+                if (response != null && gameNumberText != null)
                 {
-                    string gameNumber = tableInfo.bureau_number.ToString();
-                    
-                    // 更新传统Text组件
-                    if (gameNumberText != null)
+                    // 假设 response 有 data 属性包含实际的台桌信息
+                    var tableInfo = response.data;
+                    if (tableInfo != null)
                     {
+                        // bureau_number 是字符串 "202506290932261"
+                        string gameNumber = tableInfo.bureau_number?.ToString() ?? "未知";
                         gameNumberText.text = gameNumber;
+                        Debug.Log($"[TableInfoManager] 局号更新成功: {gameNumber}");
                     }
-                    
-                    // 更新TextMeshPro组件
-                    if (gameNumberTextTMP != null)
+                    else
                     {
-                        gameNumberTextTMP.text = gameNumber;
+                        Debug.LogWarning("[TableInfoManager] response.data 为空");
                     }
+                }
+                else
+                {
+                    Debug.LogWarning("[TableInfoManager] response 或 gameNumberText 为空");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"获取台桌信息失败: {ex.Message}");
+                Debug.LogError($"[TableInfoManager] 获取台桌信息失败: {ex.Message}");
             }
         }
         

@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
-using UnityEngine.UI;
-using TMPro;  // 添加TextMeshPro支持
+using TMPro;  // TextMeshPro支持
 using BaccaratGame.Data;
 using BaccaratGame.Core;
 
@@ -15,9 +14,7 @@ namespace BaccaratGame.Managers
     public class UserBalanceManager : MonoBehaviour
     {
         [Header("UI组件配置")]
-        [Tooltip("可以拖拽 Text 或 TextMeshPro 组件")]
-        public Text balanceText;           // 传统Text组件
-        public TextMeshProUGUI balanceTextTMP;  // TextMeshPro组件
+        public TextMeshProUGUI balanceText;  // TextMeshPro组件
         
         private void Start()
         {
@@ -28,28 +25,43 @@ namespace BaccaratGame.Managers
         {
             try
             {
-                var userInfo = await GameNetworkApi.Instance.GetUserInfo();
+                // HttpClient 返回原始响应，需要手动解析 data 字段
+                var response = await GameNetworkApi.Instance.GetUserInfo();
                 
-                if (userInfo != null)
+                if (response != null && balanceText != null)
                 {
-                    string balanceStr = userInfo.money_balance.ToString("F2");
-                    
-                    // 更新传统Text组件
-                    if (balanceText != null)
+                    // 假设 response 有 data 属性包含实际的用户信息
+                    var userInfo = response.data;
+                    if (userInfo != null)
                     {
-                        balanceText.text = balanceStr;
+                        Debug.Log($"[UserBalanceManager] 获取用户信息: {userInfo.user_name}, 原始余额: {userInfo.money_balance}");
+                        
+                        // money_balance 是字符串 "1000.00"
+                        decimal balance = 0m;
+                        if (decimal.TryParse(userInfo.money_balance?.ToString(), out balance))
+                        {
+                            balanceText.text = balance.ToString("F2");
+                            Debug.Log($"[UserBalanceManager] 余额更新成功: {balance:F2}");
+                        }
+                        else
+                        {
+                            Debug.LogWarning($"[UserBalanceManager] 无法解析余额: {userInfo.money_balance}");
+                            balanceText.text = "0.00";
+                        }
                     }
-                    
-                    // 更新TextMeshPro组件
-                    if (balanceTextTMP != null)
+                    else
                     {
-                        balanceTextTMP.text = balanceStr;
+                        Debug.LogWarning("[UserBalanceManager] response.data 为空");
                     }
+                }
+                else
+                {
+                    Debug.LogWarning("[UserBalanceManager] response 或 balanceText 为空");
                 }
             }
             catch (Exception ex)
             {
-                Debug.LogError($"获取用户信息失败: {ex.Message}");
+                Debug.LogError($"[UserBalanceManager] 获取用户信息失败: {ex.Message}");
             }
         }
         
