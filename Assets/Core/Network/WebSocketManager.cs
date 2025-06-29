@@ -402,36 +402,44 @@ namespace BaccaratGame.Core
                     var code = ExtractMessageCode(message);
                     var msg = ExtractMessageField(message, "msg");
                     
+                    // 🔥 关键修复：解码Unicode字符串
+                    var decodedMsg = DecodeUnicodeString(msg);
+                    
                     Debug.Log($"[WebSocketManager] 提取的消息code: {code}");
                     Debug.Log($"[WebSocketManager] 提取的消息msg: {msg}");
+                    Debug.Log($"[WebSocketManager] 解码后的msg: {decodedMsg}");
                     
-                    // 根据后端逻辑分发消息
+                    // 根据后端逻辑分发消息 - 使用解码后的消息进行匹配
                     switch (code)
                     {
                         case 200:
-                            if (msg == "倒计时信息")
+                            if (decodedMsg == "倒计时信息")
                             {
                                 Debug.Log("[WebSocketManager] 📊 处理倒计时消息");
                                 NetworkEvents.TriggerCountdownReceived(message);
                             }
-                            else if (msg == "开牌信息")
+                            else if (decodedMsg == "开牌信息")
                             {
                                 Debug.Log("[WebSocketManager] 🃏 处理开牌消息");
                                 NetworkEvents.TriggerDealCardsReceived(message);
                             }
-                            else if (msg == "中奖信息")
+                            else if (decodedMsg == "中奖信息")
                             {
                                 Debug.Log("[WebSocketManager] 🎯 处理中奖消息");
                                 NetworkEvents.TriggerGameResultReceived(message);
                             }
-                            else if (msg == "成功")
+                            else if (decodedMsg == "成功")
                             {
                                 Debug.Log("[WebSocketManager] ✅ 处理成功响应");
+                            }
+                            else
+                            {
+                                Debug.Log($"[WebSocketManager] ❓ 未识别的消息类型: {decodedMsg}");
                             }
                             break;
                             
                         default:
-                            Debug.Log($"[WebSocketManager] ❓ 未处理的消息code: {code}，msg: {msg}");
+                            Debug.Log($"[WebSocketManager] ❓ 未处理的消息code: {code}，msg: {decodedMsg}");
                             break;
                     }
                 }
@@ -446,6 +454,38 @@ namespace BaccaratGame.Core
             {
                 Debug.LogError($"[WebSocketManager] ❌ 消息处理异常: {ex.Message}");
                 Debug.LogError($"[WebSocketManager] 异常消息: {message}");
+            }
+        }
+
+        /// <summary>
+        /// 解码Unicode字符串（将 \uXXXX 格式转换为中文）
+        /// </summary>
+        /// <param name="unicodeString">包含Unicode转义序列的字符串</param>
+        /// <returns>解码后的字符串</returns>
+        private string DecodeUnicodeString(string unicodeString)
+        {
+            if (string.IsNullOrEmpty(unicodeString))
+                return unicodeString;
+            
+            try
+            {
+                // 使用正则表达式匹配 \uXXXX 格式的Unicode字符
+                string decoded = System.Text.RegularExpressions.Regex.Replace(
+                    unicodeString,
+                    @"\\u([0-9A-Fa-f]{4})",
+                    match => {
+                        // 将十六进制字符串转换为字符
+                        int code = Convert.ToInt32(match.Groups[1].Value, 16);
+                        return char.ConvertFromUtf32(code);
+                    }
+                );
+                
+                return decoded;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WebSocketManager] Unicode解码失败: {ex.Message}，返回原字符串");
+                return unicodeString;
             }
         }
 
