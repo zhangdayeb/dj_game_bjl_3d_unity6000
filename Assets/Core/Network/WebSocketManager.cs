@@ -11,6 +11,34 @@ using System.Text;
 
 namespace BaccaratGame.Core
 {
+    #region WebSocket消息数据结构
+
+    /// <summary>
+    /// 带code的业务消息结构
+    /// </summary>
+    [Serializable]
+    public class WSCodeMessage
+    {
+        public int code;
+        public string msg;
+        public string user_id;
+        public object data;
+    }
+
+    /// <summary>
+    /// 首次连接验证消息结构
+    /// </summary>
+    [Serializable]
+    public class WSConnectionMessage
+    {
+        public string user_id;
+        public string table_id;
+        public string game_type;
+        public long timestamp;
+    }
+
+    #endregion
+
     /// <summary>
     /// WebSocket管理器 - 简化版
     /// 作为库文件使用，支持自动连接、重连、心跳和消息处理
@@ -62,6 +90,9 @@ namespace BaccaratGame.Core
         // 心跳配置 (30秒间隔)
         private const float HEARTBEAT_INTERVAL = 30f;
         private Coroutine _heartbeatCoroutine;
+
+        // 调试计数器
+        private static int _messageCounter = 0;
 
         #endregion
 
@@ -159,6 +190,9 @@ namespace BaccaratGame.Core
             _shouldReconnect = true;
             _reconnectAttempts = 0;
 
+            Debug.Log($"[WebSocketManager] ================ 开始连接 ================");
+            Debug.Log($"[WebSocketManager] 目标URL: {url}");
+
             await ConnectInternal();
         }
 
@@ -203,6 +237,7 @@ namespace BaccaratGame.Core
                 // 清理旧连接
                 if (_websocket != null)
                 {
+                    Debug.Log("[WebSocketManager] 清理旧连接");
                     await _websocket.Close();
                     _websocket = null;
                 }
@@ -216,6 +251,8 @@ namespace BaccaratGame.Core
                 _websocket.OnError += OnError;
                 _websocket.OnClose += OnDisconnected;
 
+                Debug.Log("[WebSocketManager] WebSocket实例已创建，开始连接...");
+                
                 // 开始连接
                 await _websocket.Connect();
             }
@@ -243,10 +280,15 @@ namespace BaccaratGame.Core
             _isConnected = true;
             _reconnectAttempts = 0;
             
-            Debug.Log("[WebSocketManager] ✅ 连接成功");
+            Debug.Log("[WebSocketManager] ================ 连接成功 ================");
+            Debug.Log($"[WebSocketManager] ✅ 连接状态: {_websocket?.State}");
+            Debug.Log($"[WebSocketManager] URL: {_currentUrl}");
             
             // 开始心跳
             StartHeartbeat();
+            
+            // 发送连接成功消息（包含必需参数验证）
+            SendConnectionMessage();
         }
 
         /// <summary>
@@ -257,14 +299,42 @@ namespace BaccaratGame.Core
             try
             {
                 string message = Encoding.UTF8.GetString(data);
-                Debug.Log($"[WebSocketManager] 📨 收到消息: {message}");
+                var messageSize = data.Length;
+                
+                Debug.Log($"[WebSocketManager] ================ 收到消息 ================");
+                Debug.Log($"[WebSocketManager] 📨 消息大小: {messageSize} bytes");
+                Debug.Log($"[WebSocketManager] 📨 原始数据: {message}");
+                
+                // 检查是否是心跳响应
+                if (message == "pong")
+                {
+                    Debug.Log("[WebSocketManager] 💓 收到心跳响应: pong");
+                    return;
+                }
+                
+                // 尝试格式化JSON显示
+                try
+                {
+                    if (IsJson(message))
+                    {
+                        var formattedJson = FormatJson(message);
+                        Debug.Log($"[WebSocketManager] 📨 格式化消息:\n{formattedJson}");
+                    }
+                }
+                catch (Exception formatEx)
+                {
+                    Debug.LogWarning($"[WebSocketManager] JSON格式化失败: {formatEx.Message}");
+                }
 
                 // 解析并分发消息
                 ProcessMessage(message);
+                
+                Debug.Log($"[WebSocketManager] ================ 消息处理完成 ================");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[WebSocketManager] 处理消息异常: {ex.Message}");
+                Debug.LogError($"[WebSocketManager] ❌ 处理消息异常: {ex.Message}");
+                Debug.LogError($"[WebSocketManager] 异常堆栈: {ex.StackTrace}");
             }
         }
 
@@ -273,7 +343,9 @@ namespace BaccaratGame.Core
         /// </summary>
         private void OnError(string error)
         {
-            Debug.LogError($"[WebSocketManager] ❌ 连接错误: {error}");
+            Debug.LogError($"[WebSocketManager] ================ 连接错误 ================");
+            Debug.LogError($"[WebSocketManager] ❌ 错误信息: {error}");
+            Debug.LogError($"[WebSocketManager] URL: {_currentUrl}");
             _isConnected = false;
             
             if (_shouldReconnect)
@@ -289,13 +361,16 @@ namespace BaccaratGame.Core
         {
             _isConnected = false;
             
-            Debug.LogWarning($"[WebSocketManager] 🔌 连接断开: {closeCode}");
+            Debug.LogWarning($"[WebSocketManager] ================ 连接断开 ================");
+            Debug.LogWarning($"[WebSocketManager] 🔌 断开代码: {closeCode}");
+            Debug.LogWarning($"[WebSocketManager] URL: {_currentUrl}");
             
             StopHeartbeat();
             
             // 非正常断开时启动重连
             if (_shouldReconnect && closeCode != WebSocketCloseCode.Normal)
             {
+                Debug.Log("[WebSocketManager] 检测到非正常断开，启动重连机制");
                 StartReconnect();
             }
         }
@@ -311,61 +386,118 @@ namespace BaccaratGame.Core
         {
             try
             {
-                // 简单的JSON解析，提取type字段
-                string messageType = ExtractMessageType(message);
+                Debug.Log($"[WebSocketManager] ========== 开始处理消息 ==========");
                 
-                if (string.IsNullOrEmpty(messageType))
+                // 检查是否是连接成功的响应
+                if (message.Contains("连接成功") || message.Contains("成功"))
                 {
-                    Debug.LogWarning($"[WebSocketManager] 无法解析消息类型: {message}");
+                    Debug.Log("[WebSocketManager] 🎉 收到连接成功响应");
                     return;
                 }
-
-                // 忽略心跳响应
-                if (messageType == "pong")
+                
+                // 尝试解析JSON消息
+                if (IsJson(message))
                 {
-                    return;
+                    // 简单的JSON解析，提取code字段
+                    var code = ExtractMessageCode(message);
+                    var msg = ExtractMessageField(message, "msg");
+                    
+                    Debug.Log($"[WebSocketManager] 提取的消息code: {code}");
+                    Debug.Log($"[WebSocketManager] 提取的消息msg: {msg}");
+                    
+                    // 根据后端逻辑分发消息
+                    switch (code)
+                    {
+                        case 200:
+                            if (msg == "倒计时信息")
+                            {
+                                Debug.Log("[WebSocketManager] 📊 处理倒计时消息");
+                                NetworkEvents.TriggerCountdownReceived(message);
+                            }
+                            else if (msg == "开牌信息")
+                            {
+                                Debug.Log("[WebSocketManager] 🃏 处理开牌消息");
+                                NetworkEvents.TriggerDealCardsReceived(message);
+                            }
+                            else if (msg == "中奖信息")
+                            {
+                                Debug.Log("[WebSocketManager] 🎯 处理中奖消息");
+                                NetworkEvents.TriggerGameResultReceived(message);
+                            }
+                            else if (msg == "成功")
+                            {
+                                Debug.Log("[WebSocketManager] ✅ 处理成功响应");
+                            }
+                            break;
+                            
+                        default:
+                            Debug.Log($"[WebSocketManager] ❓ 未处理的消息code: {code}，msg: {msg}");
+                            break;
+                    }
                 }
-
-                // 分发到对应的NetworkEvents
-                switch (messageType.ToLower())
+                else
                 {
-                    case "countdown":
-                        NetworkEvents.TriggerCountdownReceived(message);
-                        break;
-                        
-                    case "deal_cards":
-                    case "deal":
-                        NetworkEvents.TriggerDealCardsReceived(message);
-                        break;
-                        
-                    case "game_result":
-                    case "result":
-                        NetworkEvents.TriggerGameResultReceived(message);
-                        break;
-                        
-                    default:
-                        Debug.Log($"[WebSocketManager] 未处理的消息类型: {messageType}");
-                        break;
+                    Debug.Log($"[WebSocketManager] 📝 收到非JSON消息: {message}");
                 }
+                
+                Debug.Log($"[WebSocketManager] ========== 消息处理完成 ==========");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[WebSocketManager] 消息处理异常: {ex.Message}");
+                Debug.LogError($"[WebSocketManager] ❌ 消息处理异常: {ex.Message}");
+                Debug.LogError($"[WebSocketManager] 异常消息: {message}");
             }
         }
 
         /// <summary>
-        /// 从JSON消息中提取type字段
+        /// 从JSON消息中提取code字段
         /// </summary>
-        private string ExtractMessageType(string jsonMessage)
+        private int ExtractMessageCode(string jsonMessage)
         {
             try
             {
-                // 简单的字符串匹配提取type字段
-                int typeIndex = jsonMessage.IndexOf("\"type\"");
-                if (typeIndex == -1) return null;
+                int codeIndex = jsonMessage.IndexOf("\"code\"");
+                if (codeIndex == -1) return -1;
 
-                int colonIndex = jsonMessage.IndexOf(":", typeIndex);
+                int colonIndex = jsonMessage.IndexOf(":", codeIndex);
+                if (colonIndex == -1) return -1;
+
+                int valueStart = colonIndex + 1;
+                while (valueStart < jsonMessage.Length && 
+                       (jsonMessage[valueStart] == ' ' || jsonMessage[valueStart] == '"'))
+                    valueStart++;
+
+                int valueEnd = valueStart;
+                while (valueEnd < jsonMessage.Length && 
+                       char.IsDigit(jsonMessage[valueEnd]))
+                    valueEnd++;
+
+                if (int.TryParse(jsonMessage.Substring(valueStart, valueEnd - valueStart), out int code))
+                {
+                    return code;
+                }
+                
+                return -1;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogWarning($"[WebSocketManager] 提取消息code失败: {ex.Message}");
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// 从JSON消息中提取指定字段
+        /// </summary>
+        private string ExtractMessageField(string jsonMessage, string fieldName)
+        {
+            try
+            {
+                string searchPattern = $"\"{fieldName}\"";
+                int fieldIndex = jsonMessage.IndexOf(searchPattern);
+                if (fieldIndex == -1) return null;
+
+                int colonIndex = jsonMessage.IndexOf(":", fieldIndex);
                 if (colonIndex == -1) return null;
 
                 int valueStart = colonIndex + 1;
@@ -389,27 +521,126 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 发送消息到WebSocket服务器
+        /// 发送消息到WebSocket服务器（用于业务消息）
         /// </summary>
         public async void SendMessage(object data)
         {
             if (!IsConnected)
             {
-                Debug.LogWarning("[WebSocketManager] 未连接，无法发送消息");
+                Debug.LogWarning("[WebSocketManager] ⚠️ 未连接，无法发送消息");
                 return;
             }
 
+            var messageId = ++_messageCounter;
+
             try
             {
-                string jsonMessage = JsonUtility.ToJson(data);
-                Debug.Log($"[WebSocketManager] 📤 发送消息: {jsonMessage}");
+                Debug.Log($"[WebSocketManager] ================ 发送消息#{messageId} ================");
+                Debug.Log($"[WebSocketManager] 📤 连接状态: {IsConnected}");
+                Debug.Log($"[WebSocketManager] 📤 WebSocket状态: {_websocket?.State}");
+
+                string jsonMessage = JsonUtility.ToJson(data, true);
+                var messageSize = Encoding.UTF8.GetByteCount(jsonMessage);
+                
+                Debug.Log($"[WebSocketManager] 📤 发送数据: {jsonMessage}");
+                Debug.Log($"[WebSocketManager] 📤 消息大小: {messageSize} bytes");
                 
                 await _websocket.SendText(jsonMessage);
+                
+                Debug.Log($"[WebSocketManager] ✅ 消息#{messageId}发送成功");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"[WebSocketManager] 发送消息失败: {ex.Message}");
+                Debug.LogError($"[WebSocketManager] ❌ 发送消息#{messageId}失败: {ex.Message}");
+                Debug.LogError($"[WebSocketManager] 异常堆栈: {ex.StackTrace}");
             }
+        }
+
+        /// <summary>
+        /// 发送原始消息（不做任何处理）
+        /// </summary>
+        public async void SendRawMessage(object data)
+        {
+            if (!IsConnected)
+            {
+                Debug.LogWarning("[WebSocketManager] ⚠️ 未连接，无法发送原始消息");
+                return;
+            }
+
+            var messageId = ++_messageCounter;
+
+            try
+            {
+                Debug.Log($"[WebSocketManager] ================ 发送原始消息#{messageId} ================");
+                
+                string jsonMessage = JsonUtility.ToJson(data, true);
+                var messageSize = Encoding.UTF8.GetByteCount(jsonMessage);
+                
+                Debug.Log($"[WebSocketManager] 📤 原始消息: {jsonMessage}");
+                Debug.Log($"[WebSocketManager] 📤 消息大小: {messageSize} bytes");
+                
+                await _websocket.SendText(jsonMessage);
+                
+                Debug.Log($"[WebSocketManager] ✅ 原始消息#{messageId}发送成功");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[WebSocketManager] ❌ 发送原始消息#{messageId}失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 发送文本消息（用于心跳等特殊情况）
+        /// </summary>
+        public async void SendTextMessage(string message)
+        {
+            if (!IsConnected)
+            {
+                Debug.LogWarning("[WebSocketManager] ⚠️ 未连接，无法发送文本消息");
+                return;
+            }
+
+            var messageId = ++_messageCounter;
+
+            try
+            {
+                Debug.Log($"[WebSocketManager] ================ 发送文本消息#{messageId} ================");
+                Debug.Log($"[WebSocketManager] 📤 文本消息: {message}");
+                
+                await _websocket.SendText(message);
+                
+                Debug.Log($"[WebSocketManager] ✅ 文本消息#{messageId}发送成功");
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[WebSocketManager] ❌ 发送文本消息#{messageId}失败: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 发送连接验证消息（只在首次连接时需要完整参数）
+        /// </summary>
+        private void SendConnectionMessage()
+        {
+            var gameParams = BaccaratGame.Data.GameParams.Instance;
+            
+            if (!gameParams.IsInitialized)
+            {
+                Debug.LogWarning("[WebSocketManager] GameParams未初始化，跳过连接验证");
+                return;
+            }
+
+            // 🔥 修正：首次连接消息需要包含完整参数
+            var connectionMessage = new WSConnectionMessage
+            {
+                user_id = gameParams.user_id,
+                table_id = gameParams.table_id,
+                game_type = gameParams.game_type,
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+
+            Debug.Log("[WebSocketManager] 📡 发送首次连接验证消息");
+            SendRawMessage(connectionMessage);
         }
 
         #endregion
@@ -435,6 +666,7 @@ namespace BaccaratGame.Core
             {
                 StopCoroutine(_heartbeatCoroutine);
                 _heartbeatCoroutine = null;
+                Debug.Log("[WebSocketManager] 💓 停止心跳检测");
             }
         }
 
@@ -449,10 +681,31 @@ namespace BaccaratGame.Core
 
                 if (IsConnected)
                 {
-                    // 发送心跳ping
-                    var pingData = new { type = "ping", timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds() };
-                    SendMessage(pingData);
+                    // 🔥 修正：使用专门的心跳发送方法
+                    SendHeartbeat();
                 }
+            }
+        }
+
+        /// <summary>
+        /// 发送心跳消息（简单字符串，不需要参数）
+        /// </summary>
+        private async void SendHeartbeat()
+        {
+            if (!IsConnected) return;
+
+            try
+            {
+                // 🔥 修正：发送纯字符串 "ping"，不是JSON
+                string heartbeatMessage = "ping";
+                
+                Debug.Log($"[WebSocketManager] 💓 发送心跳: {heartbeatMessage}");
+                
+                await _websocket.SendText(heartbeatMessage);
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[WebSocketManager] ❌ 发送心跳失败: {ex.Message}");
             }
         }
 
@@ -467,6 +720,7 @@ namespace BaccaratGame.Core
         {
             if (_reconnectCoroutine != null) return;
             
+            Debug.Log("[WebSocketManager] 🔄 启动重连机制");
             _reconnectCoroutine = StartCoroutine(ReconnectLoop());
         }
 
@@ -479,6 +733,7 @@ namespace BaccaratGame.Core
             {
                 StopCoroutine(_reconnectCoroutine);
                 _reconnectCoroutine = null;
+                Debug.Log("[WebSocketManager] 🔄 停止重连机制");
             }
         }
 
@@ -492,6 +747,7 @@ namespace BaccaratGame.Core
                 _reconnectAttempts++;
                 
                 Debug.Log($"[WebSocketManager] 🔄 第{_reconnectAttempts}/{MAX_RECONNECT_ATTEMPTS}次重连...");
+                Debug.Log($"[WebSocketManager] URL: {_currentUrl}");
                 
                 yield return new WaitForSeconds(RECONNECT_DELAY);
                 
@@ -505,6 +761,10 @@ namespace BaccaratGame.Core
                     Debug.Log("[WebSocketManager] ✅ 重连成功");
                     break;
                 }
+                else
+                {
+                    Debug.LogWarning($"[WebSocketManager] ❌ 第{_reconnectAttempts}次重连失败");
+                }
             }
 
             if (_reconnectAttempts >= MAX_RECONNECT_ATTEMPTS)
@@ -513,6 +773,50 @@ namespace BaccaratGame.Core
             }
 
             _reconnectCoroutine = null;
+        }
+
+        #endregion
+
+        #region 便捷发送方法
+
+        /// <summary>
+        /// 发送带code的业务消息
+        /// </summary>
+        /// <param name="code">消息代码</param>
+        /// <param name="msg">消息内容</param>
+        /// <param name="data">附加数据</param>
+        public void SendCodeMessage(int code, string msg = "", object data = null)
+        {
+            var gameParams = BaccaratGame.Data.GameParams.Instance;
+            
+            var codeMessage = new WSCodeMessage
+            {
+                code = code,
+                msg = msg,
+                user_id = gameParams.user_id,
+                data = data
+            };
+
+            Debug.Log($"[WebSocketManager] 📋 发送业务消息，code: {code}, msg: {msg}");
+            SendRawMessage(codeMessage);
+        }
+
+        /// <summary>
+        /// 发送自定义消息
+        /// </summary>
+        /// <param name="messageType">消息类型</param>
+        /// <param name="customData">自定义数据</param>
+        public void SendCustomMessage(string messageType, object customData = null)
+        {
+            var customMessage = new 
+            {
+                type = messageType,
+                data = customData,
+                timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds()
+            };
+
+            Debug.Log($"[WebSocketManager] 🔧 发送自定义消息: {messageType}");
+            SendMessage(customMessage);
         }
 
         #endregion
@@ -526,6 +830,7 @@ namespace BaccaratGame.Core
         {
             if (!string.IsNullOrEmpty(_currentUrl))
             {
+                Debug.Log("[WebSocketManager] 🔄 手动触发重连");
                 _reconnectAttempts = 0;
                 Connect(_currentUrl);
             }
@@ -536,7 +841,42 @@ namespace BaccaratGame.Core
         /// </summary>
         public string GetStatusInfo()
         {
-            return $"URL: {_currentUrl} | 连接: {IsConnected} | 重连次数: {_reconnectAttempts}/{MAX_RECONNECT_ATTEMPTS}";
+            var status = $"URL: {_currentUrl} | 连接: {IsConnected} | 重连次数: {_reconnectAttempts}/{MAX_RECONNECT_ATTEMPTS}";
+            Debug.Log($"[WebSocketManager] 状态信息: {status}");
+            return status;
+        }
+
+        #endregion
+
+        #region 辅助方法
+
+        /// <summary>
+        /// 判断字符串是否为JSON格式
+        /// </summary>
+        private bool IsJson(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+            
+            text = text.Trim();
+            return (text.StartsWith("{") && text.EndsWith("}")) || 
+                   (text.StartsWith("[") && text.EndsWith("]"));
+        }
+
+        /// <summary>
+        /// 简单的JSON格式化
+        /// </summary>
+        private string FormatJson(string json)
+        {
+            if (string.IsNullOrEmpty(json)) return json;
+            
+            // 简单的格式化，主要是添加换行
+            var formatted = json.Replace(",", ",\n  ")
+                              .Replace("{", "{\n  ")
+                              .Replace("}", "\n}")
+                              .Replace("[", "[\n  ")
+                              .Replace("]", "\n]");
+            
+            return formatted;
         }
 
         #endregion
