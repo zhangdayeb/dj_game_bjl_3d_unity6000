@@ -11,7 +11,7 @@
       "retryDelay": 2000
     },
     "websocket": {
-      "url": "wss://wsssbjl.wuming888.com",
+      "url": "wss://wssbjl.wuming888.com",
       "reconnectAttempts": 3,
       "reconnectDelay": 5000,
       "heartbeatInterval": 25000,
