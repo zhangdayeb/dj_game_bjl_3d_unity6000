@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;  // 添加TextMeshPro支持
 using BaccaratGame.Data;
 using BaccaratGame.Core;
 
@@ -14,7 +15,9 @@ namespace BaccaratGame.Managers
     public class UserBalanceManager : MonoBehaviour
     {
         [Header("UI组件配置")]
-        public Text balanceText;
+        [Tooltip("可以拖拽 Text 或 TextMeshPro 组件")]
+        public Text balanceText;           // 传统Text组件
+        public TextMeshProUGUI balanceTextTMP;  // TextMeshPro组件
         
         private void Start()
         {
@@ -27,9 +30,21 @@ namespace BaccaratGame.Managers
             {
                 var userInfo = await GameNetworkApi.Instance.GetUserInfo();
                 
-                if (balanceText != null && userInfo != null)
+                if (userInfo != null)
                 {
-                    balanceText.text = userInfo.money_balance.ToString("F2");
+                    string balanceStr = userInfo.money_balance.ToString("F2");
+                    
+                    // 更新传统Text组件
+                    if (balanceText != null)
+                    {
+                        balanceText.text = balanceStr;
+                    }
+                    
+                    // 更新TextMeshPro组件
+                    if (balanceTextTMP != null)
+                    {
+                        balanceTextTMP.text = balanceStr;
+                    }
                 }
             }
             catch (Exception ex)

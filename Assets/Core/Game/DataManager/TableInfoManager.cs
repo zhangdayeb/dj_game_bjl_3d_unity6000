@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;  // 添加TextMeshPro支持
 using BaccaratGame.Data;
 using BaccaratGame.Core;
 
@@ -14,7 +15,9 @@ namespace BaccaratGame.Managers
     public class TableInfoManager : MonoBehaviour
     {
         [Header("UI组件配置")]
-        public Text gameNumberText;
+        [Tooltip("可以拖拽 Text 或 TextMeshPro 组件")]
+        public Text gameNumberText;           // 传统Text组件
+        public TextMeshProUGUI gameNumberTextTMP;  // TextMeshPro组件
         
         private void Start()
         {
@@ -27,9 +30,21 @@ namespace BaccaratGame.Managers
             {
                 var tableInfo = await GameNetworkApi.Instance.GetTableInfo();
                 
-                if (gameNumberText != null && tableInfo != null)
+                if (tableInfo != null)
                 {
-                    gameNumberText.text = tableInfo.bureau_number;
+                    string gameNumber = tableInfo.bureau_number.ToString();
+                    
+                    // 更新传统Text组件
+                    if (gameNumberText != null)
+                    {
+                        gameNumberText.text = gameNumber;
+                    }
+                    
+                    // 更新TextMeshPro组件
+                    if (gameNumberTextTMP != null)
+                    {
+                        gameNumberTextTMP.text = gameNumber;
+                    }
                 }
             }
             catch (Exception ex)

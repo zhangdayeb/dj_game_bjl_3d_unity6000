@@ -6027,6 +6027,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   balanceText: {fileID: 0}
+  balanceTextTMP: {fileID: 656231954}
 --- !u!1 &702041400
 GameObject:
   m_ObjectHideFlags: 0
@@ -11556,6 +11557,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   gameNumberText: {fileID: 0}
+  gameNumberTextTMP: {fileID: 60221506}
 --- !u!114 &1495049867
 MonoBehaviour:
   m_ObjectHideFlags: 0
