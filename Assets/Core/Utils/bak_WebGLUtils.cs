@@ -9,7 +9,7 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using UnityEngine;
 
-namespace BaccaratGame.Utils
+namespace BaccaratGame.Utilss
 {
     /// <summary>
     /// 浏览器类型枚举
@@ -104,7 +104,7 @@ namespace BaccaratGame.Utils
     {
         #region JavaScript Bridge Methods
 
-        // 🔥 修复：确保函数名与 jslib 文件中的函数名完全匹配
+        // WebGL JavaScript接口声明
         [DllImport("__Internal")]
         private static extern string GetCurrentUrl();
 
@@ -133,41 +133,19 @@ namespace BaccaratGame.Utils
         private static extern float GetDevicePixelRatio();
 
         [DllImport("__Internal")]
-        private static extern int CheckWebGLSupport();
+        private static extern bool CheckWebGLSupport();
 
         [DllImport("__Internal")]
-        private static extern int CheckAudioSupport();
+        private static extern bool CheckAudioSupport();
 
         [DllImport("__Internal")]
-        private static extern int CheckLocalStorageSupport();
+        private static extern bool CheckLocalStorageSupport();
 
         [DllImport("__Internal")]
         private static extern void ReloadPage();
 
         [DllImport("__Internal")]
         private static extern void OpenUrl(string url, string target);
-
-        // 🔥 新增：iframe管理函数声明
-        [DllImport("__Internal")]
-        private static extern void loadIframe(string containerIdAndUrl);
-
-        [DllImport("__Internal")]
-        private static extern int LoadRoadmapIframe(string containerIdAndUrl);
-
-        [DllImport("__Internal")]
-        private static extern int LoadVideoIframe(string containerIdAndUrl);
-
-        [DllImport("__Internal")]
-        private static extern int ScaleVideoIframe(string scaleAndDuration);
-
-        [DllImport("__Internal")]
-        private static extern int RefreshRoadmapIframe();
-
-        [DllImport("__Internal")]
-        private static extern int ResetVideoScale();
-
-        [DllImport("__Internal")]
-        private static extern string GetIframeStatus(string containerId);
 
         #endregion
 
@@ -335,10 +313,10 @@ namespace BaccaratGame.Utils
                 browserInfo.screenHeight = GetScreenHeight();
                 browserInfo.devicePixelRatio = GetDevicePixelRatio();
                 
-                // 🔥 修复：将返回的int转换为bool
-                browserInfo.supportsWebGL = CheckWebGLSupport() == 1;
-                browserInfo.supportsAudio = CheckAudioSupport() == 1;
-                browserInfo.supportsLocalStorage = CheckLocalStorageSupport() == 1;
+                // 检测功能支持
+                browserInfo.supportsWebGL = CheckWebGLSupport();
+                browserInfo.supportsAudio = CheckAudioSupport();
+                browserInfo.supportsLocalStorage = CheckLocalStorageSupport();
 
                 Debug.Log($"[WebGLUtils] 浏览器检测完成: {browserInfo.browserType} (移动设备: {browserInfo.isMobile})");
             }
@@ -704,198 +682,6 @@ namespace BaccaratGame.Utils
             catch (Exception ex)
             {
                 Debug.LogError($"[WebGLUtils] 打开URL失败: {ex.Message}");
-            }
-        }
-
-        #endregion
-
-        #region 🔥 新增：iframe管理方法
-
-        /// <summary>
-        /// 通用iframe加载（兼容旧版本）
-        /// </summary>
-        public static void LoadIframe(string containerId, string url)
-        {
-            try
-            {
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
-                {
-                    string parameter = $"{containerId},{url}";
-                    loadIframe(parameter);
-                    Debug.Log($"[WebGLUtils] 通用iframe加载: {containerId} -> {url}");
-                }
-                else
-                {
-                    Debug.Log($"[WebGLUtils] [模拟] 加载iframe: {containerId} -> {url}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[WebGLUtils] iframe加载失败: {ex.Message}");
-            }
-        }
-
-        /// <summary>
-        /// 加载路单iframe
-        /// </summary>
-        public static bool LoadRoadmapIframeAdvanced(string containerId, string url)
-        {
-            try
-            {
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
-                {
-                    string parameter = $"{containerId},{url}";
-                    int result = LoadRoadmapIframe(parameter);
-                    bool success = result == 1;
-                    Debug.Log($"[WebGLUtils] 路单iframe加载{(success ? "成功" : "失败")}: {containerId}");
-                    return success;
-                }
-                else
-                {
-                    Debug.Log($"[WebGLUtils] [模拟] 加载路单iframe: {containerId} -> {url}");
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[WebGLUtils] 路单iframe加载失败: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 加载视频iframe
-        /// </summary>
-        public static bool LoadVideoIframeAdvanced(string containerId, string url)
-        {
-            try
-            {
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
-                {
-                    string parameter = $"{containerId},{url}";
-                    int result = LoadVideoIframe(parameter);
-                    bool success = result == 1;
-                    Debug.Log($"[WebGLUtils] 视频iframe加载{(success ? "成功" : "失败")}: {containerId}");
-                    return success;
-                }
-                else
-                {
-                    Debug.Log($"[WebGLUtils] [模拟] 加载视频iframe: {containerId} -> {url}");
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[WebGLUtils] 视频iframe加载失败: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 缩放视频iframe
-        /// </summary>
-        public static bool ScaleVideoIframeAdvanced(float scale, int duration = 500)
-        {
-            try
-            {
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
-                {
-                    string parameter = $"{scale},{duration}";
-                    int result = ScaleVideoIframe(parameter);
-                    bool success = result == 1;
-                    Debug.Log($"[WebGLUtils] 视频缩放{(success ? "成功" : "失败")}: {scale}x");
-                    return success;
-                }
-                else
-                {
-                    Debug.Log($"[WebGLUtils] [模拟] 视频缩放: {scale}x");
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[WebGLUtils] 视频缩放失败: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 刷新路单iframe
-        /// </summary>
-        public static bool RefreshRoadmapIframeAdvanced()
-        {
-            try
-            {
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
-                {
-                    int result = RefreshRoadmapIframe();
-                    bool success = result == 1;
-                    Debug.Log($"[WebGLUtils] 路单刷新{(success ? "成功" : "失败")}");
-                    return success;
-                }
-                else
-                {
-                    Debug.Log($"[WebGLUtils] [模拟] 刷新路单iframe");
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[WebGLUtils] 路单刷新失败: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 重置视频缩放
-        /// </summary>
-        public static bool ResetVideoScaleAdvanced()
-        {
-            try
-            {
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
-                {
-                    int result = ResetVideoScale();
-                    bool success = result == 1;
-                    Debug.Log($"[WebGLUtils] 视频重置{(success ? "成功" : "失败")}");
-                    return success;
-                }
-                else
-                {
-                    Debug.Log($"[WebGLUtils] [模拟] 重置视频缩放");
-                    return true;
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[WebGLUtils] 视频重置失败: {ex.Message}");
-                return false;
-            }
-        }
-
-        /// <summary>
-        /// 获取iframe状态
-        /// </summary>
-        public static string GetIframeStatusAdvanced(string containerId)
-        {
-            try
-            {
-                if (Application.platform == RuntimePlatform.WebGLPlayer)
-                {
-                    string status = GetIframeStatus(containerId);
-                    Debug.Log($"[WebGLUtils] 获取iframe状态: {containerId}");
-                    return status;
-                }
-                else
-                {
-                    Debug.Log($"[WebGLUtils] [模拟] 获取iframe状态: {containerId}");
-                    return "{\"status\":\"模拟状态\"}";
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.LogError($"[WebGLUtils] 获取iframe状态失败: {ex.Message}");
-                return "{\"error\":\"获取状态失败\"}";
             }
         }
 

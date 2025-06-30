@@ -179,7 +179,7 @@ namespace BaccaratGame.UI.Components
             {
                 // 优先调用前端增强版的LoadRoadmapIframe函数
                 string jsFunction = $"window.LoadRoadmapIframe('{iframeContainerId}', '{roadmapUrl}')";
-                Application.ExternalEval(jsFunction);
+                WebGLJavaScriptBridge.ExecuteJS;
                 
                 Debug.Log($"[RoadmapPanel] 调用LoadRoadmapIframe成功");
             }
@@ -205,7 +205,7 @@ namespace BaccaratGame.UI.Components
             {
                 // 调用前端增强版的RefreshRoadmapIframe函数
                 string jsFunction = "window.RefreshRoadmapIframe()";
-                Application.ExternalEval(jsFunction);
+                WebGLJavaScriptBridge.ExecuteJS;
                 
                 Debug.Log($"[RoadmapPanel] 调用RefreshRoadmapIframe成功");
             }
@@ -232,7 +232,7 @@ namespace BaccaratGame.UI.Components
             try
             {
                 string jsFunction = $"window.{functionName}('{parameter}')";
-                Application.ExternalEval(jsFunction);
+                WebGLJavaScriptBridge.ExecuteJS;
                 
                 Debug.Log($"[RoadmapPanel] 调用JS函数成功: {functionName}");
             }

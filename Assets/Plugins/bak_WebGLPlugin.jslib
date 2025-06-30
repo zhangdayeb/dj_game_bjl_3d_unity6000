@@ -210,22 +210,6 @@ mergeInto(LibraryManager.library, {
     },
 
     // ================================================================================================
-    // 🔥 新增：JavaScript执行函数（替代Application.ExternalEval）
-    // ================================================================================================
-
-    /**
-     * 执行JavaScript代码（替代Application.ExternalEval）
-     */
-    EvaluateJavaScript: function (jsCodePtr) {
-        try {
-            var jsCode = UTF8ToString(jsCodePtr);
-            eval(jsCode);
-        } catch (error) {
-            console.error('[Unity] 执行JavaScript代码失败:', error);
-        }
-    },
-
-    // ================================================================================================
     // 扩展功能函数（为了完整性添加）
     // ================================================================================================
 
@@ -474,10 +458,8 @@ mergeInto(LibraryManager.library, {
                 var success = window.LayeredIframeManager.createRoadmapIframe(containerId, url);
                 return success ? 1 : 0;
             } else {
-                console.error('[Unity插件] LayeredIframeManager不可用，使用基础方法');
-                // 降级到基础iframe加载
-                loadIframe(containerIdAndUrlPtr);
-                return 1;
+                console.error('[Unity插件] LayeredIframeManager不可用');
+                return 0;
             }
             
         } catch (e) {
@@ -510,10 +492,8 @@ mergeInto(LibraryManager.library, {
                 var success = window.LayeredIframeManager.createVideoIframe(containerId, url);
                 return success ? 1 : 0;
             } else {
-                console.error('[Unity插件] LayeredIframeManager不可用，使用基础方法');
-                // 降级到基础iframe加载
-                loadIframe(containerIdAndUrlPtr);
-                return 1;
+                console.error('[Unity插件] LayeredIframeManager不可用');
+                return 0;
             }
             
         } catch (e) {
