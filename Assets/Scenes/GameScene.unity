@@ -704,8 +704,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4280815935
-  m_fontColor: {r: 0.24528301, g: 0.06803132, b: 0.15614192, a: 1}
+    rgba: 4294374137
+  m_fontColor: {r: 0.97735846, g: 0.9496974, b: 0.9635279, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -9242,8 +9242,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4280815935
-  m_fontColor: {r: 0.24528301, g: 0.06803132, b: 0.15614192, a: 1}
+    rgba: 4294374137
+  m_fontColor: {r: 0.97735846, g: 0.9496974, b: 0.9635279, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -9648,8 +9648,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4280815935
-  m_fontColor: {r: 0.24528301, g: 0.06803132, b: 0.15614192, a: 1}
+    rgba: 4294374137
+  m_fontColor: {r: 0.97735846, g: 0.9496974, b: 0.9635279, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -10108,8 +10108,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4280815935
-  m_fontColor: {r: 0.24528301, g: 0.06803132, b: 0.15614192, a: 1}
+    rgba: 4294374137
+  m_fontColor: {r: 0.97735846, g: 0.9496974, b: 0.9635279, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -15123,8 +15123,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4280815935
-  m_fontColor: {r: 0.24528301, g: 0.06803132, b: 0.15614192, a: 1}
+    rgba: 4294374137
+  m_fontColor: {r: 0.97735846, g: 0.9496974, b: 0.9635279, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
@@ -15491,8 +15491,8 @@ MonoBehaviour:
   m_fontMaterials: []
   m_fontColor32:
     serializedVersion: 2
-    rgba: 4280815935
-  m_fontColor: {r: 0.24528301, g: 0.06803132, b: 0.15614192, a: 1}
+    rgba: 4294374137
+  m_fontColor: {r: 0.97735846, g: 0.9496974, b: 0.9635279, a: 1}
   m_enableVertexGradient: 0
   m_colorMode: 3
   m_fontColorGradient:
