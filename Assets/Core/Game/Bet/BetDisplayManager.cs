@@ -1,6 +1,6 @@
 // Assets/Scripts/Core/BetDisplayManager.cs
 // 投注显示管理器 - UI显示控制器
-// 负责管理所有投注区域的金额显示、筹码显示和闪烁效果
+// 负责管理所有投注区域的金额显示和筹码显示
 // 创建时间: 2025/6/30
 
 using UnityEngine;
@@ -8,7 +8,6 @@ using UnityEngine.UI;
 using TMPro;
 using System.Collections.Generic;
 using System.Collections;
-using System.Linq;
 using BaccaratGame.Managers;
 
 namespace BaccaratGame.Core
@@ -25,7 +24,6 @@ namespace BaccaratGame.Core
         [Header("UI组件引用")]
         public TextMeshProUGUI moneyText;               // 金额显示文本
         public Transform chipsContainer;                // 筹码容器
-        public GameObject areaObject;                   // 投注区域对象（用于闪烁）
 
         /// <summary>
         /// 验证配置是否完整
@@ -40,13 +38,13 @@ namespace BaccaratGame.Core
         /// </summary>
         public string GetDebugInfo()
         {
-            return $"{areaType} - Text:{(moneyText != null ? "✓" : "✗")} Chips:{(chipsContainer != null ? "✓" : "✗")} Area:{(areaObject != null ? "✓" : "✗")}";
+            return $"{areaType} - Text:{(moneyText != null ? "✓" : "✗")} Chips:{(chipsContainer != null ? "✓" : "✗")}";
         }
     }
 
     /// <summary>
     /// 投注显示管理器
-    /// 负责管理所有投注区域的UI显示更新和闪烁效果
+    /// 负责管理所有投注区域的UI显示更新
     /// </summary>
     public class BetDisplayManager : MonoBehaviour
     {
@@ -55,22 +53,8 @@ namespace BaccaratGame.Core
         [Header("投注区域显示配置")]
         [SerializeField] private BetAreaDisplay[] betAreaDisplays = new BetAreaDisplay[8];
 
-        [Header("显示格式配置")]
-        [SerializeField] private string moneyFormat = "¥{0}";           // 金额显示格式
-        [SerializeField] private Color normalTextColor = Color.white;    // 正常文本颜色
-        [SerializeField] private Color highlightTextColor = Color.yellow; // 高亮文本颜色
-
         [Header("筹码显示配置")]
-        [SerializeField] private float chipSize = 30f;                  // 筹码图标大小
-        [SerializeField] private float chipSpacing = 5f;                // 筹码间距
-        [SerializeField] private int maxChipsPerRow = 5;                // 每行最大筹码数
         [SerializeField] private bool enableChipAnimation = true;        // 是否启用筹码动画
-
-        [Header("闪烁效果配置")]
-        [SerializeField] private float flashDuration = 2f;              // 闪烁持续时间
-        [SerializeField] private float flashInterval = 0.3f;            // 闪烁间隔
-        [SerializeField] private Color flashColor = Color.yellow;       // 闪烁颜色
-        [SerializeField] private AnimationCurve flashCurve = AnimationCurve.EaseInOut(0, 0, 1, 1); // 闪烁曲线
 
         #endregion
 
@@ -78,7 +62,6 @@ namespace BaccaratGame.Core
 
         private Dictionary<BetAreaType, BetAreaDisplay> areaDisplayMap;  // 区域显示映射
         private Dictionary<BetAreaType, List<GameObject>> chipObjects;   // 筹码对象映射
-        private Dictionary<BetAreaType, Coroutine> flashCoroutines;      // 闪烁协程映射
         private Dictionary<int, Sprite> chipSpritesMap;                  // 筹码图片映射
         private bool isInitialized = false;
 
@@ -114,7 +97,6 @@ namespace BaccaratGame.Core
             // 初始化映射字典
             areaDisplayMap = new Dictionary<BetAreaType, BetAreaDisplay>();
             chipObjects = new Dictionary<BetAreaType, List<GameObject>>();
-            flashCoroutines = new Dictionary<BetAreaType, Coroutine>();
             chipSpritesMap = new Dictionary<int, Sprite>();
 
             // 加载筹码图片资源
@@ -141,8 +123,8 @@ namespace BaccaratGame.Core
             {
                 int chipValue = availableChips[i];
                 
-                // 构建资源路径，参考ChipSelectionManager的命名规则
-                string spritePath = $"Images/chips/B_{chipValue}"; // 假设筹码图片命名为 B_1, B_5, B_10 等
+                // 根据截图中的路径结构：Assets/Resources/Images/chips/B_01, B_1K 等
+                string spritePath = $"Images/chips/B_{chipValue:D2}"; // 先尝试两位数格式 B_01, B_05, B_10, B_20, B_50
                 
                 Sprite chipSprite = Resources.Load<Sprite>(spritePath);
                 if (chipSprite != null)
@@ -152,14 +134,27 @@ namespace BaccaratGame.Core
                 }
                 else
                 {
-                    Debug.LogWarning($"[BetDisplayManager] 未找到筹码图片: {spritePath}");
-                    // 如果找不到图片，可以尝试其他可能的命名方式
-                    string alternativePath = $"Images/chips/chip_{chipValue}";
-                    chipSprite = Resources.Load<Sprite>(alternativePath);
-                    if (chipSprite != null)
+                    // 尝试其他可能的命名方式
+                    string[] alternativePaths = {
+                        $"Images/chips/B_{chipValue}", // B_1, B_5 等
+                        $"Images/chips/B_{chipValue}K", // B_1K, B_5K 等 (如果是千)
+                        $"Images/chips/B_{chipValue}M"  // B_1M, B_5M 等 (如果是万)
+                    };
+                    
+                    foreach (string altPath in alternativePaths)
                     {
-                        chipSpritesMap[chipValue] = chipSprite;
-                        Debug.Log($"[BetDisplayManager] 使用备选路径加载筹码图片: {alternativePath}");
+                        chipSprite = Resources.Load<Sprite>(altPath);
+                        if (chipSprite != null)
+                        {
+                            chipSpritesMap[chipValue] = chipSprite;
+                            Debug.Log($"[BetDisplayManager] 使用备选路径加载筹码图片: {altPath}");
+                            break;
+                        }
+                    }
+                    
+                    if (chipSprite == null)
+                    {
+                        Debug.LogWarning($"[BetDisplayManager] 未找到筹码图片: 尝试了多个路径但都失败");
                     }
                 }
             }
@@ -202,7 +197,7 @@ namespace BaccaratGame.Core
             // 清空现有的筹码对象（包括默认的Image）
             ClearContainerChildren(display.chipsContainer);
 
-            // 设置容器布局（如果没有Layout组件的话）
+            // 设置容器布局为垂直布局
             SetupContainerLayout(display.chipsContainer);
         }
 
@@ -233,23 +228,39 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 设置容器布局
+        /// 设置容器布局为垂直布局
         /// </summary>
         /// <param name="container">容器Transform</param>
         private void SetupContainerLayout(Transform container)
         {
-            var layoutGroup = container.GetComponent<HorizontalLayoutGroup>();
-            if (layoutGroup == null)
+            // 移除可能存在的水平布局组件
+            var horizontalLayout = container.GetComponent<HorizontalLayoutGroup>();
+            if (horizontalLayout != null)
             {
-                layoutGroup = container.gameObject.AddComponent<HorizontalLayoutGroup>();
-                layoutGroup.spacing = chipSpacing;
-                layoutGroup.childControlWidth = false;
-                layoutGroup.childControlHeight = false;
-                layoutGroup.childForceExpandWidth = false;
-                layoutGroup.childForceExpandHeight = false;
-                layoutGroup.childAlignment = TextAnchor.MiddleLeft;
+                if (Application.isPlaying)
+                {
+                    Destroy(horizontalLayout);
+                }
+                else
+                {
+                    DestroyImmediate(horizontalLayout);
+                }
+            }
+
+            // 添加垂直布局组件
+            var verticalLayout = container.GetComponent<VerticalLayoutGroup>();
+            if (verticalLayout == null)
+            {
+                verticalLayout = container.gameObject.AddComponent<VerticalLayoutGroup>();
+                verticalLayout.spacing = 2f; // 筹码间距很小，营造堆叠效果
+                verticalLayout.childControlWidth = false;
+                verticalLayout.childControlHeight = false;
+                verticalLayout.childForceExpandWidth = false;
+                verticalLayout.childForceExpandHeight = false;
+                verticalLayout.childAlignment = TextAnchor.LowerCenter; // 从底部开始堆叠
+                verticalLayout.reverseArrangement = false; // 第一个筹码在底部
                 
-                Debug.Log($"[BetDisplayManager] 为容器 {container.name} 添加了HorizontalLayoutGroup");
+                Debug.Log($"[BetDisplayManager] 为容器 {container.name} 添加了VerticalLayoutGroup");
             }
         }
 
@@ -407,8 +418,7 @@ namespace BaccaratGame.Core
 
             if (amount > 0)
             {
-                display.moneyText.text = string.Format(moneyFormat, amount);
-                display.moneyText.color = normalTextColor;
+                display.moneyText.text = amount.ToString(); // 直接显示数字，不加任何符号
                 display.moneyText.gameObject.SetActive(true);
             }
             else
@@ -471,13 +481,10 @@ namespace BaccaratGame.Core
             for (int i = 0; i < chips.Count; i++)
             {
                 var chipValue = chips[i];
-                GameObject chipObj = CreateChipImageObject(display.chipsContainer, chipValue);
+                GameObject chipObj = CreateChipImageObject(display.chipsContainer, chipValue, display.areaType);
                 if (chipObj != null)
                 {
                     chipObjects[display.areaType].Add(chipObj);
-                    
-                    // 设置堆叠效果（稍微错开位置）
-                    ApplyStackingEffect(chipObj, i);
                     
                     // 添加动画效果
                     if (enableChipAnimation)
@@ -493,8 +500,9 @@ namespace BaccaratGame.Core
         /// </summary>
         /// <param name="parent">父容器</param>
         /// <param name="chipValue">筹码值</param>
+        /// <param name="areaType">区域类型</param>
         /// <returns>筹码对象</returns>
-        private GameObject CreateChipImageObject(Transform parent, int chipValue)
+        private GameObject CreateChipImageObject(Transform parent, int chipValue, BetAreaType areaType)
         {
             // 创建基础对象
             GameObject chipObj = new GameObject($"Chip_{chipValue}");
@@ -515,7 +523,8 @@ namespace BaccaratGame.Core
                 Debug.LogWarning($"[BetDisplayManager] 筹码值 {chipValue} 没有对应的图片，使用颜色块");
             }
 
-            // 设置大小
+            // 根据区域类型设置筹码大小
+            float chipSize = GetChipSizeForArea(areaType);
             RectTransform rectTransform = chipObj.GetComponent<RectTransform>();
             rectTransform.sizeDelta = new Vector2(chipSize, chipSize);
 
@@ -526,24 +535,22 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 应用筹码堆叠效果
+        /// 根据区域类型获取筹码大小
         /// </summary>
-        /// <param name="chipObj">筹码对象</param>
-        /// <param name="stackIndex">堆叠索引</param>
-        private void ApplyStackingEffect(GameObject chipObj, int stackIndex)
+        /// <param name="areaType">区域类型</param>
+        /// <returns>筹码大小</returns>
+        private float GetChipSizeForArea(BetAreaType areaType)
         {
-            RectTransform rectTransform = chipObj.GetComponent<RectTransform>();
-            if (rectTransform == null) return;
-
-            // 计算堆叠偏移
-            float offsetX = stackIndex * (chipSize * 0.1f); // 每个筹码稍微向右偏移
-            float offsetY = stackIndex * (chipSize * 0.05f); // 每个筹码稍微向上偏移，营造堆叠效果
-            
-            // 应用偏移
-            rectTransform.anchoredPosition = new Vector2(offsetX, offsetY);
-            
-            // 设置渲染顺序，后面的筹码在上层
-            rectTransform.SetSiblingIndex(stackIndex);
+            // Banker, Player, Tie 区域使用大筹码 65x65
+            if (areaType == BetAreaType.Banker || areaType == BetAreaType.Player || areaType == BetAreaType.Tie)
+            {
+                return 65f;
+            }
+            // 其他区域使用小筹码 35x35
+            else
+            {
+                return 35f;
+            }
         }
 
         /// <summary>
@@ -590,157 +597,13 @@ namespace BaccaratGame.Core
             {
                 elapsed += Time.deltaTime;
                 float progress = elapsed / duration;
-                float scale = flashCurve.Evaluate(progress);
+                float scale = Mathf.SmoothStep(0f, 1f, progress);
                 
                 rectTransform.localScale = originalScale * scale;
                 yield return null;
             }
 
             rectTransform.localScale = originalScale;
-        }
-
-        #endregion
-
-        #region 闪烁效果
-
-        /// <summary>
-        /// 开始闪烁指定区域
-        /// </summary>
-        /// <param name="areaId">区域ID</param>
-        public void StartFlashArea(int areaId)
-        {
-            BetAreaType areaType = (BetAreaType)areaId;
-            StartFlashArea(areaType);
-        }
-
-        /// <summary>
-        /// 开始闪烁指定区域
-        /// </summary>
-        /// <param name="areaType">区域类型</param>
-        public void StartFlashArea(BetAreaType areaType)
-        {
-            if (!areaDisplayMap.ContainsKey(areaType))
-            {
-                Debug.LogWarning($"[BetDisplayManager] 无法闪烁区域: {areaType}");
-                return;
-            }
-
-            // 停止现有的闪烁
-            StopFlashArea(areaType);
-
-            // 开始新的闪烁
-            var display = areaDisplayMap[areaType];
-            if (display.areaObject != null)
-            {
-                flashCoroutines[areaType] = StartCoroutine(FlashAreaCoroutine(display));
-                Debug.Log($"[BetDisplayManager] 开始闪烁区域: {areaType}");
-            }
-        }
-
-        /// <summary>
-        /// 停止闪烁指定区域
-        /// </summary>
-        /// <param name="areaType">区域类型</param>
-        public void StopFlashArea(BetAreaType areaType)
-        {
-            if (flashCoroutines.ContainsKey(areaType) && flashCoroutines[areaType] != null)
-            {
-                StopCoroutine(flashCoroutines[areaType]);
-                flashCoroutines[areaType] = null;
-
-                // 恢复原始状态
-                RestoreAreaOriginalState(areaType);
-                Debug.Log($"[BetDisplayManager] 停止闪烁区域: {areaType}");
-            }
-        }
-
-        /// <summary>
-        /// 停止所有闪烁
-        /// </summary>
-        public void StopAllFlash()
-        {
-            var areaTypes = new List<BetAreaType>(flashCoroutines.Keys);
-            foreach (var areaType in areaTypes)
-            {
-                StopFlashArea(areaType);
-            }
-        }
-
-        /// <summary>
-        /// 闪烁区域协程
-        /// </summary>
-        /// <param name="display">区域显示配置</param>
-        /// <returns>协程</returns>
-        private IEnumerator FlashAreaCoroutine(BetAreaDisplay display)
-        {
-            var image = display.areaObject.GetComponent<Image>();
-            var originalColor = image != null ? image.color : Color.white;
-
-            float elapsed = 0f;
-            while (elapsed < flashDuration)
-            {
-                // 计算闪烁强度
-                float flashProgress = (elapsed % flashInterval) / flashInterval;
-                float intensity = flashCurve.Evaluate(flashProgress);
-
-                // 应用闪烁效果
-                ApplyFlashEffect(display, intensity, originalColor);
-
-                elapsed += Time.deltaTime;
-                yield return null;
-            }
-
-            // 恢复原始状态
-            RestoreAreaOriginalState(display.areaType);
-            flashCoroutines[display.areaType] = null;
-        }
-
-        /// <summary>
-        /// 应用闪烁效果
-        /// </summary>
-        /// <param name="display">区域显示配置</param>
-        /// <param name="intensity">闪烁强度</param>
-        /// <param name="originalColor">原始颜色</param>
-        private void ApplyFlashEffect(BetAreaDisplay display, float intensity, Color originalColor)
-        {
-            var image = display.areaObject.GetComponent<Image>();
-            if (image != null)
-            {
-                Color flashedColor = Color.Lerp(originalColor, flashColor, intensity);
-                image.color = flashedColor;
-            }
-
-            // 文字高亮效果
-            if (display.moneyText != null)
-            {
-                Color textColor = Color.Lerp(normalTextColor, highlightTextColor, intensity);
-                display.moneyText.color = textColor;
-            }
-        }
-
-        /// <summary>
-        /// 恢复区域原始状态
-        /// </summary>
-        /// <param name="areaType">区域类型</param>
-        private void RestoreAreaOriginalState(BetAreaType areaType)
-        {
-            if (!areaDisplayMap.ContainsKey(areaType)) return;
-
-            var display = areaDisplayMap[areaType];
-            
-            // 恢复区域对象颜色
-            var image = display.areaObject?.GetComponent<Image>();
-            if (image != null)
-            {
-                // 这里应该恢复到原始颜色，暂时设为白色
-                image.color = Color.white;
-            }
-
-            // 恢复文字颜色
-            if (display.moneyText != null)
-            {
-                display.moneyText.color = normalTextColor;
-            }
         }
 
         #endregion
@@ -772,16 +635,6 @@ namespace BaccaratGame.Core
         public BetAreaDisplay GetAreaDisplay(BetAreaType areaType)
         {
             return areaDisplayMap.ContainsKey(areaType) ? areaDisplayMap[areaType] : null;
-        }
-
-        /// <summary>
-        /// 设置金额显示格式
-        /// </summary>
-        /// <param name="format">格式字符串</param>
-        public void SetMoneyFormat(string format)
-        {
-            moneyFormat = format;
-            RefreshAllDisplays();
         }
 
         /// <summary>
@@ -820,78 +673,15 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 测试闪烁效果
-        /// </summary>
-        [ContextMenu("测试闪烁效果")]
-        public void TestFlashEffects()
-        {
-            if (!Application.isPlaying)
-            {
-                Debug.Log("请在运行时测试闪烁效果");
-                return;
-            }
-
-            Debug.Log("=== 测试所有区域闪烁效果 ===");
-            
-            foreach (BetAreaType areaType in areaDisplayMap.Keys)
-            {
-                StartFlashArea(areaType);
-            }
-
-            // 5秒后停止所有闪烁
-            StartCoroutine(StopFlashAfterDelay(5f));
-        }
-
-        /// <summary>
-        /// 延迟停止闪烁
-        /// </summary>
-        /// <param name="delay">延迟时间</param>
-        /// <returns>协程</returns>
-        private IEnumerator StopFlashAfterDelay(float delay)
-        {
-            yield return new WaitForSeconds(delay);
-            StopAllFlash();
-            Debug.Log("停止所有闪烁效果");
-        }
-
-        /// <summary>
         /// 获取显示管理器状态信息
         /// </summary>
         /// <returns>状态信息</returns>
         public string GetStatusInfo()
         {
-            int activeFlashCount = 0;
-            if (flashCoroutines != null)
-            {
-                foreach (var coroutine in flashCoroutines.Values)
-                {
-                    if (coroutine != null) activeFlashCount++;
-                }
-            }
-
             return $"[BetDisplayManager] 状态:\n" +
                    $"已初始化: {isInitialized}\n" +
                    $"配置区域数: {areaDisplayMap?.Count ?? 0}/8\n" +
-                   $"活跃闪烁数: {activeFlashCount}";
-        }
-
-        #endregion
-
-        #region 辅助方法
-
-        /// <summary>
-        /// 获取第一个有效的区域显示配置（用于获取筹码图片等共用资源）
-        /// </summary>
-        /// <returns>区域显示配置</returns>
-        private BetAreaDisplay GetFirstValidDisplay()
-        {
-            if (areaDisplayMap == null || areaDisplayMap.Count == 0) return null;
-            
-            foreach (var display in areaDisplayMap.Values)
-            {
-                if (display != null) return display;
-            }
-            return null;
+                   $"已加载筹码图片数: {chipSpritesMap?.Count ?? 0}";
         }
 
         #endregion
