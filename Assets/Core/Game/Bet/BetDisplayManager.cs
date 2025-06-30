@@ -531,6 +531,9 @@ namespace BaccaratGame.Core
             // 保持图片比例
             chipImage.preserveAspect = true;
 
+            // 确保缩放为1,1,1，不进行任何缩放
+            rectTransform.localScale = Vector3.one;
+
             return chipObj;
         }
 
@@ -585,25 +588,13 @@ namespace BaccaratGame.Core
             if (chipObj == null) yield break;
 
             RectTransform rectTransform = chipObj.GetComponent<RectTransform>();
-            Vector3 originalScale = rectTransform.localScale;
-
-            // 从0缩放到原始大小
-            rectTransform.localScale = Vector3.zero;
             
-            float duration = 0.3f;
-            float elapsed = 0f;
-
-            while (elapsed < duration)
-            {
-                elapsed += Time.deltaTime;
-                float progress = elapsed / duration;
-                float scale = Mathf.SmoothStep(0f, 1f, progress);
-                
-                rectTransform.localScale = originalScale * scale;
-                yield return null;
-            }
-
-            rectTransform.localScale = originalScale;
+            // 不进行缩放动画，直接设置为正常大小
+            rectTransform.localScale = Vector3.one;
+            
+            // 可以添加其他动画效果，比如位置或透明度
+            // 这里暂时只是一个简单的延迟，保持原有的动画时间
+            yield return new WaitForSeconds(0.1f);
         }
 
         #endregion
