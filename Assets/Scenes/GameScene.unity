@@ -8400,6 +8400,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 747988146}
+  - component: {fileID: 747988147}
   m_Layer: 5
   m_Name: TableLayout
   m_TagString: Untagged
@@ -8429,6 +8430,23 @@ RectTransform:
   m_AnchoredPosition: {x: 0, y: 0}
   m_SizeDelta: {x: 0, y: 0}
   m_Pivot: {x: 0.5, y: 0.5}
+--- !u!114 &747988147
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 747988145}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e3418d75843afc4aa432fdf52a295ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  bottomHeightRatio: 0.35
+  middleFixedHeight: 430
+  topLayout: {fileID: 1340392491}
+  middleLayout: {fileID: 789174119}
+  bottomLayout: {fileID: 1378498794}
 --- !u!1 &748149998
 GameObject:
   m_ObjectHideFlags: 0
