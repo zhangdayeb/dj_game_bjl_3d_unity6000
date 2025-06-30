@@ -62,16 +62,19 @@
            底层：iframe层 (z-index: 1-10)
          ======================================== */
         
-        /* 路单iframe - 底部固定 */
+        /* 路单iframe - 底部固定 - 响应式高度 */
         .roadmap-layer {
             position: absolute;
             bottom: 0;
             left: 0;
             width: 100%;
-            height: 25vh; /* 固定高度 25% */
-            min-height: 150px;
+            /* 高度将通过JavaScript动态设置 */
+            height: calc(100vw * 0.35); /* 默认响应式高度 */
+            min-height: 120px; /* 最小高度约束 */
+            max-height: 25vh; /* 最大高度约束 */
             z-index: 1;
             background: #f5f5f5;
+            transition: height 0.3s ease; /* 高度变化时的平滑过渡 */
         }
         
         .roadmap-layer iframe {
@@ -82,7 +85,7 @@
             background: #f5f5f5;
         }
         
-        /* 视频iframe层 - 顶部固定，两个重叠 */
+        /* 视频iframe层 - 顶部固定，两个重叠 - 支持缩放 */
         .video-layer {
             position: absolute;
             top: 0;
@@ -102,6 +105,7 @@
             height: 100%;
             z-index: 3;
             display: none; /* 默认隐藏 */
+            overflow: hidden; /* 防止缩放时溢出 */
         }
         
         .video-far-layer iframe {
@@ -121,6 +125,7 @@
             height: 100%;
             z-index: 4;
             display: block; /* 默认显示近景 */
+            overflow: hidden; /* 防止缩放时溢出 */
         }
         
         .video-near-layer iframe {
@@ -129,6 +134,18 @@
             border: none;
             display: block;
             background: #000;
+        }
+        
+        /* 新增：视频缩放包装器 */
+        .video-scale-wrapper {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-origin: center center; /* 从中心点缩放 */
+            transition: transform 0.5s ease-out; /* 默认缩放动画 */
+            will-change: transform; /* 优化GPU加速 */
+            backface-visibility: hidden; /* 防止闪烁 */
+            -webkit-backface-visibility: hidden;
         }
         
         /* ========================================
@@ -358,6 +375,21 @@
             max-width: 250px;
         }
         
+        /* 新增：iframe状态显示样式 */
+        .refresh-status {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 1000;
+            pointer-events: none;
+            animation: fadeInOut 3s ease-in-out;
+        }
+        
         /* 动画效果 */
         @keyframes pulse {
             0%, 100% { opacity: 1; }
@@ -367,6 +399,12 @@
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateX(20px); }
+            20%, 80% { opacity: 1; transform: translateX(0); }
+            100% { opacity: 0; transform: translateX(20px); }
         }
         
         .loading-step.active {
@@ -381,8 +419,9 @@
             }
             
             .roadmap-layer {
-                height: 20vh;
+                height: calc(100vw * 0.35);
                 min-height: 120px;
+                max-height: 200px;
             }
             
             .loading-title {
@@ -401,8 +440,9 @@
             }
             
             .roadmap-layer {
-                height: 18vh;
+                height: calc(100vw * 0.32);
                 min-height: 100px;
+                max-height: 180px;
             }
         }
     </style>
@@ -638,11 +678,17 @@
     <script src="TemplateData/safari-compatibility.js"></script>
     <script src="TemplateData/error-handler.js"></script>
     
-    <!-- 分层iframe管理器 -->
+    <!-- 分层iframe管理器 - 增强版 -->
     <script>
-        // 分层iframe管理器
+        // 分层iframe管理器 - 增强版本
         window.LayeredIframeManager = {
             containers: new Map(),
+            roadmapHeightRatio: 0.35, // 路单高度比例
+            videoScaleState: {
+                currentScale: 1.0,
+                isAnimating: false,
+                targetContainer: null
+            },
             
             // iframe类型定义
             IFRAME_TYPES: {
@@ -651,21 +697,406 @@
                 ROADMAP: 'roadmap'           // 路单 - 底部层
             },
             
-            // 创建iframe
-            createIframe: function(containerId, url) {
+            // ================================================================================================
+            // 初始化方法
+            // ================================================================================================
+            
+            initialize: function() {
+                console.log('🎰 LayeredIframeManager 增强版初始化');
+                this.setupEventListeners();
+                this.updateDebugInfo();
+            },
+            
+            setupEventListeners: function() {
+                // 窗口大小变化时，调整路单高度
+                window.addEventListener('resize', () => {
+                    this.adjustAllRoadmapHeights();
+                });
+                
+                // 方向变化时，重新计算高度
+                window.addEventListener('orientationchange', () => {
+                    setTimeout(() => {
+                        this.adjustAllRoadmapHeights();
+                    }, 300);
+                });
+            },
+            
+            // ================================================================================================
+            // 路单iframe管理 (响应式高度)
+            // ================================================================================================
+            
+            /**
+             * 创建路单iframe - 专门的方法
+             */
+            createRoadmapIframe: function(containerId, url) {
                 try {
-                    console.log('🎯 创建分层iframe:', containerId, url);
+                    console.log('📊 创建响应式路单iframe:', containerId, url);
+                    
+                    const targetContainer = document.getElementById('roadmap-layer');
+                    if (!targetContainer) {
+                        console.error('❌ 路单容器未找到: roadmap-layer');
+                        return false;
+                    }
+                    
+                    // 清理现有内容
+                    targetContainer.innerHTML = '';
+                    
+                    // 创建iframe
+                    const iframe = document.createElement('iframe');
+                    iframe.src = url;
+                    iframe.style.cssText = `
+                        width: 100%;
+                        height: 100%;
+                        border: none;
+                        display: block;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        background: #f5f5f5;
+                    `;
+                    
+                    // 路单iframe特殊配置
+                    iframe.setAttribute('scrolling', 'auto');
+                    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms');
+                    iframe.setAttribute('frameborder', '0');
+                    
+                    // 事件处理
+                    iframe.onload = () => {
+                        console.log('✅ 路单iframe加载完成:', url);
+                        this.updateDebugInfo();
+                    };
+                    
+                    iframe.onerror = (error) => {
+                        console.error('❌ 路单iframe加载失败:', error);
+                        this.showIframeError(targetContainer, url, this.IFRAME_TYPES.ROADMAP);
+                    };
+                    
+                    // 添加到容器
+                    targetContainer.appendChild(iframe);
+                    
+                    // 设置响应式高度
+                    this.setResponsiveHeight(targetContainer);
+                    
+                    // 保存引用
+                    this.containers.set(containerId, {
+                        container: targetContainer,
+                        iframe: iframe,
+                        url: url,
+                        type: this.IFRAME_TYPES.ROADMAP
+                    });
+                    
+                    console.log('✅ 响应式路单iframe创建成功:', containerId);
+                    this.updateDebugInfo();
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ 路单iframe创建失败:', error);
+                    return false;
+                }
+            },
+            
+            /**
+             * 设置路单容器的响应式高度
+             */
+            setResponsiveHeight: function(container) {
+                if (!container) return;
+                
+                const viewportWidth = window.innerWidth;
+                const calculatedHeight = Math.floor(viewportWidth * this.roadmapHeightRatio);
+                
+                // 应用约束条件
+                const minHeight = window.innerWidth <= 480 ? 100 : 120; // 移动端更小的最小高度
+                const maxHeightVh = 25; // 25vh
+                const maxHeight = Math.floor(window.innerHeight * (maxHeightVh / 100));
+                
+                const finalHeight = Math.max(minHeight, Math.min(calculatedHeight, maxHeight));
+                
+                // 应用高度
+                container.style.height = finalHeight + 'px';
+                container.style.minHeight = minHeight + 'px';
+                
+                console.log(`📏 路单高度调整: ${viewportWidth}px × ${this.roadmapHeightRatio} = ${calculatedHeight}px → ${finalHeight}px`);
+                
+                return finalHeight;
+            },
+            
+            /**
+             * 调整所有路单容器的高度
+             */
+            adjustAllRoadmapHeights: function() {
+                const roadmapLayer = document.getElementById('roadmap-layer');
+                if (roadmapLayer && roadmapLayer.innerHTML.trim()) {
+                    this.setResponsiveHeight(roadmapLayer);
+                }
+                
+                // 更新所有路单类型的容器记录
+                for (const [id, data] of this.containers.entries()) {
+                    if (data.type === this.IFRAME_TYPES.ROADMAP) {
+                        this.setResponsiveHeight(data.container);
+                    }
+                }
+                
+                this.updateDebugInfo();
+            },
+            
+            /**
+             * 刷新路单iframe
+             */
+            refreshRoadmap: function() {
+                try {
+                    console.log('🔄 执行路单iframe刷新');
+                    
+                    // 查找路单iframe
+                    const roadmapLayer = document.getElementById('roadmap-layer');
+                    if (!roadmapLayer) {
+                        console.warn('⚠️ 路单容器未找到');
+                        return false;
+                    }
+                    
+                    const iframe = roadmapLayer.querySelector('iframe');
+                    if (!iframe) {
+                        console.warn('⚠️ 路单iframe未找到');
+                        return false;
+                    }
+                    
+                    // 保存当前URL和高度
+                    const currentSrc = iframe.src;
+                    const currentHeight = roadmapLayer.style.height;
+                    
+                    // 显示刷新状态
+                    this.showRefreshStatus(roadmapLayer, '正在刷新路单...');
+                    
+                    // 刷新iframe
+                    iframe.src = '';
+                    setTimeout(() => {
+                        iframe.src = currentSrc;
+                        // 恢复高度设置
+                        if (currentHeight) {
+                            roadmapLayer.style.height = currentHeight;
+                        }
+                        console.log('✅ 路单iframe刷新完成');
+                    }, 100);
+                    
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ 路单刷新失败:', error);
+                    return false;
+                }
+            },
+            
+            // ================================================================================================
+            // 视频iframe管理 (支持缩放)
+            // ================================================================================================
+            
+            /**
+             * 创建视频iframe - 专门的方法
+             */
+            createVideoIframe: function(containerId, url) {
+                try {
+                    console.log('📹 创建可缩放视频iframe:', containerId, url);
+                    
+                    // 确定目标容器
+                    let targetContainer, iframeType;
+                    
+                    if (containerId.includes('far') || containerId.includes('wide') || containerId.includes('overview')) {
+                        targetContainer = document.getElementById('video-far-layer');
+                        iframeType = this.IFRAME_TYPES.VIDEO_FAR;
+                        console.log('📹 远景视频iframe -> 顶部远景层');
+                    } else {
+                        targetContainer = document.getElementById('video-near-layer');
+                        iframeType = this.IFRAME_TYPES.VIDEO_NEAR;
+                        console.log('📹 近景视频iframe -> 顶部近景层');
+                    }
+                    
+                    if (!targetContainer) {
+                        console.error('❌ 视频容器未找到:', containerId);
+                        return false;
+                    }
+                    
+                    // 清理现有内容
+                    targetContainer.innerHTML = '';
+                    
+                    // 创建缩放包装器
+                    const scaleWrapper = document.createElement('div');
+                    scaleWrapper.className = 'video-scale-wrapper';
+                    scaleWrapper.style.cssText = `
+                        width: 100%;
+                        height: 100%;
+                        position: relative;
+                        transform-origin: center center;
+                        transition: transform 0.5s ease-out;
+                        will-change: transform;
+                    `;
+                    
+                    // 创建iframe
+                    const iframe = document.createElement('iframe');
+                    iframe.src = url;
+                    iframe.style.cssText = `
+                        width: 100%;
+                        height: 100%;
+                        border: none;
+                        display: block;
+                        background: #000;
+                    `;
+                    
+                    // 视频iframe特殊配置
+                    iframe.setAttribute('allowfullscreen', 'true');
+                    iframe.setAttribute('scrolling', 'no');
+                    iframe.setAttribute('allow', 'autoplay; fullscreen; camera; microphone');
+                    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms allow-presentation');
+                    iframe.setAttribute('frameborder', '0');
+                    
+                    // 事件处理
+                    iframe.onload = () => {
+                        console.log('✅ 视频iframe加载完成:', url);
+                        this.updateDebugInfo();
+                    };
+                    
+                    iframe.onerror = (error) => {
+                        console.error('❌ 视频iframe加载失败:', error);
+                        this.showIframeError(targetContainer, url, iframeType);
+                    };
+                    
+                    // 组装结构
+                    scaleWrapper.appendChild(iframe);
+                    targetContainer.appendChild(scaleWrapper);
+                    
+                    // 显示对应的视频层
+                    if (iframeType === this.IFRAME_TYPES.VIDEO_FAR) {
+                        targetContainer.style.display = 'block';
+                        document.getElementById('video-near-layer').style.display = 'none';
+                    } else if (iframeType === this.IFRAME_TYPES.VIDEO_NEAR) {
+                        targetContainer.style.display = 'block';
+                        document.getElementById('video-far-layer').style.display = 'none';
+                    }
+                    
+                    // 保存引用，包含缩放包装器
+                    this.containers.set(containerId, {
+                        container: targetContainer,
+                        scaleWrapper: scaleWrapper,
+                        iframe: iframe,
+                        url: url,
+                        type: iframeType
+                    });
+                    
+                    // 更新视频缩放状态
+                    this.videoScaleState.targetContainer = targetContainer;
+                    
+                    console.log('✅ 可缩放视频iframe创建成功:', containerId);
+                    this.updateDebugInfo();
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ 视频iframe创建失败:', error);
+                    return false;
+                }
+            },
+            
+            /**
+             * 缩放视频iframe
+             */
+            scaleVideo: function(scale, duration = 500) {
+                try {
+                    if (this.videoScaleState.isAnimating) {
+                        console.warn('⚠️ 视频缩放动画进行中，跳过此次请求');
+                        return false;
+                    }
+                    
+                    console.log(`🔍 执行视频缩放: ${this.videoScaleState.currentScale} → ${scale} (${duration}ms)`);
+                    
+                    // 查找当前显示的视频容器
+                    const farLayer = document.getElementById('video-far-layer');
+                    const nearLayer = document.getElementById('video-near-layer');
+                    
+                    let activeContainer = null;
+                    if (farLayer && farLayer.style.display !== 'none' && farLayer.innerHTML.trim()) {
+                        activeContainer = farLayer;
+                    } else if (nearLayer && nearLayer.style.display !== 'none' && nearLayer.innerHTML.trim()) {
+                        activeContainer = nearLayer;
+                    }
+                    
+                    if (!activeContainer) {
+                        console.warn('⚠️ 未找到活动的视频容器');
+                        return false;
+                    }
+                    
+                    const scaleWrapper = activeContainer.querySelector('.video-scale-wrapper');
+                    if (!scaleWrapper) {
+                        console.warn('⚠️ 未找到视频缩放包装器');
+                        return false;
+                    }
+                    
+                    // 设置动画状态
+                    this.videoScaleState.isAnimating = true;
+                    
+                    // 设置过渡时间
+                    scaleWrapper.style.transition = `transform ${duration}ms ease-out`;
+                    
+                    // 应用缩放
+                    scaleWrapper.style.transform = `scale(${scale})`;
+                    
+                    // 更新状态
+                    this.videoScaleState.currentScale = scale;
+                    
+                    // 动画完成回调
+                    setTimeout(() => {
+                        this.videoScaleState.isAnimating = false;
+                        console.log('✅ 视频缩放动画完成:', scale);
+                        
+                        // 触发Unity回调（如果需要）
+                        if (window.unityInstance) {
+                            try {
+                                window.unityInstance.SendMessage('IframeManager', 'OnVideoScaleComplete', scale.toString());
+                            } catch (e) {
+                                console.warn('Unity回调失败:', e);
+                            }
+                        }
+                    }, duration);
+                    
+                    return true;
+                    
+                } catch (error) {
+                    console.error('❌ 视频缩放失败:', error);
+                    this.videoScaleState.isAnimating = false;
+                    return false;
+                }
+            },
+            
+            // ================================================================================================
+            // 原有方法保持兼容 (增强版本)
+            // ================================================================================================
+            
+            /**
+             * 创建iframe - 增强版本，自动识别类型
+             */
+            createIframe: function(containerId, url) {
+                // 根据containerId自动判断类型
+                if (containerId.includes('roadmap') || containerId.includes('road') || containerId.includes('history')) {
+                    return this.createRoadmapIframe(containerId, url);
+                } else if (containerId.includes('video') || containerId.includes('camera')) {
+                    return this.createVideoIframe(containerId, url);
+                } else {
+                    // 默认使用原有的通用方法
+                    return this.createGenericIframe(containerId, url);
+                }
+            },
+            
+            /**
+             * 通用iframe创建方法 (原有逻辑保持)
+             */
+            createGenericIframe: function(containerId, url) {
+                try {
+                    console.log('🎯 创建通用iframe:', containerId, url);
                     
                     // 确定iframe类型和目标容器
                     let targetContainer, iframeType;
                     
                     if (containerId.includes('roadmap') || containerId.includes('road') || containerId.includes('history')) {
-                        // 路单iframe - 底部固定
                         targetContainer = document.getElementById('roadmap-layer');
                         iframeType = this.IFRAME_TYPES.ROADMAP;
                         console.log('📊 路单iframe -> 底部层');
                     } else if (containerId.includes('video') || containerId.includes('camera')) {
-                        // 视频iframe - 顶部固定
                         if (containerId.includes('far') || containerId.includes('wide') || containerId.includes('overview')) {
                             targetContainer = document.getElementById('video-far-layer');
                             iframeType = this.IFRAME_TYPES.VIDEO_FAR;
@@ -676,7 +1107,6 @@
                             console.log('📹 近景视频iframe -> 顶部近景层');
                         }
                     } else {
-                        // 默认为近景视频
                         targetContainer = document.getElementById('video-near-layer');
                         iframeType = this.IFRAME_TYPES.VIDEO_NEAR;
                         console.log('📹 默认视频iframe -> 顶部近景层');
@@ -705,13 +1135,11 @@
                     
                     // 根据类型设置iframe属性
                     if (iframeType === this.IFRAME_TYPES.ROADMAP) {
-                        // 路单iframe配置
                         iframe.setAttribute('scrolling', 'auto');
                         iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-forms');
                         iframe.style.background = '#f5f5f5';
                         iframe.style.zIndex = '1';
                     } else {
-                        // 视频iframe配置  
                         iframe.setAttribute('allowfullscreen', 'true');
                         iframe.setAttribute('scrolling', 'no');
                         iframe.setAttribute('allow', 'autoplay; fullscreen; camera; microphone');
@@ -739,12 +1167,12 @@
                     // 显示容器（如果是视频iframe，需要显示对应的层）
                     if (iframeType === this.IFRAME_TYPES.VIDEO_FAR) {
                         targetContainer.style.display = 'block';
-                        // 隐藏近景
                         document.getElementById('video-near-layer').style.display = 'none';
                     } else if (iframeType === this.IFRAME_TYPES.VIDEO_NEAR) {
                         targetContainer.style.display = 'block';
-                        // 隐藏远景
                         document.getElementById('video-far-layer').style.display = 'none';
+                    } else if (iframeType === this.IFRAME_TYPES.ROADMAP) {
+                        this.setResponsiveHeight(targetContainer);
                     }
                     
                     // 保存引用
@@ -765,7 +1193,13 @@
                 }
             },
             
-            // 显示iframe错误
+            // ================================================================================================
+            // 辅助方法
+            // ================================================================================================
+            
+            /**
+             * 显示iframe错误
+             */
             showIframeError: function(container, url, type) {
                 const errorContent = `
                     <div style="display: flex; flex-direction: column; justify-content: center; 
@@ -792,10 +1226,41 @@
                 container.innerHTML = errorContent;
             },
             
-            // 重试加载
+            /**
+             * 显示刷新状态
+             */
+            showRefreshStatus: function(container, message) {
+                const statusDiv = document.createElement('div');
+                statusDiv.className = 'refresh-status';
+                statusDiv.style.cssText = `
+                    position: absolute;
+                    top: 10px;
+                    right: 10px;
+                    background: rgba(0,0,0,0.7);
+                    color: white;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-size: 12px;
+                    z-index: 1000;
+                    pointer-events: none;
+                `;
+                statusDiv.textContent = message;
+                
+                container.appendChild(statusDiv);
+                
+                // 3秒后自动移除
+                setTimeout(() => {
+                    if (statusDiv.parentNode) {
+                        statusDiv.parentNode.removeChild(statusDiv);
+                    }
+                }, 3000);
+            },
+            
+            /**
+             * 重试加载
+             */
             retryLoad: function(containerId, url) {
                 console.log('🔄 重试加载iframe:', containerId, url);
-                // 找到对应的容器ID进行重新创建
                 for (const [id, data] of this.containers.entries()) {
                     if (data.container.id === containerId) {
                         return this.createIframe(id, url);
@@ -804,7 +1269,28 @@
                 return false;
             },
             
-            // 设置可见性
+            /**
+             * 获取iframe状态
+             */
+            getIframeStatus: function(containerId) {
+                const containerData = this.containers.get(containerId);
+                if (!containerData) {
+                    return { exists: false, error: '容器不存在' };
+                }
+                
+                return {
+                    exists: true,
+                    type: containerData.type,
+                    url: containerData.url,
+                    loaded: containerData.iframe ? true : false,
+                    scale: containerData.type.includes('video') ? this.videoScaleState.currentScale : null,
+                    height: containerData.type === this.IFRAME_TYPES.ROADMAP ? containerData.container.style.height : null
+                };
+            },
+            
+            /**
+             * 设置可见性
+             */
             setVisibility: function(containerId, visible) {
                 const containerData = this.containers.get(containerId);
                 if (containerData) {
@@ -816,22 +1302,30 @@
                 return false;
             },
             
-            // 刷新iframe
+            /**
+             * 刷新iframe
+             */
             refresh: function(containerId) {
                 const containerData = this.containers.get(containerId);
                 if (containerData) {
-                    const currentSrc = containerData.iframe.src;
-                    containerData.iframe.src = '';
-                    setTimeout(() => {
-                        containerData.iframe.src = currentSrc;
-                    }, 100);
-                    console.log(`🔄 ${containerData.type} 刷新完成`);
-                    return true;
+                    if (containerData.type === this.IFRAME_TYPES.ROADMAP) {
+                        return this.refreshRoadmap();
+                    } else {
+                        const currentSrc = containerData.iframe.src;
+                        containerData.iframe.src = '';
+                        setTimeout(() => {
+                            containerData.iframe.src = currentSrc;
+                        }, 100);
+                        console.log(`🔄 ${containerData.type} 刷新完成`);
+                        return true;
+                    }
                 }
                 return false;
             },
             
-            // 销毁iframe
+            /**
+             * 销毁iframe
+             */
             destroyIframe: function(containerId) {
                 const containerData = this.containers.get(containerId);
                 if (containerData) {
@@ -847,7 +1341,9 @@
                 return false;
             },
             
-            // 切换视频源（远景/近景）
+            /**
+             * 切换视频源（远景/近景）
+             */
             switchVideoSource: function(toFar = true) {
                 const farLayer = document.getElementById('video-far-layer');
                 const nearLayer = document.getElementById('video-near-layer');
@@ -864,7 +1360,9 @@
                 this.updateDebugInfo();
             },
             
-            // 更新调试信息
+            /**
+             * 更新调试信息
+             */
             updateDebugInfo: function() {
                 const debugDiv = document.getElementById('debug-info');
                 if (debugDiv && debugDiv.style.display !== 'none') {
@@ -873,9 +1371,9 @@
                     const roadmapLayer = document.getElementById('roadmap-layer');
                     
                     document.getElementById('debug-video').textContent = 
-                        `远景:${farLayer.style.display !== 'none' ? '显示' : '隐藏'} 近景:${nearLayer.style.display !== 'none' ? '显示' : '隐藏'}`;
+                        `远景:${farLayer.style.display !== 'none' ? '显示' : '隐藏'} 近景:${nearLayer.style.display !== 'none' ? '显示' : '隐藏'} 缩放:${this.videoScaleState.currentScale}x`;
                     document.getElementById('debug-roadmap').textContent = 
-                        roadmapLayer.innerHTML ? '已加载' : '未加载';
+                        roadmapLayer.innerHTML ? `已加载(${roadmapLayer.style.height})` : '未加载';
                 }
             }
         };
@@ -1208,6 +1706,11 @@
                 // 初始化游戏桥接
                 if (window.unityBridge) {
                     window.unityBridge.initialize(unityInstance);
+                }
+                
+                // 初始化iframe管理器
+                if (window.LayeredIframeManager) {
+                    window.LayeredIframeManager.initialize();
                 }
                 
                 // 发送就绪事件

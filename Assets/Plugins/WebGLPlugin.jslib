@@ -395,6 +395,10 @@ mergeInto(LibraryManager.library, {
         }
     },
 
+    // ================================================================================================
+    // 通用iframe管理函数 (原有的基础版本)
+    // ================================================================================================
+
     /**
     * 通用iframe加载函数
     * @param {string} containerIdAndUrl - 格式："容器ID,URL"
@@ -429,6 +433,178 @@ mergeInto(LibraryManager.library, {
             console.log('✅ iframe加载成功:', containerId, url);
         } catch (e) {
             console.error('❌ loadIframe失败:', e);
+        }
+    },
+
+    // ================================================================================================
+    // 新增的iframe专业管理函数
+    // ================================================================================================
+
+    /**
+     * 加载路单iframe - 响应式高度 (宽度 * 0.35)
+     * @param {string} containerIdAndUrl - 格式："容器ID,URL"
+     */
+    LoadRoadmapIframe: function(containerIdAndUrlPtr) {
+        try {
+            var param = UTF8ToString(containerIdAndUrlPtr);
+            var parts = param.split(',');
+            var containerId = parts[0];
+            var url = parts.slice(1).join(',');
+            
+            console.log('[Unity插件] 加载路单iframe:', containerId, url);
+            
+            // 调用前端LayeredIframeManager
+            if (window.LayeredIframeManager) {
+                var success = window.LayeredIframeManager.createRoadmapIframe(containerId, url);
+                return success ? 1 : 0;
+            } else {
+                console.error('[Unity插件] LayeredIframeManager不可用');
+                return 0;
+            }
+            
+        } catch (e) {
+            console.error('[Unity插件] LoadRoadmapIframe失败:', e);
+            return 0;
+        }
+    },
+
+    /**
+     * 加载视频iframe - 支持后续缩放
+     * @param {string} containerIdAndUrl - 格式："容器ID,URL"
+     */
+    LoadVideoIframe: function(containerIdAndUrlPtr) {
+        try {
+            var param = UTF8ToString(containerIdAndUrlPtr);
+            var parts = param.split(',');
+            var containerId = parts[0];
+            var url = parts.slice(1).join(',');
+            
+            console.log('[Unity插件] 加载视频iframe:', containerId, url);
+            
+            // 检查是否为近景视频（暂不处理）
+            if (containerId.includes('near') || containerId.includes('close')) {
+                console.log('[Unity插件] 近景视频数据已接收，暂不显示:', url);
+                return 1; // 返回成功但不实际加载
+            }
+            
+            // 调用前端LayeredIframeManager
+            if (window.LayeredIframeManager) {
+                var success = window.LayeredIframeManager.createVideoIframe(containerId, url);
+                return success ? 1 : 0;
+            } else {
+                console.error('[Unity插件] LayeredIframeManager不可用');
+                return 0;
+            }
+            
+        } catch (e) {
+            console.error('[Unity插件] LoadVideoIframe失败:', e);
+            return 0;
+        }
+    },
+
+    /**
+     * 缩放视频iframe
+     * @param {string} scaleAndDuration - 格式："缩放比例,动画时长" 例如："1.5,800"
+     */
+    ScaleVideoIframe: function(scaleAndDurationPtr) {
+        try {
+            var param = UTF8ToString(scaleAndDurationPtr);
+            var parts = param.split(',');
+            var scale = parseFloat(parts[0]) || 1.0;
+            var duration = parseInt(parts[1]) || 500;
+            
+            console.log('[Unity插件] 缩放视频iframe:', scale, duration + 'ms');
+            
+            // 调用前端LayeredIframeManager
+            if (window.LayeredIframeManager) {
+                var success = window.LayeredIframeManager.scaleVideo(scale, duration);
+                return success ? 1 : 0;
+            } else {
+                console.error('[Unity插件] LayeredIframeManager不可用');
+                return 0;
+            }
+            
+        } catch (e) {
+            console.error('[Unity插件] ScaleVideoIframe失败:', e);
+            return 0;
+        }
+    },
+
+    /**
+     * 刷新路单iframe (WebSocket触发)
+     */
+    RefreshRoadmapIframe: function() {
+        try {
+            console.log('[Unity插件] 刷新路单iframe');
+            
+            // 调用前端LayeredIframeManager
+            if (window.LayeredIframeManager) {
+                var success = window.LayeredIframeManager.refreshRoadmap();
+                return success ? 1 : 0;
+            } else {
+                console.error('[Unity插件] LayeredIframeManager不可用');
+                return 0;
+            }
+            
+        } catch (e) {
+            console.error('[Unity插件] RefreshRoadmapIframe失败:', e);
+            return 0;
+        }
+    },
+
+    /**
+     * 重置视频iframe缩放
+     */
+    ResetVideoScale: function() {
+        try {
+            console.log('[Unity插件] 重置视频缩放');
+            
+            // 调用前端LayeredIframeManager
+            if (window.LayeredIframeManager) {
+                var success = window.LayeredIframeManager.scaleVideo(1.0, 500);
+                return success ? 1 : 0;
+            } else {
+                console.error('[Unity插件] LayeredIframeManager不可用');
+                return 0;
+            }
+            
+        } catch (e) {
+            console.error('[Unity插件] ResetVideoScale失败:', e);
+            return 0;
+        }
+    },
+
+    /**
+     * 获取iframe状态信息
+     * @param {string} containerId - 容器ID
+     */
+    GetIframeStatus: function(containerIdPtr) {
+        try {
+            var containerId = UTF8ToString(containerIdPtr);
+            
+            // 调用前端LayeredIframeManager
+            if (window.LayeredIframeManager) {
+                var status = window.LayeredIframeManager.getIframeStatus(containerId);
+                var statusJson = JSON.stringify(status);
+                var bufferSize = lengthBytesUTF8(statusJson) + 1;
+                var buffer = _malloc(bufferSize);
+                stringToUTF8(statusJson, buffer, bufferSize);
+                return buffer;
+            } else {
+                var emptyStatus = '{"error":"LayeredIframeManager不可用"}';
+                var bufferSize = lengthBytesUTF8(emptyStatus) + 1;
+                var buffer = _malloc(bufferSize);
+                stringToUTF8(emptyStatus, buffer, bufferSize);
+                return buffer;
+            }
+            
+        } catch (e) {
+            console.error('[Unity插件] GetIframeStatus失败:', e);
+            var errorStatus = '{"error":"' + e.message + '"}';
+            var bufferSize = lengthBytesUTF8(errorStatus) + 1;
+            var buffer = _malloc(bufferSize);
+            stringToUTF8(errorStatus, buffer, bufferSize);
+            return buffer;
         }
     },
 

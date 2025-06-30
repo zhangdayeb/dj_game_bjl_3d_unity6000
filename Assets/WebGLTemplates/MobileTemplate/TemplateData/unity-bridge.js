@@ -1,7 +1,8 @@
 /**
- * Unity游戏桥接脚本
+ * Unity游戏桥接脚本 - 增强版
  * 提供JavaScript与Unity C#之间的双向通信
  * 处理游戏参数传递、状态同步、事件分发等功能
+ * 新增：iframe管理、响应式布局、缩放控制
  */
 
 (function() {
@@ -15,6 +16,14 @@
         messageQueue: [],
         eventListeners: {},
         
+        // 新增：iframe状态管理
+        iframeState: {
+            roadmapLoaded: false,
+            videoLoaded: false,
+            lastVideoScale: 1.0,
+            lastRoadmapHeight: null
+        },
+        
         /**
          * 初始化Unity桥接
          * @param {Object} unity Unity实例
@@ -25,7 +34,7 @@
             this.unityInstance = unity;
             this.isInitialized = true;
             
-            console.log('[Unity桥接] 初始化开始');
+            console.log('[Unity桥接] 增强版初始化开始');
             
             // 设置Unity准备状态监听
             this.setupUnityReadyListener();
@@ -33,16 +42,22 @@
             // 注册全局方法供Unity调用
             this.registerGlobalMethods();
             
+            // 新增：注册iframe相关方法
+            this.registerIframeMethods();
+            
             // 初始化游戏参数
             this.initializeGameParameters();
             
             // 设置浏览器事件监听
             this.setupBrowserEventListeners();
             
+            // 新增：设置iframe事件监听
+            this.setupIframeEventListeners();
+            
             // 处理消息队列
             this.processMessageQueue();
             
-            console.log('[Unity桥接] 初始化完成');
+            console.log('[Unity桥接] 增强版初始化完成');
         },
         
         /**
@@ -62,11 +77,14 @@
                 
                 // 发送游戏参数到Unity
                 this.sendGameParameters();
+                
+                // 新增：发送iframe状态到Unity
+                this.sendIframeStatusToUnity();
             });
         },
         
         /**
-         * 注册全局方法供Unity调用
+         * 注册全局方法供Unity调用 (保持原有功能)
          */
         registerGlobalMethods: function() {
             // === Unity调用JavaScript的方法 ===
@@ -283,7 +301,208 @@
                 window.location.href = url;
             };
             
-            console.log('[Unity桥接] 全局方法注册完成');
+            console.log('[Unity桥接] 基础全局方法注册完成');
+        },
+        
+        /**
+         * 新增：注册iframe相关的全局方法
+         */
+        registerIframeMethods: function() {
+            console.log('[Unity桥接] 注册iframe相关方法');
+            
+            /**
+             * Unity调用：加载路单iframe（响应式高度）
+             */
+            window.LoadRoadmapIframe = (containerId, url) => {
+                console.log('[Unity桥接] 加载路单iframe:', containerId, url);
+                try {
+                    if (window.LayeredIframeManager) {
+                        const success = window.LayeredIframeManager.createRoadmapIframe(containerId, url);
+                        if (success) {
+                            this.iframeState.roadmapLoaded = true;
+                            this.sendMessageToUnity('IframeManager', 'OnRoadmapIframeLoaded', containerId);
+                        }
+                        return success;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('[Unity桥接] 加载路单iframe失败:', error);
+                    return false;
+                }
+            };
+            
+            /**
+             * Unity调用：加载视频iframe（支持缩放）
+             */
+            window.LoadVideoIframe = (containerId, url) => {
+                console.log('[Unity桥接] 加载视频iframe:', containerId, url);
+                try {
+                    // 检查是否为近景视频（暂不处理）
+                    if (containerId.includes('near') || containerId.includes('close')) {
+                        console.log('[Unity桥接] 近景视频数据已接收，暂不显示:', url);
+                        return true; // 返回成功但不实际加载
+                    }
+                    
+                    if (window.LayeredIframeManager) {
+                        const success = window.LayeredIframeManager.createVideoIframe(containerId, url);
+                        if (success) {
+                            this.iframeState.videoLoaded = true;
+                            this.sendMessageToUnity('IframeManager', 'OnVideoIframeLoaded', containerId);
+                        }
+                        return success;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('[Unity桥接] 加载视频iframe失败:', error);
+                    return false;
+                }
+            };
+            
+            /**
+             * Unity调用：缩放视频iframe
+             */
+            window.ScaleVideoIframe = (scale, duration = 500) => {
+                console.log('[Unity桥接] 缩放视频iframe:', scale, duration);
+                try {
+                    if (window.LayeredIframeManager) {
+                        const success = window.LayeredIframeManager.scaleVideo(parseFloat(scale), parseInt(duration));
+                        if (success) {
+                            this.iframeState.lastVideoScale = parseFloat(scale);
+                            // 延迟发送完成消息
+                            setTimeout(() => {
+                                this.sendMessageToUnity('IframeManager', 'OnVideoScaleComplete', scale.toString());
+                            }, parseInt(duration));
+                        }
+                        return success;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('[Unity桥接] 缩放视频iframe失败:', error);
+                    return false;
+                }
+            };
+            
+            /**
+             * Unity调用：刷新路单iframe
+             */
+            window.RefreshRoadmapIframe = () => {
+                console.log('[Unity桥接] 刷新路单iframe');
+                try {
+                    if (window.LayeredIframeManager) {
+                        const success = window.LayeredIframeManager.refreshRoadmap();
+                        if (success) {
+                            this.sendMessageToUnity('IframeManager', 'OnRoadmapRefreshComplete', 'success');
+                        }
+                        return success;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('[Unity桥接] 刷新路单iframe失败:', error);
+                    return false;
+                }
+            };
+            
+            /**
+             * Unity调用：重置视频缩放
+             */
+            window.ResetVideoScale = (duration = 500) => {
+                console.log('[Unity桥接] 重置视频缩放');
+                return window.ScaleVideoIframe(1.0, duration);
+            };
+            
+            /**
+             * Unity调用：获取iframe状态
+             */
+            window.GetIframeStatus = (containerId) => {
+                try {
+                    if (window.LayeredIframeManager) {
+                        const status = window.LayeredIframeManager.getIframeStatus(containerId);
+                        return JSON.stringify(status);
+                    }
+                    return JSON.stringify({ error: 'LayeredIframeManager不可用' });
+                } catch (error) {
+                    return JSON.stringify({ error: error.message });
+                }
+            };
+            
+            /**
+             * Unity调用：设置路单高度比例
+             */
+            window.SetRoadmapHeightRatio = (ratio) => {
+                console.log('[Unity桥接] 设置路单高度比例:', ratio);
+                try {
+                    if (window.LayeredIframeManager) {
+                        window.LayeredIframeManager.roadmapHeightRatio = parseFloat(ratio);
+                        window.LayeredIframeManager.adjustAllRoadmapHeights();
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('[Unity桥接] 设置路单高度比例失败:', error);
+                    return false;
+                }
+            };
+            
+            /**
+             * Unity调用：切换视频源
+             */
+            window.SwitchVideoSource = (toFar) => {
+                console.log('[Unity桥接] 切换视频源:', toFar ? '远景' : '近景');
+                try {
+                    if (window.LayeredIframeManager) {
+                        window.LayeredIframeManager.switchVideoSource(toFar);
+                        return true;
+                    }
+                    return false;
+                } catch (error) {
+                    console.error('[Unity桥接] 切换视频源失败:', error);
+                    return false;
+                }
+            };
+            
+            console.log('[Unity桥接] iframe相关方法注册完成');
+        },
+        
+        /**
+         * 新增：设置iframe事件监听
+         */
+        setupIframeEventListeners: function() {
+            console.log('[Unity桥接] 设置iframe事件监听');
+            
+            // 监听窗口大小变化，通知Unity
+            window.addEventListener('resize', () => {
+                const screenInfo = {
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    devicePixelRatio: window.devicePixelRatio || 1,
+                    roadmapHeight: this.getRoadmapHeight()
+                };
+                this.sendMessageToUnity('IframeManager', 'OnScreenSizeChanged', JSON.stringify(screenInfo));
+            });
+            
+            // 监听方向变化
+            window.addEventListener('orientationchange', () => {
+                setTimeout(() => {
+                    const orientationInfo = {
+                        orientation: this.getOrientation(),
+                        width: window.innerWidth,
+                        height: window.innerHeight,
+                        roadmapHeight: this.getRoadmapHeight()
+                    };
+                    this.sendMessageToUnity('IframeManager', 'OnOrientationChanged', JSON.stringify(orientationInfo));
+                }, 300);
+            });
+            
+            // 监听iframe加载状态
+            document.addEventListener('iframe-loaded', (event) => {
+                console.log('[Unity桥接] iframe加载完成:', event.detail);
+                this.sendMessageToUnity('IframeManager', 'OnIframeLoaded', JSON.stringify(event.detail));
+            });
+            
+            document.addEventListener('iframe-error', (event) => {
+                console.log('[Unity桥接] iframe加载错误:', event.detail);
+                this.sendMessageToUnity('IframeManager', 'OnIframeError', JSON.stringify(event.detail));
+            });
         },
         
         /**
@@ -317,6 +536,26 @@
         },
         
         /**
+         * 新增：发送iframe状态到Unity
+         */
+        sendIframeStatusToUnity: function() {
+            const iframeStatus = {
+                roadmapLoaded: this.iframeState.roadmapLoaded,
+                videoLoaded: this.iframeState.videoLoaded,
+                lastVideoScale: this.iframeState.lastVideoScale,
+                lastRoadmapHeight: this.getRoadmapHeight(),
+                supportedFeatures: {
+                    responsiveHeight: true,
+                    videoScaling: true,
+                    webSocketRefresh: true
+                }
+            };
+            
+            this.sendMessageToUnity('IframeManager', 'SetIframeStatus', JSON.stringify(iframeStatus));
+            console.log('[Unity桥接] iframe状态已发送到Unity:', iframeStatus);
+        },
+        
+        /**
          * 设置浏览器事件监听
          */
         setupBrowserEventListeners: function() {
@@ -347,16 +586,6 @@
             window.addEventListener('offline', () => {
                 this.sendMessageToUnity('NetworkManager', 'OnNetworkStatusChanged', 'false');
                 console.log('[Unity桥接] 网络连接断开');
-            });
-            
-            // 窗口大小变化
-            window.addEventListener('resize', () => {
-                const screenInfo = {
-                    width: window.innerWidth,
-                    height: window.innerHeight,
-                    devicePixelRatio: window.devicePixelRatio || 1
-                };
-                this.sendMessageToUnity('UIManager', 'OnScreenSizeChanged', JSON.stringify(screenInfo));
             });
             
             // 全屏状态变化
@@ -453,6 +682,47 @@
             console.log('[Unity桥接] 浏览器信息已发送到Unity');
         },
         
+        // ================================================================================================
+        // 辅助方法 - 新增iframe相关
+        // ================================================================================================
+        
+        /**
+         * 新增：获取路单当前高度
+         */
+        getRoadmapHeight: function() {
+            const roadmapLayer = document.getElementById('roadmap-layer');
+            if (roadmapLayer) {
+                const computedStyle = window.getComputedStyle(roadmapLayer);
+                return parseInt(computedStyle.height) || 0;
+            }
+            return 0;
+        },
+        
+        /**
+         * 新增：获取视频当前缩放比例
+         */
+        getVideoScale: function() {
+            return this.iframeState.lastVideoScale;
+        },
+        
+        /**
+         * 新增：获取iframe管理器状态
+         */
+        getIframeManagerStatus: function() {
+            return {
+                available: !!window.LayeredIframeManager,
+                roadmapLoaded: this.iframeState.roadmapLoaded,
+                videoLoaded: this.iframeState.videoLoaded,
+                currentVideoScale: this.iframeState.lastVideoScale,
+                currentRoadmapHeight: this.getRoadmapHeight(),
+                containers: window.LayeredIframeManager ? window.LayeredIframeManager.containers.size : 0
+            };
+        },
+        
+        // ================================================================================================
+        // 保持原有的所有方法 (获取浏览器信息、设备信息等)
+        // ================================================================================================
+        
         /**
          * 获取浏览器信息
          */
@@ -497,7 +767,14 @@
                     fullscreen: this.checkFullscreenSupport(),
                     share: 'share' in navigator
                 },
-                safari: window.safariCompatibility ? window.safariCompatibility.getSafariInfo() : null
+                safari: window.safariCompatibility ? window.safariCompatibility.getSafariInfo() : null,
+                // 新增：iframe相关能力
+                iframe: {
+                    layeredManagerAvailable: !!window.LayeredIframeManager,
+                    responsiveHeightSupported: true,
+                    videoScalingSupported: true,
+                    webSocketRefreshSupported: true
+                }
             };
         },
         
@@ -521,7 +798,7 @@
         getDeviceInfo: function() {
             return {
                 isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
-                isTablet: /iPad|Android(?=.*\bMobile\b)(?=.*\bSafari\b)|Android(?=.*\bSD4930UR\b)|SAMSUNG.*\bGT-[IP]|GT-P|GT-N|Android(?=.*\b(?:KFOT|KFTT|KFJWI|KFJWA|KFSOWI|KFTHWI|KFTHWA|KFAPWI|KFAPWA|KFARWI|KFASWI|KFSAWI|KFSAWA)\b)/i.test(navigator.userAgent),
+                isTablet: /iPad|Android(?=.*\bMobile\b)(?=.*\bSafari\b)|Android(?=.*\bSD4930UR\b)|GT-P|GT-N|Android(?=.*\b(?:KFOT|KFTT|KFJWI|KFJWA|KFSOWI|KFTHWI|KFTHWA|KFAPWI|KFAPWA|KFARWI|KFASWI|KFSAWI|KFSAWA)\b)/i.test(navigator.userAgent),
                 isDesktop: !/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
                 os: this.getOS(),
                 browser: this.getBrowser(),
@@ -816,6 +1093,12 @@
         cleanup: function() {
             this.eventListeners = {};
             this.messageQueue = [];
+            this.iframeState = {
+                roadmapLoaded: false,
+                videoLoaded: false,
+                lastVideoScale: 1.0,
+                lastRoadmapHeight: null
+            };
             console.log('[Unity桥接] 资源已清理');
         }
     };
@@ -827,6 +1110,6 @@
         }
     });
     
-    console.log('[Unity桥接] 桥接脚本加载完成');
+    console.log('[Unity桥接] 增强版桥接脚本加载完成');
     
 })();

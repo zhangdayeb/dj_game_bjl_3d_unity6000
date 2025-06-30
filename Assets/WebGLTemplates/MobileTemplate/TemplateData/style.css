@@ -1,6 +1,7 @@
 /* ==========================================================================
-   WebGL百家乐游戏样式表
+   WebGL百家乐游戏样式表 - 增强版
    优化WebGL性能，支持Safari和移动端
+   新增：路单响应式高度、视频缩放功能
    ========================================================================== */
 
 /* 基础重置和字体 */
@@ -85,328 +86,556 @@ body {
     -webkit-tap-highlight-color: transparent;
 }
 
-/* 加载界面 */
-#unity-loading-bar {
-    position: absolute;
-    left: 50%;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    z-index: 1000;
-}
+/* ========================================
+   分层容器基础样式
+ ======================================== */
 
-#unity-logo {
-    width: 154px;
-    height: 130px;
-    background: transparent;
-    margin-bottom: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-#unity-logo img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
-}
-
-#unity-progress-bar-empty {
-    width: 300px;
-    height: 8px;
-    margin-bottom: 15px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+/* 全局重置 */
+.game-container {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
     overflow: hidden;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
 }
 
-#unity-progress-bar-full {
-    width: 0%;
+/* ========================================
+   底层：iframe层 (z-index: 1-10) - 增强版
+ ======================================== */
+
+/* 路单iframe - 底部固定 - 响应式高度 */
+.roadmap-layer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    /* 高度将通过JavaScript动态设置 */
+    height: calc(100vw * 0.35); /* 默认响应式高度 */
+    min-height: 120px; /* 最小高度约束 */
+    max-height: 25vh; /* 最大高度约束 */
+    z-index: 1;
+    background: #f5f5f5;
+    transition: height 0.3s ease; /* 高度变化时的平滑过渡 */
+}
+
+.roadmap-layer iframe {
+    width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, #4ecdc4, #45b7d1);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-    box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+    border: none;
+    display: block;
+    background: #f5f5f5;
 }
 
-#unity-progress-text {
-    color: #ffffff;
-    font-size: 16px;
-    font-weight: 500;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
-    letter-spacing: 0.5px;
-}
-
-/* 全屏按钮 */
-#unity-fullscreen-button {
+/* 视频iframe层 - 顶部固定，两个重叠 - 支持缩放 */
+.video-layer {
     position: absolute;
-    right: 15px;
-    bottom: 15px;
-    width: 48px;
-    height: 48px;
-    background: rgba(0, 0, 0, 0.7);
-    border-radius: 8px;
-    cursor: pointer;
-    z-index: 999;
-    display: none;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 40vh; /* 固定高度 40% */
+    min-height: 240px;
+    z-index: 2;
 }
 
-#unity-fullscreen-button:hover {
-    background: rgba(0, 0, 0, 0.9);
-    transform: scale(1.05);
-}
-
-#unity-fullscreen-button::before {
-    content: "";
+/* 远景视频iframe - 支持缩放 */
+.video-far-layer {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 24px;
-    height: 24px;
-    transform: translate(-50%, -50%);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='white' viewBox='0 0 24 24'%3E%3Cpath d='M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z'/%3E%3C/svg%3E");
-    background-size: contain;
-    background-repeat: no-repeat;
-    background-position: center;
-}
-
-/* 错误界面 */
-#error-container {
-    position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    z-index: 3;
+    display: none; /* 默认隐藏 */
+    overflow: hidden; /* 防止缩放时溢出 */
+}
+
+.video-far-layer iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+    background: #000;
+}
+
+/* 近景视频iframe - 支持缩放 */
+.video-near-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+    display: block; /* 默认显示近景 */
+    overflow: hidden; /* 防止缩放时溢出 */
+}
+
+.video-near-layer iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+    background: #000;
+}
+
+/* ========================================
+   新增：视频缩放功能样式
+ ======================================== */
+
+/* 视频缩放包装器 */
+.video-scale-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-origin: center center; /* 从中心点缩放 */
+    transition: transform 0.5s ease-out; /* 默认缩放动画 */
+    will-change: transform; /* 优化GPU加速 */
+    backface-visibility: hidden; /* 防止闪烁 */
+    -webkit-backface-visibility: hidden;
+}
+
+/* 缩放动画类 */
+.video-scale-fast {
+    transition: transform 0.3s ease-out;
+}
+
+.video-scale-slow {
+    transition: transform 1s ease-out;
+}
+
+.video-scale-bounce {
+    transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+/* 缩放状态类 */
+.video-scaled {
+    transform: scale(1.5);
+}
+
+.video-scaled-large {
+    transform: scale(2.0);
+}
+
+.video-fullscreen-scale {
+    transform: scale(1.8);
+}
+
+/* ========================================
+   新增：路单响应式高度样式
+ ======================================== */
+
+/* 路单高度响应式类 */
+.roadmap-responsive {
+    height: calc(100vw * 0.35); /* 基础比例 35% */
+    min-height: 120px;
+    max-height: 25vh;
+    transition: height 0.3s ease;
+}
+
+.roadmap-compact {
+    height: calc(100vw * 0.28); /* 紧凑模式 28% */
+    min-height: 100px;
+    max-height: 20vh;
+}
+
+.roadmap-expanded {
+    height: calc(100vw * 0.42); /* 扩展模式 42% */
+    min-height: 150px;
+    max-height: 30vh;
+}
+
+/* ========================================
+   顶层：Unity Canvas层 (z-index: 999) - 保持不变
+ ======================================== */
+
+.unity-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    pointer-events: auto; /* 确保能接收所有交互事件 */
+}
+
+#unity-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background: transparent !important; /* 完全透明 */
+    border: none;
+    outline: none;
+}
+
+/* ========================================
+   加载界面 - 保持原有样式
+ ======================================== */
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     z-index: 10000;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    color: white;
 }
 
-.error-content {
-    background: linear-gradient(135deg, #2d2d44 0%, #1a1a2e 100%);
-    padding: 40px;
-    border-radius: 16px;
+.loading-content {
     text-align: center;
-    max-width: 480px;
-    margin: 20px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
+    max-width: 500px;
+    width: 90%;
+}
+
+.loading-logo {
+    font-size: 48px;
+    margin-bottom: 20px;
+    animation: pulse 2s infinite;
+}
+
+.loading-title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.loading-subtitle {
+    font-size: 14px;
+    opacity: 0.8;
+    margin-bottom: 30px;
+}
+
+/* 详细加载步骤 */
+.loading-steps {
+    margin-bottom: 30px;
+    text-align: left;
+}
+
+.loading-step {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    font-size: 14px;
+    opacity: 0.6;
+    transition: all 0.3s ease;
+}
+
+.loading-step.active {
+    opacity: 1;
+    color: #4CAF50;
+}
+
+.loading-step.completed {
+    opacity: 1;
+    color: #4CAF50;
+}
+
+.loading-step.error {
+    opacity: 1;
+    color: #f44336;
+}
+
+.step-icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 12px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 进度条 */
+.progress-container {
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #2196F3);
+    width: 0%;
+    transition: width 0.5s ease;
+}
+
+.progress-text {
+    margin-top: 10px;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.file-size-info {
+    opacity: 0.7;
+    font-size: 11px;
+}
+
+/* 时间估算 */
+.time-estimate {
+    margin-top: 15px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.time-estimate .label {
+    opacity: 0.8;
+    margin-bottom: 5px;
+}
+
+.time-estimate .value {
+    font-weight: bold;
+    color: #4CAF50;
+}
+
+/* 错误界面 */
+.error-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #c62828 0%, #d32f2f 100%);
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    z-index: 10001;
+    text-align: center;
+    padding: 20px;
 }
 
 .error-content h2 {
-    color: #ff6b6b;
-    font-size: 24px;
     margin-bottom: 20px;
-    font-weight: 600;
+    font-size: 24px;
 }
 
 .error-content p {
-    color: #ffffff;
-    font-size: 16px;
-    margin-bottom: 30px;
-    line-height: 1.6;
+    margin-bottom: 20px;
     opacity: 0.9;
+    line-height: 1.5;
 }
 
-#retry-button {
-    background: linear-gradient(135deg, #4ecdc4, #45b7d1);
+.error-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+button {
+    background: rgba(255, 255, 255, 0.2);
     color: white;
-    border: none;
-    padding: 12px 30px;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 500;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    padding: 12px 20px;
+    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.3s ease;
-    letter-spacing: 0.5px;
+    font-size: 14px;
+    transition: all 0.3s;
 }
 
-#retry-button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(78, 205, 196, 0.3);
+button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: translateY(-1px);
 }
 
-#retry-button:active {
-    transform: translateY(0);
+/* ========================================
+   新增：iframe状态显示样式
+ ======================================== */
+
+/* 刷新状态指示器 */
+.refresh-status {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+    animation: fadeInOut 3s ease-in-out;
 }
 
-/* 移动端警告 */
-#mobile-warning {
-    position: fixed;
+/* iframe加载状态 */
+.iframe-loading {
+    position: relative;
+}
+
+.iframe-loading::before {
+    content: '';
+    position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
-    display: none;
-    justify-content: center;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    display: flex;
     align-items: center;
-    z-index: 10001;
+    justify-content: center;
 }
 
-.mobile-content {
-    background: linear-gradient(135deg, #2d2d44 0%, #1a1a2e 100%);
-    padding: 30px;
-    border-radius: 16px;
-    text-align: center;
-    max-width: 90%;
-    margin: 20px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
-}
-
-.mobile-content h2 {
-    color: #ffeaa7;
-    font-size: 20px;
-    margin-bottom: 15px;
-    font-weight: 600;
-}
-
-.mobile-content p {
-    color: #ffffff;
-    font-size: 14px;
-    margin-bottom: 25px;
-    line-height: 1.5;
-    opacity: 0.9;
-}
-
-.mobile-content button {
-    background: linear-gradient(135deg, #ffeaa7, #fdcb6e);
-    color: #2d3436;
-    border: none;
-    padding: 10px 25px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-/* WebGL不支持提示 */
-.webgl-not-supported {
-    position: fixed;
+.iframe-loading::after {
+    content: '加载中...';
+    position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: linear-gradient(135deg, #2d2d44 0%, #1a1a2e 100%);
-    padding: 40px;
-    border-radius: 16px;
+    color: white;
+    font-size: 14px;
+    z-index: 101;
+}
+
+/* iframe错误状态 */
+.iframe-error {
+    background: #ff6b6b;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    max-width: 480px;
-    margin: 20px;
-    box-shadow: 0 20px 40px rgba(0,0,0,0.3);
-    border: 1px solid rgba(255,255,255,0.1);
+    padding: 20px;
 }
 
-.webgl-not-supported h2 {
-    color: #ff6b6b;
-    font-size: 24px;
-    margin-bottom: 20px;
-    font-weight: 600;
+/* ========================================
+   调试信息样式
+ ======================================== */
+
+.debug-info {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #0f0;
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-family: monospace;
+    z-index: 9999;
+    display: none;
+    max-width: 250px;
 }
 
-.webgl-not-supported p {
-    color: #ffffff;
-    font-size: 16px;
-    margin-bottom: 15px;
-    line-height: 1.6;
-    opacity: 0.9;
+/* ========================================
+   响应式设计 - 增强版
+ ======================================== */
+
+/* 桌面端优化 */
+@media screen and (min-width: 1024px) {
+    .roadmap-layer {
+        height: calc(100vw * 0.25); /* 桌面端更小的比例 */
+        min-height: 150px;
+        max-height: 300px;
+    }
+    
+    .video-layer {
+        height: 45vh; /* 桌面端更大的视频区域 */
+        min-height: 300px;
+    }
 }
 
-/* 响应式设计 */
-@media screen and (max-width: 768px) {
-    #unity-container.unity-mobile {
-        width: 100vw;
-        height: 100vh;
+/* 平板端优化 */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+    .roadmap-layer {
+        height: calc(100vw * 0.3);
+        min-height: 140px;
+        max-height: 250px;
     }
     
-    #unity-canvas {
-        width: 100% !important;
-        height: 100% !important;
+    .video-layer {
+        height: 42vh;
+        min-height: 260px;
+    }
+}
+
+/* 手机端优化 */
+@media screen and (max-width: 767px) {
+    .video-layer {
+        height: 35vh;
+        min-height: 200px;
     }
     
-    #unity-loading-bar {
-        padding: 20px;
+    .roadmap-layer {
+        height: calc(100vw * 0.35);
+        min-height: 120px;
+        max-height: 200px;
     }
     
-    #unity-logo {
-        width: 120px;
-        height: 100px;
-        margin-bottom: 15px;
-    }
-    
-    #unity-progress-bar-empty {
-        width: 250px;
-        margin-bottom: 12px;
-    }
-    
-    #unity-progress-text {
-        font-size: 14px;
-    }
-    
-    #unity-fullscreen-button {
-        right: 10px;
-        bottom: 10px;
-        width: 40px;
-        height: 40px;
-    }
-    
-    .error-content {
-        padding: 30px 20px;
-        margin: 15px;
-    }
-    
-    .error-content h2 {
+    .loading-title {
         font-size: 20px;
     }
     
-    .error-content p {
-        font-size: 14px;
-    }
-}
-
-@media screen and (max-height: 600px) {
-    #unity-loading-bar {
-        transform: translate(-50%, -50%) scale(0.8);
+    .loading-logo {
+        font-size: 36px;
     }
     
-    .error-content {
-        padding: 25px;
+    /* 移动端视频缩放优化 */
+    .video-scale-wrapper {
+        transition: transform 0.4s ease-out; /* 移动端稍快的动画 */
     }
 }
 
-/* Safari特殊优化 */
-@supports (-webkit-appearance: none) {
-    body {
-        -webkit-overflow-scrolling: touch;
+/* 小屏手机端优化 */
+@media screen and (max-width: 480px) {
+    .video-layer {
+        height: 30vh;
+        min-height: 180px;
     }
     
-    #unity-canvas {
-        -webkit-transform: translate3d(0, 0, 0);
-        transform: translate3d(0, 0, 0);
+    .roadmap-layer {
+        height: calc(100vw * 0.32);
+        min-height: 100px;
+        max-height: 180px;
+    }
+    
+    /* 小屏幕的缩放比例调整 */
+    .video-scaled {
+        transform: scale(1.3); /* 小屏幕较小的缩放比例 */
+    }
+    
+    .video-scaled-large {
+        transform: scale(1.6);
+    }
+    
+    .video-fullscreen-scale {
+        transform: scale(1.5);
     }
 }
 
-/* 高DPI屏幕优化 */
-@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-    #unity-canvas {
-        image-rendering: -webkit-optimize-contrast;
-        image-rendering: crisp-edges;
+/* 横屏适配 */
+@media screen and (orientation: landscape) and (max-height: 600px) {
+    .roadmap-layer {
+        height: calc(100vw * 0.2); /* 横屏时更小的路单高度 */
+        min-height: 80px;
+        max-height: 150px;
+    }
+    
+    .video-layer {
+        height: 50vh; /* 横屏时更大的视频区域 */
+        min-height: 200px;
     }
 }
 
-/* 动画定义 */
+/* ========================================
+   动画定义 - 扩展版
+ ======================================== */
+
 @keyframes fadeIn {
     from {
         opacity: 0;
@@ -436,23 +665,115 @@ body {
     }
 }
 
-/* 加载动画 */
-.loading-shimmer {
-    animation: shimmer 2s infinite;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
-    background-size: 200px 100%;
-    background-repeat: no-repeat;
+/* 新增：缩放动画 */
+@keyframes scaleIn {
+    from {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
-.fade-in {
-    animation: fadeIn 0.5s ease-out;
+@keyframes scaleOut {
+    from {
+        transform: scale(1);
+        opacity: 1;
+    }
+    to {
+        transform: scale(0.8);
+        opacity: 0;
+    }
 }
 
-.pulse {
-    animation: pulse 2s infinite;
+/* 新增：高度变化动画 */
+@keyframes heightAdjust {
+    from {
+        height: var(--old-height);
+    }
+    to {
+        height: var(--new-height);
+    }
 }
 
-/* 性能优化类 */
+/* 新增：刷新状态动画 */
+@keyframes fadeInOut {
+    0% {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    20%, 80% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    100% {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+}
+
+/* 新增：加载动画 */
+@keyframes loadingPulse {
+    0%, 100% {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    50% {
+        background-color: rgba(255, 255, 255, 0.3);
+    }
+}
+
+/* ========================================
+   Safari特殊优化 - 扩展版
+ ======================================== */
+
+@supports (-webkit-appearance: none) {
+    body {
+        -webkit-overflow-scrolling: touch;
+    }
+    
+    #unity-canvas {
+        -webkit-transform: translate3d(0, 0, 0);
+        transform: translate3d(0, 0, 0);
+    }
+    
+    /* Safari视频缩放优化 */
+    .video-scale-wrapper {
+        -webkit-transform-origin: center center;
+        -webkit-transition: -webkit-transform 0.5s ease-out;
+        -webkit-backface-visibility: hidden;
+    }
+    
+    /* Safari路单高度优化 */
+    .roadmap-layer {
+        -webkit-transition: height 0.3s ease;
+    }
+}
+
+/* ========================================
+   高DPI屏幕优化
+ ======================================== */
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    #unity-canvas {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+    
+    /* 高DPI屏幕的iframe优化 */
+    .roadmap-layer iframe,
+    .video-far-layer iframe,
+    .video-near-layer iframe {
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
+    }
+}
+
+/* ========================================
+   性能优化类 - 扩展版
+ ======================================== */
+
 .gpu-accelerated {
     transform: translateZ(0);
     -webkit-transform: translateZ(0);
@@ -477,7 +798,24 @@ body {
     -webkit-touch-callout: none;
 }
 
-/* 工具类 */
+/* 新增：iframe性能优化类 */
+.iframe-optimized {
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: contents;
+    contain: layout style paint;
+}
+
+.iframe-smooth-scale {
+    will-change: transform;
+    transform-style: preserve-3d;
+    -webkit-transform-style: preserve-3d;
+}
+
+/* ========================================
+   工具类 - 扩展版
+ ======================================== */
+
 .hidden {
     display: none !important;
 }
@@ -495,21 +833,75 @@ body {
     z-index: 9999 !important;
 }
 
-/* 深色模式支持 */
-@media (prefers-color-scheme: dark) {
-    /* 已经是深色主题，无需额外调整 */
+/* 新增：iframe状态类 */
+.iframe-ready {
+    opacity: 1;
+    pointer-events: auto;
 }
 
-/* 减少动画偏好 */
+.iframe-loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.iframe-error {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* 新增：动画状态类 */
+.animating {
+    pointer-events: none;
+}
+
+.scale-animating {
+    transition: transform var(--animation-duration, 0.5s) var(--animation-easing, ease-out);
+}
+
+.height-animating {
+    transition: height var(--animation-duration, 0.3s) var(--animation-easing, ease);
+}
+
+/* ========================================
+   深色模式支持
+ ======================================== */
+
+@media (prefers-color-scheme: dark) {
+    /* 已经是深色主题，可以添加特殊的深色模式调整 */
+    .roadmap-layer {
+        background: #1a1a1a;
+    }
+    
+    .debug-info {
+        background: rgba(0, 0, 0, 0.9);
+        color: #00ff00;
+    }
+}
+
+/* ========================================
+   减少动画偏好
+ ======================================== */
+
 @media (prefers-reduced-motion: reduce) {
     * {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+    
+    .video-scale-wrapper {
+        transition: none !important;
+    }
+    
+    .roadmap-layer {
+        transition: none !important;
+    }
 }
 
-/* 打印样式 */
+/* ========================================
+   打印样式
+ ======================================== */
+
 @media print {
     #unity-container {
         display: none;
@@ -524,7 +916,10 @@ body {
     }
 }
 
-/* 辅助功能 */
+/* ========================================
+   辅助功能
+ ======================================== */
+
 @media (prefers-reduced-motion: no-preference) {
     html {
         scroll-behavior: smooth;
@@ -539,24 +934,59 @@ body {
         border: 2px solid #ffffff;
     }
     
-    #unity-progress-bar-full {
+    .progress-fill {
         background: #ffffff;
+    }
+    
+    .roadmap-layer {
+        border: 1px solid #ffffff;
+    }
+    
+    .video-far-layer,
+    .video-near-layer {
+        border: 1px solid #ffffff;
     }
 }
 
 /* 焦点管理 */
 button:focus,
-#unity-fullscreen-button:focus {
+.iframe-retry-button:focus {
     outline: 2px solid #4ecdc4;
     outline-offset: 2px;
 }
 
-/* 隐藏类 - 用于逐步显示内容 */
-.hide-until-loaded {
-    opacity: 0;
-    transition: opacity 0.3s ease;
+/* ========================================
+   变量定义 (CSS自定义属性)
+ ======================================== */
+
+:root {
+    --roadmap-height-ratio: 0.35;
+    --roadmap-min-height: 120px;
+    --roadmap-max-height: 25vh;
+    --video-scale-duration: 0.5s;
+    --video-scale-easing: ease-out;
+    --height-transition-duration: 0.3s;
+    --height-transition-easing: ease;
+    --debug-z-index: 9999;
+    --iframe-z-index-base: 1;
+    --unity-z-index: 999;
 }
 
-.show-when-loaded {
-    opacity: 1;
+/* 移动端变量重写 */
+@media screen and (max-width: 767px) {
+    :root {
+        --roadmap-min-height: 100px;
+        --roadmap-max-height: 200px;
+        --video-scale-duration: 0.4s;
+    }
+}
+
+/* 小屏幕变量重写 */
+@media screen and (max-width: 480px) {
+    :root {
+        --roadmap-height-ratio: 0.32;
+        --roadmap-min-height: 80px;
+        --roadmap-max-height: 180px;
+        --video-scale-duration: 0.3s;
+    }
 }
