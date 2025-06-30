@@ -2,6 +2,7 @@
 // 投注按钮点击处理器 - 处理8个投注区域的点击事件
 // 数据管理完全依赖BetDataManager，只负责点击事件处理
 // 创建时间: 2025/6/29
+// 更新时间: 2025/6/30 - 简化逻辑，移除重复日志，专注事件处理
 
 using UnityEngine;
 using UnityEngine.UI;
@@ -27,6 +28,11 @@ namespace BaccaratGame.Core
         [SerializeField] private Button xiong8Button;       // Xiong8按钮 (ButtonXiong8)
         [SerializeField] private Button superSixButton;     // 幸运6按钮 (ButtonLucky6)
 
+        [Header("功能按钮")]
+        [SerializeField] private Button undoButton;         // 撤销按钮
+        [SerializeField] private Button repeatButton;       // 重复按钮
+        [SerializeField] private Button clearButton;        // 清空按钮
+
         #endregion
 
         #region 生命周期
@@ -49,6 +55,20 @@ namespace BaccaratGame.Core
         /// 设置所有按钮的点击事件
         /// </summary>
         private void SetupButtonEvents()
+        {
+            // 投注区域按钮事件绑定
+            SetupBetAreaButtons();
+            
+            // 功能按钮事件绑定
+            SetupFunctionButtons();
+
+            Debug.Log("[BetButtonOrder] 所有按钮事件设置完成");
+        }
+
+        /// <summary>
+        /// 设置投注区域按钮事件
+        /// </summary>
+        private void SetupBetAreaButtons()
         {
             // 庄按钮
             if (bankerButton != null)
@@ -137,8 +157,33 @@ namespace BaccaratGame.Core
             {
                 Debug.LogWarning("[BetButtonOrder] 幸运6按钮未配置");
             }
+        }
 
-            Debug.Log("[BetButtonOrder] 所有按钮事件设置完成");
+        /// <summary>
+        /// 设置功能按钮事件
+        /// </summary>
+        private void SetupFunctionButtons()
+        {
+            // 撤销按钮
+            if (undoButton != null)
+            {
+                undoButton.onClick.AddListener(OnUndoClick);
+                Debug.Log("[BetButtonOrder] 撤销按钮事件已绑定");
+            }
+
+            // 重复按钮
+            if (repeatButton != null)
+            {
+                repeatButton.onClick.AddListener(OnRepeatClick);
+                Debug.Log("[BetButtonOrder] 重复按钮事件已绑定");
+            }
+
+            // 清空按钮
+            if (clearButton != null)
+            {
+                clearButton.onClick.AddListener(OnClearClick);
+                Debug.Log("[BetButtonOrder] 清空按钮事件已绑定");
+            }
         }
 
         /// <summary>
@@ -146,6 +191,7 @@ namespace BaccaratGame.Core
         /// </summary>
         private void ClearButtonEvents()
         {
+            // 清除投注区域按钮事件
             if (bankerButton != null) bankerButton.onClick.RemoveListener(OnBankerClick);
             if (playerButton != null) playerButton.onClick.RemoveListener(OnPlayerClick);
             if (tieButton != null) tieButton.onClick.RemoveListener(OnTieClick);
@@ -154,6 +200,11 @@ namespace BaccaratGame.Core
             if (long7Button != null) long7Button.onClick.RemoveListener(OnLong7Click);
             if (xiong8Button != null) xiong8Button.onClick.RemoveListener(OnXiong8Click);
             if (superSixButton != null) superSixButton.onClick.RemoveListener(OnSuperSixClick);
+
+            // 清除功能按钮事件
+            if (undoButton != null) undoButton.onClick.RemoveListener(OnUndoClick);
+            if (repeatButton != null) repeatButton.onClick.RemoveListener(OnRepeatClick);
+            if (clearButton != null) clearButton.onClick.RemoveListener(OnClearClick);
 
             Debug.Log("[BetButtonOrder] 所有按钮事件已清除");
         }
@@ -169,9 +220,7 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddBankerAmount(currentChip);
-            
             Debug.Log($"[BetButtonOrder] 投注到庄，筹码值：{currentChip}");
-            LogAllBetAmounts();
         }
 
         /// <summary>
@@ -181,9 +230,7 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddPlayerAmount(currentChip);
-            
             Debug.Log($"[BetButtonOrder] 投注到闲，筹码值：{currentChip}");
-            LogAllBetAmounts();
         }
 
         /// <summary>
@@ -193,9 +240,7 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddTieAmount(currentChip);
-            
             Debug.Log($"[BetButtonOrder] 投注到和，筹码值：{currentChip}");
-            LogAllBetAmounts();
         }
 
         /// <summary>
@@ -205,9 +250,7 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddBankerPairAmount(currentChip);
-            
             Debug.Log($"[BetButtonOrder] 投注到庄对，筹码值：{currentChip}");
-            LogAllBetAmounts();
         }
 
         /// <summary>
@@ -217,9 +260,7 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddPlayerPairAmount(currentChip);
-            
             Debug.Log($"[BetButtonOrder] 投注到闲对，筹码值：{currentChip}");
-            LogAllBetAmounts();
         }
 
         /// <summary>
@@ -229,9 +270,7 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddLong7Amount(currentChip);
-            
             Debug.Log($"[BetButtonOrder] 投注到龙7，筹码值：{currentChip}");
-            LogAllBetAmounts();
         }
 
         /// <summary>
@@ -241,9 +280,7 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddXiong8Amount(currentChip);
-            
             Debug.Log($"[BetButtonOrder] 投注到熊8，筹码值：{currentChip}");
-            LogAllBetAmounts();
         }
 
         /// <summary>
@@ -253,33 +290,38 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddLucky6Amount(currentChip);
-            
             Debug.Log($"[BetButtonOrder] 投注到幸运6，筹码值：{currentChip}");
-            LogAllBetAmounts();
         }
 
         #endregion
 
-        #region 工具方法
+        #region 功能按钮点击事件
 
         /// <summary>
-        /// 输出所有投注区域的当前金额
+        /// 撤销按钮点击事件
         /// </summary>
-        private void LogAllBetAmounts()
+        private void OnUndoClick()
         {
-            var betManager = BetDataManager.Instance;
-            
-            Debug.Log("=== 当前所有投注区域金额 ===");
-            Debug.Log($"庄: {betManager.BankerAmount}");
-            Debug.Log($"闲: {betManager.PlayerAmount}");
-            Debug.Log($"和: {betManager.TieAmount}");
-            Debug.Log($"庄对: {betManager.BankerPairAmount}");
-            Debug.Log($"闲对: {betManager.PlayerPairAmount}");
-            Debug.Log($"幸运6: {betManager.Lucky6Amount}");
-            Debug.Log($"龙7: {betManager.Long7Amount}");
-            Debug.Log($"熊8: {betManager.Xiong8Amount}");
-            Debug.Log($"总投注金额: {betManager.GetTotalBetAmount()}");
-            Debug.Log("==============================");
+            bool success = BetDataManager.Instance.UndoLastBet();
+            Debug.Log($"[BetButtonOrder] 撤销投注 - {(success ? "成功" : "失败")}");
+        }
+
+        /// <summary>
+        /// 重复按钮点击事件
+        /// </summary>
+        private void OnRepeatClick()
+        {
+            bool success = BetDataManager.Instance.RestoreLastGameBets();
+            Debug.Log($"[BetButtonOrder] 重复投注 - {(success ? "成功" : "失败")}");
+        }
+
+        /// <summary>
+        /// 清空按钮点击事件
+        /// </summary>
+        private void OnClearClick()
+        {
+            BetDataManager.Instance.ClearAllBets();
+            Debug.Log("[BetButtonOrder] 清空所有投注");
         }
 
         #endregion
@@ -293,7 +335,6 @@ namespace BaccaratGame.Core
         {
             BetDataManager.Instance.ClearAllBets();
             Debug.Log("[BetButtonOrder] 已清空所有投注");
-            LogAllBetAmounts();
         }
 
         /// <summary>
@@ -303,6 +344,15 @@ namespace BaccaratGame.Core
         public int GetCurrentChipValue()
         {
             return BetDataManager.Instance.CurrentSelectedChip;
+        }
+
+        /// <summary>
+        /// 保存当前局为上一局数据（游戏结束时调用）
+        /// </summary>
+        public void SaveCurrentGameAsLastGame()
+        {
+            BetDataManager.Instance.SaveCurrentGameBets();
+            Debug.Log("[BetButtonOrder] 当前局已保存为上一局数据");
         }
 
         #endregion
@@ -325,6 +375,10 @@ namespace BaccaratGame.Core
             Debug.Log($"Long7按钮: {(long7Button != null ? "✓" : "✗")}");
             Debug.Log($"Xiong8按钮: {(xiong8Button != null ? "✓" : "✗")}");
             Debug.Log($"幸运6按钮: {(superSixButton != null ? "✓" : "✗")}");
+
+            Debug.Log($"撤销按钮: {(undoButton != null ? "✓" : "✗")}");
+            Debug.Log($"重复按钮: {(repeatButton != null ? "✓" : "✗")}");
+            Debug.Log($"清空按钮: {(clearButton != null ? "✓" : "✗")}");
             
             int configuredCount = 0;
             if (bankerButton != null) configuredCount++;
@@ -336,7 +390,7 @@ namespace BaccaratGame.Core
             if (xiong8Button != null) configuredCount++;
             if (superSixButton != null) configuredCount++;
             
-            Debug.Log($"已配置按钮数量: {configuredCount}/8");
+            Debug.Log($"已配置投注按钮数量: {configuredCount}/8");
         }
 
         /// <summary>

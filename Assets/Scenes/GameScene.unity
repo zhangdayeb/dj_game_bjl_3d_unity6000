@@ -5947,6 +5947,117 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 557597872}
   m_CullTransparentMesh: 1
+--- !u!1 &564861096
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 564861097}
+  - component: {fileID: 564861098}
+  m_Layer: 0
+  m_Name: BetDisplayManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &564861097
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 564861096}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 914044578}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &564861098
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 564861096}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 532b053089488cd4288201c2616f220f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  betAreaDisplays:
+  - areaType: 1
+    moneyText: {fileID: 1291774254}
+    chipsContainer: {fileID: 1955814490}
+    areaObject: {fileID: 1736244425}
+  - areaType: 2
+    moneyText: {fileID: 1664479607}
+    chipsContainer: {fileID: 656438755}
+    areaObject: {fileID: 933755360}
+  - areaType: 3
+    moneyText: {fileID: 225210874}
+    chipsContainer: {fileID: 1996146547}
+    areaObject: {fileID: 1191266857}
+  - areaType: 6
+    moneyText: {fileID: 386913852}
+    chipsContainer: {fileID: 1407238166}
+    areaObject: {fileID: 1349463599}
+  - areaType: 4
+    moneyText: {fileID: 1227302794}
+    chipsContainer: {fileID: 11934530}
+    areaObject: {fileID: 428417109}
+  - areaType: 5
+    moneyText: {fileID: 1392469202}
+    chipsContainer: {fileID: 1248163929}
+    areaObject: {fileID: 314330436}
+  - areaType: 7
+    moneyText: {fileID: 1857978640}
+    chipsContainer: {fileID: 1175515042}
+    areaObject: {fileID: 415364892}
+  - areaType: 8
+    moneyText: {fileID: 1080262809}
+    chipsContainer: {fileID: 1424480604}
+    areaObject: {fileID: 251194089}
+  moneyFormat: "\xA5{0}"
+  normalTextColor: {r: 1, g: 1, b: 1, a: 1}
+  highlightTextColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  chipSize: 30
+  chipSpacing: 5
+  maxChipsPerRow: 5
+  enableChipAnimation: 1
+  flashDuration: 2
+  flashInterval: 0.3
+  flashColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  flashCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!1 &576312524
 GameObject:
   m_ObjectHideFlags: 0
@@ -8671,6 +8782,7 @@ Transform:
   - {fileID: 1495049865}
   - {fileID: 693415371}
   - {fileID: 1191732703}
+  - {fileID: 564861097}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &922796657
@@ -18760,6 +18872,9 @@ MonoBehaviour:
   long7Button: {fileID: 415364894}
   xiong8Button: {fileID: 251194091}
   superSixButton: {fileID: 1349463601}
+  undoButton: {fileID: 0}
+  repeatButton: {fileID: 0}
+  clearButton: {fileID: 0}
 --- !u!1 &2029984349
 GameObject:
   m_ObjectHideFlags: 0
