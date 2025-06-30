@@ -2,7 +2,7 @@
 // 投注按钮点击处理器 - 处理8个投注区域的点击事件
 // 数据管理完全依赖BetDataManager，只负责点击事件处理
 // 创建时间: 2025/6/29
-// 更新时间: 2025/6/30 - 简化逻辑，移除重复日志，专注事件处理
+// 更新时间: 2025/6/30 - 简化逻辑，移除重复日志，专注事件处理，添加筹码飞行通知
 
 using UnityEngine;
 using UnityEngine.UI;
@@ -35,10 +35,23 @@ namespace BaccaratGame.Core
 
         #endregion
 
+        #region 私有字段
+
+        private BetFlyManager flyManager;                    // 筹码飞行管理器引用
+
+        #endregion
+
         #region 生命周期
 
         private void Start()
         {
+            // 查找筹码飞行管理器
+            flyManager = FindObjectOfType<BetFlyManager>();
+            if (flyManager == null)
+            {
+                Debug.LogWarning("[BetButtonOrder] 未找到 BetFlyManager 组件，筹码飞行效果将不可用");
+            }
+
             SetupButtonEvents();
         }
 
@@ -220,6 +233,10 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddBankerAmount(currentChip);
+            
+            // 通知筹码飞行
+            NotifyChipFly(BetAreaType.Banker, currentChip);
+            
             Debug.Log($"[BetButtonOrder] 投注到庄，筹码值：{currentChip}");
         }
 
@@ -230,6 +247,10 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddPlayerAmount(currentChip);
+            
+            // 通知筹码飞行
+            NotifyChipFly(BetAreaType.Player, currentChip);
+            
             Debug.Log($"[BetButtonOrder] 投注到闲，筹码值：{currentChip}");
         }
 
@@ -240,6 +261,10 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddTieAmount(currentChip);
+            
+            // 通知筹码飞行
+            NotifyChipFly(BetAreaType.Tie, currentChip);
+            
             Debug.Log($"[BetButtonOrder] 投注到和，筹码值：{currentChip}");
         }
 
@@ -250,6 +275,10 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddBankerPairAmount(currentChip);
+            
+            // 通知筹码飞行
+            NotifyChipFly(BetAreaType.BankerPair, currentChip);
+            
             Debug.Log($"[BetButtonOrder] 投注到庄对，筹码值：{currentChip}");
         }
 
@@ -260,6 +289,10 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddPlayerPairAmount(currentChip);
+            
+            // 通知筹码飞行
+            NotifyChipFly(BetAreaType.PlayerPair, currentChip);
+            
             Debug.Log($"[BetButtonOrder] 投注到闲对，筹码值：{currentChip}");
         }
 
@@ -270,6 +303,10 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddLong7Amount(currentChip);
+            
+            // 通知筹码飞行
+            NotifyChipFly(BetAreaType.Long7, currentChip);
+            
             Debug.Log($"[BetButtonOrder] 投注到龙7，筹码值：{currentChip}");
         }
 
@@ -280,6 +317,10 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddXiong8Amount(currentChip);
+            
+            // 通知筹码飞行
+            NotifyChipFly(BetAreaType.Xiong8, currentChip);
+            
             Debug.Log($"[BetButtonOrder] 投注到熊8，筹码值：{currentChip}");
         }
 
@@ -290,6 +331,10 @@ namespace BaccaratGame.Core
         {
             int currentChip = BetDataManager.Instance.CurrentSelectedChip;
             BetDataManager.Instance.AddLucky6Amount(currentChip);
+            
+            // 通知筹码飞行
+            NotifyChipFly(BetAreaType.Lucky6, currentChip);
+            
             Debug.Log($"[BetButtonOrder] 投注到幸运6，筹码值：{currentChip}");
         }
 
@@ -326,6 +371,27 @@ namespace BaccaratGame.Core
 
         #endregion
 
+        #region 筹码飞行通知
+
+        /// <summary>
+        /// 通知筹码飞行
+        /// </summary>
+        /// <param name="targetArea">目标投注区域</param>
+        /// <param name="chipValue">筹码值</param>
+        private void NotifyChipFly(BetAreaType targetArea, int chipValue)
+        {
+            if (flyManager != null)
+            {
+                flyManager.StartChipFly(targetArea, chipValue);
+            }
+            else
+            {
+                Debug.LogWarning("[BetButtonOrder] BetFlyManager 未找到，无法播放筹码飞行动画");
+            }
+        }
+
+        #endregion
+
         #region 公共方法
 
         /// <summary>
@@ -355,6 +421,16 @@ namespace BaccaratGame.Core
             Debug.Log("[BetButtonOrder] 当前局已保存为上一局数据");
         }
 
+        /// <summary>
+        /// 设置筹码飞行管理器引用（可选，用于运行时设置）
+        /// </summary>
+        /// <param name="flyManager">飞行管理器</param>
+        public void SetFlyManager(BetFlyManager flyManager)
+        {
+            this.flyManager = flyManager;
+            Debug.Log("[BetButtonOrder] 飞行管理器引用已设置");
+        }
+
         #endregion
 
         #region 编辑器辅助
@@ -379,6 +455,7 @@ namespace BaccaratGame.Core
             Debug.Log($"撤销按钮: {(undoButton != null ? "✓" : "✗")}");
             Debug.Log($"重复按钮: {(repeatButton != null ? "✓" : "✗")}");
             Debug.Log($"清空按钮: {(clearButton != null ? "✓" : "✗")}");
+            Debug.Log($"飞行管理器: {(flyManager != null ? "✓" : "✗")}");
             
             int configuredCount = 0;
             if (bankerButton != null) configuredCount++;
