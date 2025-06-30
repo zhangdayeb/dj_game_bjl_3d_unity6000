@@ -352,6 +352,48 @@ namespace BaccaratGame.Core
 
         #endregion
 
+        // 在 GameNetworkApi.cs 文件的 API请求数据结构 区域添加：
+
+        /// <summary>
+        /// 获取台桌统计数据请求
+        /// </summary>
+        [Serializable]
+        public class GetTableBetStatsRequest
+        {
+            public string table_id;
+        }
+
+        // 在 用户相关API (userUrl) 区域添加这个方法：
+
+        /// <summary>
+        /// 获取台桌投注统计数据
+        /// </summary>
+        /// <returns>台桌统计数据</returns>
+        public async Task<string> GetTableBetStats()
+        {
+            EnsureInitialized();
+
+            var gameParams = GameParams.Instance;
+            var requestData = new GetTableBetStatsRequest
+            {
+                table_id = gameParams.table_id
+            };
+
+            Debug.Log($"[GameNetworkApi] 正在获取台桌统计数据: table_id={gameParams.table_id}");
+
+            try
+            {
+                var result = await _userHttpClient.PostAsync("user/table/bet", requestData);
+                Debug.Log($"[GameNetworkApi] 台桌统计数据获取成功");
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[GameNetworkApi] 获取台桌统计数据失败: {ex.Message}");
+                throw;
+            }
+        }
+
         #region 用户相关API (userUrl) - 全部改为POST请求
 
         /// <summary>
