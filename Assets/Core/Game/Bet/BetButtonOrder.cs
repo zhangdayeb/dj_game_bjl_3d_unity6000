@@ -46,7 +46,7 @@ namespace BaccaratGame.Core
         private void Start()
         {
             // 查找筹码飞行管理器
-            flyManager = FindObjectOfType<BetFlyManager>();
+            flyManager = FindFirstObjectByType<BetFlyManager>();
             if (flyManager == null)
             {
                 Debug.LogWarning("[BetButtonOrder] 未找到 BetFlyManager 组件，筹码飞行效果将不可用");
