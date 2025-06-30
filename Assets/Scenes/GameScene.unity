@@ -16466,6 +16466,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1768361946}
+  - component: {fileID: 1768361947}
   m_Layer: 0
   m_Name: BetFlyManager
   m_TagString: Untagged
@@ -16488,6 +16489,77 @@ Transform:
   m_Children: []
   m_Father: {fileID: 914044578}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1768361947
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1768361945}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2caa1e8b983eef348b838ae679f7a819, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  chipSelectionArea: {fileID: 257005301}
+  chipButtons:
+  - {fileID: 1426113430}
+  - {fileID: 1142238908}
+  - {fileID: 25327851}
+  - {fileID: 314604900}
+  - {fileID: 1317433025}
+  flyConfigs:
+  - areaType: 1
+    targetTransform: {fileID: 1736244426}
+  - areaType: 2
+    targetTransform: {fileID: 933755361}
+  - areaType: 3
+    targetTransform: {fileID: 1191266858}
+  - areaType: 6
+    targetTransform: {fileID: 1349463600}
+  - areaType: 4
+    targetTransform: {fileID: 428417110}
+  - areaType: 5
+    targetTransform: {fileID: 314330437}
+  - areaType: 7
+    targetTransform: {fileID: 415364893}
+  - areaType: 8
+    targetTransform: {fileID: 251194090}
+  flyDuration: 0.8
+  flyHeight: 100
+  flyCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  enableRotation: 1
+  rotationSpeed: 360
+  enableScaling: 1
+  maxScale: 1.2
+  enableTrail: 0
+  enableGlow: 0
+  flyLayer:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &1782407610
 GameObject:
   m_ObjectHideFlags: 0
