@@ -228,12 +228,12 @@ namespace BaccaratGame.Core
         }
 
         /// <summary>
-        /// 设置容器布局为垂直布局
+        /// 设置容器布局 - 移除自动布局，使用手动定位
         /// </summary>
         /// <param name="container">容器Transform</param>
         private void SetupContainerLayout(Transform container)
         {
-            // 移除可能存在的水平布局组件
+            // 移除所有自动布局组件，我们要手动控制位置
             var horizontalLayout = container.GetComponent<HorizontalLayoutGroup>();
             if (horizontalLayout != null)
             {
@@ -247,21 +247,34 @@ namespace BaccaratGame.Core
                 }
             }
 
-            // 添加垂直布局组件
             var verticalLayout = container.GetComponent<VerticalLayoutGroup>();
-            if (verticalLayout == null)
+            if (verticalLayout != null)
             {
-                verticalLayout = container.gameObject.AddComponent<VerticalLayoutGroup>();
-                verticalLayout.spacing = 2f; // 筹码间距很小，营造堆叠效果
-                verticalLayout.childControlWidth = false;
-                verticalLayout.childControlHeight = false;
-                verticalLayout.childForceExpandWidth = false;
-                verticalLayout.childForceExpandHeight = false;
-                verticalLayout.childAlignment = TextAnchor.LowerCenter; // 从底部开始堆叠
-                verticalLayout.reverseArrangement = false; // 第一个筹码在底部
-                
-                Debug.Log($"[BetDisplayManager] 为容器 {container.name} 添加了VerticalLayoutGroup");
+                if (Application.isPlaying)
+                {
+                    Destroy(verticalLayout);
+                }
+                else
+                {
+                    DestroyImmediate(verticalLayout);
+                }
             }
+
+            // 移除 ContentSizeFitter 如果存在
+            var contentSizeFitter = container.GetComponent<ContentSizeFitter>();
+            if (contentSizeFitter != null)
+            {
+                if (Application.isPlaying)
+                {
+                    Destroy(contentSizeFitter);
+                }
+                else
+                {
+                    DestroyImmediate(contentSizeFitter);
+                }
+            }
+            
+            Debug.Log($"[BetDisplayManager] 容器 {container.name} 已移除自动布局，改为手动定位");
         }
 
         /// <summary>
@@ -486,6 +499,9 @@ namespace BaccaratGame.Core
                 {
                     chipObjects[display.areaType].Add(chipObj);
                     
+                    // 应用堆叠位置效果
+                    ApplyStackingPosition(chipObj, i, display.areaType);
+                    
                     // 添加动画效果
                     if (enableChipAnimation)
                     {
@@ -493,6 +509,38 @@ namespace BaccaratGame.Core
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 应用筹码堆叠位置效果
+        /// </summary>
+        /// <param name="chipObj">筹码对象</param>
+        /// <param name="stackIndex">堆叠索引</param>
+        /// <param name="areaType">区域类型</param>
+        private void ApplyStackingPosition(GameObject chipObj, int stackIndex, BetAreaType areaType)
+        {
+            RectTransform rectTransform = chipObj.GetComponent<RectTransform>();
+            if (rectTransform == null) return;
+
+            // 设置锚点为底部中心，这样位置偏移更直观
+            rectTransform.anchorMin = new Vector2(0.5f, 0f);
+            rectTransform.anchorMax = new Vector2(0.5f, 0f);
+            rectTransform.pivot = new Vector2(0.5f, 0.5f);
+
+            // 计算堆叠偏移 - 真正的堆叠效果
+            float chipSize = GetChipSizeForArea(areaType);
+            float stackOffset = chipSize * 0.2f; // 每个筹码向上偏移20%的大小，营造堆叠效果
+            
+            float offsetX = 0f; // 水平居中，不偏移
+            float offsetY = stackIndex * stackOffset; // 垂直堆叠，每个筹码向上偏移
+            
+            // 应用位置
+            rectTransform.anchoredPosition = new Vector2(offsetX, offsetY);
+            
+            // 设置渲染顺序，后面的筹码在上层
+            rectTransform.SetSiblingIndex(stackIndex);
+            
+            Debug.Log($"[BetDisplayManager] 筹码 {stackIndex} 位置: ({offsetX}, {offsetY})");
         }
 
         /// <summary>
