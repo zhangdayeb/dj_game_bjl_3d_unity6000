@@ -2,6 +2,7 @@
 // 筹码飞行管理器 - 专门处理筹码飞行动画效果
 // 负责从选中筹码位置飞行到投注区域的视觉特效
 // 创建时间: 2025/6/30
+// 修复版本: 解决Unity API过时警告和未使用字段警告
 
 using UnityEngine;
 using UnityEngine.UI;
@@ -63,8 +64,6 @@ namespace BaccaratGame.Core
         [SerializeField] private float maxScale = 1.2f;                 // 最大缩放
 
         [Header("视觉效果配置")]
-        [SerializeField] private bool enableTrail = false;              // 是否启用拖尾
-        [SerializeField] private bool enableGlow = false;               // 是否启用发光
         [SerializeField] private LayerMask flyLayer = -1;               // 飞行层级
 
         #endregion
@@ -124,8 +123,8 @@ namespace BaccaratGame.Core
             
             if (uiCanvas == null)
             {
-                // 如果没找到，查找场景中的Canvas
-                uiCanvas = FindObjectOfType<Canvas>();
+                // 如果没找到，查找场景中的Canvas - 使用新的API
+                uiCanvas = FindFirstObjectByType<Canvas>();
             }
 
             if (uiCanvas == null)
@@ -195,9 +194,9 @@ namespace BaccaratGame.Core
                     targetMap[config.areaType] = config.targetTransform;
                     Debug.Log($"[BetFlyManager] 目标映射已添加: {config.GetDebugInfo()}");
                 }
-                else
+                else if (config != null)
                 {
-                    Debug.LogWarning($"[BetFlyManager] 飞行配置无效: {config?.areaType}");
+                    Debug.LogWarning($"[BetFlyManager] 飞行配置无效: {config.areaType}");
                 }
             }
         }
@@ -235,6 +234,12 @@ namespace BaccaratGame.Core
                 if (chipButtons[i] != null) chipButtonCount++;
             }
             Debug.Log($"[BetFlyManager] 筹码按钮配置: {chipButtonCount}/5");
+
+            // 验证LayerMask配置（避免未使用警告）
+            if (flyLayer.value != -1)
+            {
+                Debug.Log($"[BetFlyManager] 飞行层级配置: {flyLayer.value}");
+            }
         }
 
         #endregion
@@ -416,6 +421,12 @@ namespace BaccaratGame.Core
             GameObject flyingChip = new GameObject($"FlyingChip_{chipValue}");
             flyingChip.transform.SetParent(uiCanvas.transform, false);
 
+            // 设置层级（使用LayerMask配置）
+            if (flyLayer.value != -1)
+            {
+                flyingChip.layer = GetLayerFromMask(flyLayer);
+            }
+
             // 添加Image组件
             Image chipImage = flyingChip.AddComponent<Image>();
 
@@ -442,6 +453,24 @@ namespace BaccaratGame.Core
             chipRect.SetAsLastSibling();
 
             return flyingChip;
+        }
+
+        /// <summary>
+        /// 从LayerMask获取第一个有效层级
+        /// </summary>
+        /// <param name="layerMask">层级掩码</param>
+        /// <returns>层级索引</returns>
+        private int GetLayerFromMask(LayerMask layerMask)
+        {
+            int maskValue = layerMask.value;
+            for (int i = 0; i < 32; i++)
+            {
+                if ((maskValue & (1 << i)) != 0)
+                {
+                    return i;
+                }
+            }
+            return 0; // 默认层级
         }
 
         /// <summary>
